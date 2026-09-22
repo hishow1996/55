@@ -137,9 +137,9 @@ fun SettingsScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            // 1. 广告设定与过滤
+            // 1. 广告设定
             SettingsItem(
-                title = "广告设定与过滤",
+                title = "广告设定",
                 detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
@@ -155,9 +155,9 @@ fun SettingsScreen(
                 }
             )
 
-            // 2. 插件扩展系统
+            // 2. 插件扩展
             SettingsItem(
-                title = "插件扩展系统",
+                title = "插件扩展",
                 detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
@@ -165,9 +165,9 @@ fun SettingsScreen(
                 onClick = onOpenPluginManager
             )
 
-            // 3. 悬浮窗与播放器权限
+            // 3. 悬浮窗与播放器
             SettingsItem(
-                title = "悬浮窗与播放器权限",
+                title = "悬浮窗与播放器",
                 detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
@@ -189,9 +189,9 @@ fun SettingsScreen(
                 }
             )
 
-            // 4. 默认电脑端模式
+            // 4. 电脑端模式
             SettingsItem(
-                title = "默认电脑端模式",
+                title = "电脑端模式",
                 detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
@@ -201,15 +201,15 @@ fun SettingsScreen(
                     repository.setDesktopMode(newState)
                     Toast.makeText(
                         context,
-                        if (newState) "已开启默认电脑端模式" else "已恢复默认移动端模式",
+                        if (newState) "已开启电脑端模式" else "已恢复移动端模式",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
             )
 
-            // 5. 电脑版 User-Agent (用户代理)
+            // 5. 电脑版 User-Agent
             SettingsItem(
-                title = "电脑版 User-Agent (用户代理)",
+                title = "电脑版 User-Agent",
                 detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
@@ -217,9 +217,9 @@ fun SettingsScreen(
                 onClick = { showUaDialog = true }
             )
 
-            // 6. 搜索引擎
+            // 6. 搜索设置
             SettingsItem(
-                title = "搜索引擎",
+                title = "搜索设置",
                 detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
@@ -227,21 +227,21 @@ fun SettingsScreen(
                 onClick = { showSearchEngineDialog = true }
             )
 
-            // 7. 网页全文翻译
+            // 7. 网页翻译
             SettingsItem(
-                title = "网页全文翻译",
+                title = "网页翻译",
                 detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
-                    Toast.makeText(context, "支持网页全文智能翻译，可在浏览网页时随时调用", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "支持网页智能翻译，可在浏览网页时随时调用", Toast.LENGTH_SHORT).show()
                 }
             )
 
-            // 8. 主题与色彩
+            // 8. 主题
             SettingsItem(
-                title = "主题与色彩",
+                title = "主题",
                 detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
@@ -257,25 +257,25 @@ fun SettingsScreen(
                 }
             )
 
-            // 9. 数据节省与云加速
+            // 9. 云加速
             SettingsItem(
-                title = "数据节省与云加速",
-                detail = "",
+                title = "云加速",
+                detail = "开启",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
                     Toast.makeText(
                         context,
-                        "数据节省与云加速正在运行 (${String.format("%.2f MB", repository.dataSavedMb.value)})",
+                        "云加速与数据节省正在运行 (${String.format("%.2f MB", repository.dataSavedMb.value)})",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
             )
 
-            // 10. 清除记录与缓存
+            // 10. 清除记录
             SettingsItem(
-                title = "清除记录与缓存",
+                title = "清除记录",
                 detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
@@ -324,7 +324,7 @@ fun SettingsScreen(
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text("清除浏览记录") },
+            title = { Text("清除记录") },
             text = { Text("确定要清空所有浏览历史和本地缓存数据吗？此操作无法撤销。") },
             confirmButton = {
                 TextButton(onClick = {
@@ -347,7 +347,7 @@ fun SettingsScreen(
     if (showSearchEngineDialog) {
         AlertDialog(
             onDismissRequest = { showSearchEngineDialog = false },
-            title = { Text("选择默认搜索引擎") },
+            title = { Text("搜索设置") },
             text = {
                 Column(
                     modifier = Modifier
