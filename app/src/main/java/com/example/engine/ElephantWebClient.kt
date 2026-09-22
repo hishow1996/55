@@ -172,7 +172,7 @@ class ElephantWebChromeClient(
         super.onProgressChanged(view, newProgress)
         tab.progress = newProgress
         onProgressChange(newProgress)
-        if (newProgress >= 70) {
+        if (newProgress >= 90) {
             view?.evaluateJavascript(Scripts.UC_INLINE_PLAYER_SCRIPT, null)
         }
     }

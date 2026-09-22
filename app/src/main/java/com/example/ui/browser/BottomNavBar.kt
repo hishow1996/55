@@ -52,7 +52,9 @@ fun BottomNavBar(
         Color(0xFFFFFFFF)
     }
 
-    val iconTint = if (isIncognito) Color(0xFFC4B5FD) else if (isNightMode) Color(0xFFE2E8F0) else Color(0xFF334155)
+    val iconTint = if (isIncognito) Color(0xFFC4B5FD) else if (isNightMode) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+    // Arrows have thinner line geometry, so deepen tint to ensure identical perceived visual density
+    val arrowTint = if (isIncognito) Color(0xFFEDE9FE) else if (isNightMode) Color(0xFFFFFFFF) else Color(0xFF0F172A)
 
     Surface(
         color = barBg,
@@ -81,8 +83,8 @@ fun BottomNavBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "后退",
-                    tint = iconTint,
-                    modifier = Modifier.size(22.dp)
+                    tint = arrowTint,
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -94,8 +96,8 @@ fun BottomNavBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "前进",
-                    tint = iconTint,
-                    modifier = Modifier.size(22.dp)
+                    tint = arrowTint,
+                    modifier = Modifier.size(24.dp)
                 )
             }
 

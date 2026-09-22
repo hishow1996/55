@@ -403,11 +403,75 @@ object Scripts {
             }
             window._ucPlayerEngineLoaded = true;
 
-            // Inject CSS styles for UC player UI
+            // 1. Inject targeted CSS styles for UC player UI & web player control suppression
             if (!document.getElementById('uc-player-engine-styles')) {
                 const style = document.createElement('style');
                 style.id = 'uc-player-engine-styles';
                 style.textContent = `
+                    /* Complete suppression of browser default media controls */
+                    video::-webkit-media-controls,
+                    video::-webkit-media-controls-enclosure,
+                    video::-webkit-media-controls-panel,
+                    video::-webkit-media-controls-play-button,
+                    video::-webkit-media-controls-start-playback-button,
+                    video::-webkit-media-controls-overlay-play-button {
+                        display: none !important;
+                        -webkit-appearance: none !important;
+                        opacity: 0 !important;
+                        pointer-events: none !important;
+                        visibility: hidden !important;
+                        width: 0 !important;
+                        height: 0 !important;
+                    }
+
+                    /* Targeted suppression of known third-party web player control bars and overlays */
+                    .dplayer-controller,
+                    .dplayer-controller-mask,
+                    .dplayer-top-fade,
+                    .dplayer-top,
+                    .dplayer-title,
+                    .dplayer-mobile-play,
+                    .dplayer-bezel,
+                    .dplayer-bar-wrap,
+                    .dplayer-icons,
+                    .dplayer-notice,
+                    .dplayer-info-panel,
+                    .dplayer-subtitle,
+                    .art-video-player .art-bottom,
+                    .art-video-player .art-top,
+                    .art-video-player .art-controls,
+                    .art-video-player .art-mask,
+                    .art-video-player .art-state,
+                    .art-video-player .art-layers,
+                    .art-video-player .art-loading,
+                    .art-video-player .art-danmuku,
+                    .art-controls,
+                    .art-bottom,
+                    .art-top,
+                    .art-mask,
+                    .art-state,
+                    .xgplayer-controls,
+                    .xgplayer-top-bar,
+                    .xgplayer-start,
+                    .xgplayer-poster,
+                    .xgplayer-skin-default .xgplayer-controls,
+                    .xgplayer-controls-autohide,
+                    .vjs-control-bar,
+                    .vjs-big-play-button,
+                    .vjs-modal-dialog,
+                    .prism-player .prism-controlbar,
+                    .prism-player .prism-top-bar,
+                    .prism-player .prism-big-play-btn,
+                    .bpx-player-control-bottom,
+                    .bpx-player-control-top,
+                    .bpx-player-sending-bar {
+                        display: none !important;
+                        visibility: hidden !important;
+                        opacity: 0 !important;
+                        pointer-events: none !important;
+                    }
+
+                    /* UC Built-in Player Overlay */
                     .uc-player-overlay {
                         position: absolute !important;
                         z-index: 2147483640 !important;
@@ -436,8 +500,8 @@ object Scripts {
                         pointer-events: none !important;
                     }
                     .uc-top-bar {
-                        background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%) !important;
-                        padding: 10px 14px 20px 14px !important;
+                        background: linear-gradient(to bottom, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0) 100%) !important;
+                        padding: 10px 14px 22px 14px !important;
                         display: flex !important;
                         align-items: center !important;
                         justify-content: space-between !important;
@@ -451,8 +515,8 @@ object Scripts {
                         white-space: nowrap !important;
                         overflow: hidden !important;
                         text-overflow: ellipsis !important;
-                        max-width: 65% !important;
-                        text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+                        max-width: 72% !important;
+                        text-shadow: 0 1px 3px rgba(0,0,0,0.85) !important;
                     }
                     .uc-btn-group {
                         display: flex !important;
@@ -535,6 +599,45 @@ object Scripts {
                         opacity: 0.65 !important;
                         background: transparent !important;
                     }
+                    .uc-center-play-wrap {
+                        position: absolute !important;
+                        top: 50% !important;
+                        left: 50% !important;
+                        transform: translate(-50%, -50%) !important;
+                        z-index: 2147483644 !important;
+                        display: none !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        pointer-events: auto !important;
+                    }
+                    .uc-center-play-wrap.uc-visible {
+                        display: flex !important;
+                    }
+                    .uc-center-play-btn {
+                        width: 58px !important;
+                        height: 58px !important;
+                        border-radius: 50% !important;
+                        background: rgba(0, 0, 0, 0.6) !important;
+                        border: 2px solid rgba(255, 255, 255, 0.75) !important;
+                        color: #ffffff !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        cursor: pointer !important;
+                        box-shadow: 0 4px 16px rgba(0,0,0,0.6) !important;
+                        backdrop-filter: blur(8px) !important;
+                        -webkit-tap-highlight-color: transparent !important;
+                        transition: transform 0.15s ease, opacity 0.2s ease !important;
+                        padding: 0 !important;
+                    }
+                    .uc-center-play-btn svg {
+                        margin-left: 3px !important;
+                        pointer-events: none !important;
+                    }
+                    .uc-center-play-btn:active {
+                        transform: scale(0.9) !important;
+                        background: rgba(37, 99, 235, 0.8) !important;
+                    }
                     .uc-btn-circle svg, .uc-play-btn svg, .uc-fs-btn svg, .uc-lock-side-btn svg, .uc-download-side-btn svg, .uc-lock-icon-only svg {
                         pointer-events: none !important;
                     }
@@ -553,8 +656,8 @@ object Scripts {
                         background: rgba(37,99,235,0.8) !important;
                     }
                     .uc-bottom-bar {
-                        background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%) !important;
-                        padding: 20px 12px 10px 12px !important;
+                        background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0) 100%) !important;
+                        padding: 22px 12px 10px 12px !important;
                         display: flex !important;
                         align-items: center !important;
                         gap: 12px !important;
@@ -747,9 +850,10 @@ object Scripts {
                 return mm + ":" + ss;
             }
 
-            // High precision SVGs with enlarged icons (enlarged for easy tap)
+            // High precision SVGs
             const SVG_PLAY = '<svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>';
             const SVG_PAUSE = '<svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><rect x="6" y="4" width="4.5" height="16" rx="1"></rect><rect x="13.5" y="4" width="4.5" height="16" rx="1"></rect></svg>';
+            const SVG_CENTER_PLAY = '<svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><polygon points="7 4 21 12 7 20 7 4"></polygon></svg>';
             const SVG_PIP = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><rect x="11" y="8" width="9" height="7" rx="1.5" ry="1.5" fill="currentColor"></rect></svg>';
             const SVG_LOCK_OPEN = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>';
             const SVG_LOCK_CLOSED = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
@@ -766,9 +870,71 @@ object Scripts {
                 const rect = video.getBoundingClientRect();
                 const w = rect.width || video.offsetWidth || 0;
                 const h = rect.height || video.offsetHeight || 0;
-                // Exclude tiny recommendation cards, previews, or hidden audio elements
-                if (w < 220 || h < 140) return false;
+                if (w < 180 || h < 100) {
+                    if (video.parentElement) {
+                        const pr = video.parentElement.getBoundingClientRect();
+                        if (pr.width >= 180 && pr.height >= 100) return true;
+                    }
+                    return false;
+                }
                 return true;
+            }
+
+            // Find the immediate player container
+            function findWebPlayerContainer(video) {
+                if (!video || !video.parentElement) return null;
+                const known = video.closest('.dplayer, .art-video-player, .xgplayer, .video-js, .prism-player');
+                if (known) return known;
+                return video.parentElement;
+            }
+
+            // Extract episode or clean video title from webpage before hiding controls
+            function extractVideoTitle(container) {
+                if (container) {
+                    try {
+                        const titleEl = container.querySelector('.dplayer-title, .art-title, .xgplayer-title');
+                        if (titleEl && titleEl.textContent) {
+                            const t = titleEl.textContent.trim();
+                            if (t.length > 0 && t.length < 60) return t;
+                        }
+                    } catch(e) {}
+                }
+                const rawDt = document.title || '';
+                const cleanDt = rawDt.split(/[-_—|]/)[0].trim();
+                return cleanDt || rawDt || '网页视频';
+            }
+
+            // Target suppression for web player controls
+            function suppressWebControls(video, container, overlay) {
+                if (!container) return;
+                try {
+                    video.controls = false;
+                    video.removeAttribute('controls');
+                } catch(e) {}
+
+                const selectors = [
+                    '.dplayer-controller', '.dplayer-controller-mask', '.dplayer-top-fade', '.dplayer-top',
+                    '.dplayer-title', '.dplayer-mobile-play', '.dplayer-bezel', '.dplayer-bar-wrap',
+                    '.dplayer-icons', '.dplayer-notice', '.dplayer-info-panel', '.dplayer-subtitle',
+                    '.art-controls', '.art-bottom', '.art-top', '.art-layers', '.art-mask', '.art-state',
+                    '.art-loading', '.art-danmuku', '.art-controls-bottom',
+                    '.xgplayer-controls', '.xgplayer-top-bar', '.xgplayer-start', '.xgplayer-poster',
+                    '.xgplayer-skin-default .xgplayer-controls', '.xgplayer-controls-autohide',
+                    '.vjs-control-bar', '.vjs-big-play-button', '.vjs-modal-dialog',
+                    '.prism-player .prism-controlbar', '.prism-player .prism-top-bar', '.prism-player .prism-big-play-btn',
+                    '.bpx-player-control-bottom', '.bpx-player-control-top', '.bpx-player-sending-bar'
+                ];
+
+                try {
+                    const found = container.querySelectorAll(selectors.join(','));
+                    for (let el of found) {
+                        if (overlay && (el === overlay || overlay.contains(el))) continue;
+                        el.style.setProperty('display', 'none', 'important');
+                        el.style.setProperty('visibility', 'hidden', 'important');
+                        el.style.setProperty('opacity', '0', 'important');
+                        el.style.setProperty('pointer-events', 'none', 'important');
+                    }
+                } catch(e) {}
             }
 
             function setupUcPlayer(video) {
@@ -788,27 +954,31 @@ object Scripts {
                 video.setAttribute('x5-playsinline', 'true');
                 video.controls = false;
 
-                const parent = video.parentElement;
-                if (!parent) return;
+                const playerRoot = findWebPlayerContainer(video);
+                if (!playerRoot) return;
 
-                if (window.getComputedStyle(parent).position === 'static') {
-                    parent.style.position = 'relative';
+                if (window.getComputedStyle(playerRoot).position === 'static') {
+                    playerRoot.style.position = 'relative';
                 }
+
+                const initialTitle = extractVideoTitle(playerRoot);
 
                 const overlay = document.createElement('div');
                 overlay.className = 'uc-player-overlay';
                 window._currentUcOverlay = overlay;
 
-                // Lock on left side middle, Pip on top bar right, Download on right side middle
                 overlay.innerHTML = 
-                    '<div class="uc-player-controls uc-hidden">' +
+                    '<div class="uc-player-controls">' +
                         '<div class="uc-top-bar">' +
-                            '<span class="uc-title">' + (document.title || '') + '</span>' +
+                            '<span class="uc-title">' + initialTitle + '</span>' +
                             '<div class="uc-btn-group">' +
                                 '<button class="uc-btn-circle uc-pip-btn" title="小窗">' + SVG_PIP + '</button>' +
                             '</div>' +
                         '</div>' +
                         '<button class="uc-lock-side-btn" title="锁屏">' + SVG_LOCK_OPEN + '</button>' +
+                        '<div class="uc-center-play-wrap">' +
+                            '<button class="uc-center-play-btn" title="播放/暂停">' + SVG_CENTER_PLAY + '</button>' +
+                        '</div>' +
                         '<button class="uc-download-side-btn" title="下载视频">' + SVG_DOWNLOAD + '</button>' +
                         '<div class="uc-bottom-bar">' +
                             '<button class="uc-play-btn">' + SVG_PLAY + '</button>' +
@@ -842,31 +1012,34 @@ object Scripts {
                         overlay.remove();
                         return;
                     }
-                    const rect = video.getBoundingClientRect();
-                    const parentRect = parent.getBoundingClientRect();
+                    overlay.style.setProperty('top', '0px', 'important');
+                    overlay.style.setProperty('left', '0px', 'important');
+                    overlay.style.setProperty('width', '100%', 'important');
+                    overlay.style.setProperty('height', '100%', 'important');
                     
-                    const top = rect.top - parentRect.top;
-                    const left = rect.left - parentRect.left;
-                    const width = rect.width || video.offsetWidth || 320;
-                    const height = rect.height || video.offsetHeight || 180;
-                    
-                    if (width < 50 || height < 50) return;
-
-                    overlay.style.setProperty('top', top + 'px', 'important');
-                    overlay.style.setProperty('left', left + 'px', 'important');
-                    overlay.style.setProperty('width', width + 'px', 'important');
-                    overlay.style.setProperty('height', height + 'px', 'important');
+                    suppressWebControls(video, playerRoot, overlay);
                 }
 
                 syncOverlaySize();
-                parent.appendChild(overlay);
+                playerRoot.appendChild(overlay);
 
                 // Observe resizing to stay strictly pinned to video
                 if (window.ResizeObserver) {
                     try {
                         const ro = new ResizeObserver(() => syncOverlaySize());
                         ro.observe(video);
-                        ro.observe(parent);
+                        ro.observe(playerRoot);
+                    } catch(e) {}
+                }
+
+                // Suppress web controls immediately and on DOM changes
+                suppressWebControls(video, playerRoot, overlay);
+                if (window.MutationObserver) {
+                    try {
+                        const mo = new MutationObserver(() => {
+                            suppressWebControls(video, playerRoot, overlay);
+                        });
+                        mo.observe(playerRoot, { childList: true, subtree: true });
                     } catch(e) {}
                 }
 
@@ -877,6 +1050,8 @@ object Scripts {
                 const hudBar = overlay.querySelector('.uc-hud-bar');
                 const hudBarFill = overlay.querySelector('.uc-hud-bar-fill');
                 const playBtn = overlay.querySelector('.uc-play-btn');
+                const centerPlayWrap = overlay.querySelector('.uc-center-play-wrap');
+                const centerPlayBtn = overlay.querySelector('.uc-center-play-btn');
                 const timeLabel = overlay.querySelector('.uc-time');
                 const progressTrack = overlay.querySelector('.uc-progress-track');
                 const progressFill = overlay.querySelector('.uc-progress-fill');
@@ -896,15 +1071,62 @@ object Scripts {
                 let normalSpeed = 1.0;
                 let isSeekingProgress = false;
 
+                function doPlay() {
+                    try {
+                        if (window.dp && typeof window.dp.play === 'function') {
+                            window.dp.play();
+                        }
+                    } catch(e) {}
+                    try {
+                        if (window.art && typeof window.art.play === 'function') {
+                            window.art.play();
+                        }
+                    } catch(e) {}
+                    try {
+                        const p = video.play();
+                        if (p && typeof p.catch === 'function') p.catch(() => {});
+                    } catch(e) {}
+                }
+
+                function doPause() {
+                    try {
+                        if (window.dp && typeof window.dp.pause === 'function') {
+                            window.dp.pause();
+                        }
+                    } catch(e) {}
+                    try {
+                        if (window.art && typeof window.art.pause === 'function') {
+                            window.art.pause();
+                        }
+                    } catch(e) {}
+                    try {
+                        video.pause();
+                    } catch(e) {}
+                }
+
+                function updatePlayState() {
+                    const isPaused = video.paused || video.ended;
+                    if (isPaused) {
+                        playBtn.innerHTML = SVG_PLAY;
+                        if (centerPlayWrap) centerPlayWrap.classList.add('uc-visible');
+                    } else {
+                        playBtn.innerHTML = SVG_PAUSE;
+                        if (centerPlayWrap) centerPlayWrap.classList.remove('uc-visible');
+                    }
+                }
+
                 function showControls() {
                     if (isLocked) return;
                     syncOverlaySize();
                     controls.classList.remove('uc-hidden');
+                    updatePlayState();
                     clearTimeout(controlsTimer);
-                    controlsTimer = setTimeout(() => {
-                        if (!video.paused) controls.classList.add('uc-hidden');
-                        speedMenu.classList.remove('uc-visible');
-                    }, 3500);
+                    if (!video.paused) {
+                        controlsTimer = setTimeout(() => {
+                            if (!video.paused) controls.classList.add('uc-hidden');
+                            speedMenu.classList.remove('uc-visible');
+                        }, 3500);
+                    }
                 }
 
                 function hideControls() {
@@ -963,7 +1185,7 @@ object Scripts {
                     showControls();
                 }
 
-                // Fast tap handler to avoid 300ms click delays and touch conflicts
+                // Fast tap handler to avoid touch conflicts
                 function fastTap(element, handler) {
                     let handled = false;
                     element.addEventListener('touchend', (e) => {
@@ -1019,10 +1241,17 @@ object Scripts {
 
                 fastTap(playBtn, () => {
                     if (video.paused) {
-                        video.play();
+                        doPlay();
                     } else {
-                        video.pause();
+                        doPause();
                     }
+                    setTimeout(updatePlayState, 50);
+                    showControls();
+                });
+
+                fastTap(centerPlayBtn, () => {
+                    doPlay();
+                    setTimeout(updatePlayState, 50);
                     showControls();
                 });
 
@@ -1099,8 +1328,8 @@ object Scripts {
                 let lastTapTime = 0;
 
                 overlay.addEventListener('touchstart', (e) => {
+                    e.stopPropagation(); // Never leak touches to website controls underneath
                     if (isLocked) {
-                        // Tapping screen while locked displays lock icon for 3.5s
                         lockIconOnly.classList.add('uc-visible');
                         clearTimeout(lockTimer);
                         lockTimer = setTimeout(() => {
@@ -1108,7 +1337,10 @@ object Scripts {
                         }, 3500);
                         return;
                     }
-                    if (e.target.closest('.uc-btn-circle') || e.target.closest('.uc-speed-btn') || e.target.closest('.uc-speed-menu') || e.target.closest('.uc-progress-track') || e.target.closest('.uc-play-btn') || e.target.closest('.uc-fs-btn') || e.target.closest('.uc-lock-icon-only')) {
+                    if (e.target.closest('.uc-btn-circle') || e.target.closest('.uc-speed-btn') || 
+                        e.target.closest('.uc-speed-menu') || e.target.closest('.uc-progress-track') || 
+                        e.target.closest('.uc-play-btn') || e.target.closest('.uc-center-play-btn') || 
+                        e.target.closest('.uc-fs-btn') || e.target.closest('.uc-lock-icon-only')) {
                         return;
                     }
                     const touch = e.touches[0];
@@ -1126,11 +1358,14 @@ object Scripts {
                         video.playbackRate = 2.0;
                         showHud(SVG_SPEED, '2.0X', 0, false);
                     }, 450);
-                }, { passive: true });
+                });
 
                 overlay.addEventListener('touchmove', (e) => {
+                    e.stopPropagation();
                     if (isLocked) return;
-                    if (e.target.closest('.uc-btn-circle') || e.target.closest('.uc-speed-btn') || e.target.closest('.uc-speed-menu') || e.target.closest('.uc-progress-track')) {
+                    if (e.target.closest('.uc-btn-circle') || e.target.closest('.uc-speed-btn') || 
+                        e.target.closest('.uc-speed-menu') || e.target.closest('.uc-progress-track') ||
+                        e.target.closest('.uc-center-play-btn')) {
                         return;
                     }
                     const touch = e.touches[0];
@@ -1142,6 +1377,7 @@ object Scripts {
                     }
 
                     if (gestureType === 'press2x') {
+                        if (e.cancelable) e.preventDefault();
                         return;
                     }
 
@@ -1153,6 +1389,10 @@ object Scripts {
                             const isLeft = (touchStartX - rect.left) < (rect.width * 0.5);
                             gestureType = isLeft ? 'brightness' : 'volume';
                         }
+                    }
+
+                    if (gestureType) {
+                        if (e.cancelable) e.preventDefault();
                     }
 
                     if (gestureType === 'seek') {
@@ -1187,13 +1427,17 @@ object Scripts {
                         }
                         showHud(SVG_SPEAKER, curPercent + '%', curPercent, true);
                     }
-                }, { passive: true });
+                });
 
                 overlay.addEventListener('touchend', (e) => {
+                    e.stopPropagation();
                     clearTimeout(longPressTimer);
                     if (isLocked) return;
 
-                    if (e.target.closest('.uc-btn-circle') || e.target.closest('.uc-speed-btn') || e.target.closest('.uc-speed-menu') || e.target.closest('.uc-progress-track') || e.target.closest('.uc-play-btn') || e.target.closest('.uc-fs-btn') || e.target.closest('.uc-lock-icon-only')) {
+                    if (e.target.closest('.uc-btn-circle') || e.target.closest('.uc-speed-btn') || 
+                        e.target.closest('.uc-speed-menu') || e.target.closest('.uc-progress-track') || 
+                        e.target.closest('.uc-play-btn') || e.target.closest('.uc-center-play-btn') || 
+                        e.target.closest('.uc-fs-btn') || e.target.closest('.uc-lock-icon-only')) {
                         return;
                     }
 
@@ -1224,10 +1468,10 @@ object Scripts {
                         if (now - lastTapTime < 320) {
                             lastTapTime = 0;
                             if (video.paused) {
-                                video.play();
+                                doPlay();
                                 showHud(SVG_PLAY, '', 0, false);
                             } else {
-                                video.pause();
+                                doPause();
                                 showHud(SVG_PAUSE, '', 0, false);
                             }
                             hideHud(400);
@@ -1240,6 +1484,10 @@ object Scripts {
                             }, 280);
                         }
                     }
+                });
+
+                overlay.addEventListener('click', (e) => {
+                    e.stopPropagation();
                 });
 
                 function seekFromProgress(e) {
@@ -1273,12 +1521,23 @@ object Scripts {
                 });
 
                 video.addEventListener('play', () => {
-                    playBtn.innerHTML = SVG_PAUSE;
+                    updatePlayState();
+                    suppressWebControls(video, playerRoot, overlay);
                     showControls();
                 });
 
+                video.addEventListener('playing', () => {
+                    updatePlayState();
+                });
+
                 video.addEventListener('pause', () => {
-                    playBtn.innerHTML = SVG_PLAY;
+                    updatePlayState();
+                    suppressWebControls(video, playerRoot, overlay);
+                    showControls();
+                });
+
+                video.addEventListener('ended', () => {
+                    updatePlayState();
                     showControls();
                 });
 
@@ -1296,6 +1555,36 @@ object Scripts {
 
                 window.addEventListener('resize', syncOverlaySize, { passive: true });
                 window.addEventListener('scroll', syncOverlaySize, { passive: true });
+
+                // Initial show of controls and suppression of web controls
+                updatePlayState();
+                showControls();
+            }
+
+            function scanIframes() {
+                try {
+                    const iframes = document.querySelectorAll('iframe');
+                    for (let iframe of iframes) {
+                        try {
+                            const idoc = iframe.contentDocument || iframe.contentWindow.document;
+                            if (idoc && !idoc._ucInjected) {
+                                idoc._ucInjected = true;
+                                if (!idoc.getElementById('uc-player-engine-styles-iframe')) {
+                                    const s = idoc.createElement('style');
+                                    s.id = 'uc-player-engine-styles-iframe';
+                                    s.textContent = style.textContent;
+                                    (idoc.head || idoc.documentElement).appendChild(s);
+                                }
+                                const vids = Array.from(idoc.querySelectorAll('video'));
+                                for (let v of vids) {
+                                    if (isMainVideo(v)) {
+                                        setupUcPlayer(v);
+                                    }
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                } catch(e) {}
             }
 
             window._ucScanVideos = function() {
@@ -1313,6 +1602,7 @@ object Scripts {
                 if (bestVideo) {
                     setupUcPlayer(bestVideo);
                 }
+                scanIframes();
             };
 
             window._ucScanVideos();
