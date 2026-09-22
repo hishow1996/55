@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Red circle background matching Figure 3 -->
+    <path
+        android:fillColor="#FF0000"
+        android:pathData="M24,24m-22,0a22,22 0 1,0 44,0a22,22 0 1,0 -44,0" />
+    <!-- White rounded rectangle body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,18.5c-0.3,-1.2 -1.3,-2.2 -2.5,-2.5 -2.2,-0.6 -11,-0.6 -11,-0.6s-8.8,0 -11,0.6c-1.2,0.3 -2.2,1.3 -2.5,2.5 -0.6,2.2 -0.6,6.9 -0.6,6.9s0,4.7 0.6,6.9c0.3,1.2 1.3,2.2 2.5,2.5 2.2,0.6 11,0.6 11,0.6s8.8,0 11,-0.6c1.2,-0.3 2.2,-1.3 2.5,-2.5 0.6,-2.2 0.6,-6.9 0.6,-6.9s0,-4.7 -0.6,-6.9z" />
+    <!-- Red play triangle cutout inside white body -->
+    <path
+        android:fillColor="#FF0000"
+        android:pathData="M21.5,20.5l7,4.5l-7,4.5z" />
+</vector>

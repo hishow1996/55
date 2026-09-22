@@ -18,6 +18,19 @@ import com.example.service.FloatingPlayerService
  */
 object FloatingVideoPlayerComponent {
 
+    @Volatile
+    var lastPlaybackPositionSeconds: Double = 0.0
+
+    @Volatile
+    var activeVideoInfo: VideoMediaInfo? = null
+
+    var onProgressSyncListener: ((seconds: Double) -> Unit)? = null
+
+    fun syncProgress(seconds: Double) {
+        lastPlaybackPositionSeconds = seconds
+        onProgressSyncListener?.invoke(seconds)
+    }
+
     /**
      * Checks if the app has the system overlay permission (SYSTEM_ALERT_WINDOW)
      */
@@ -58,6 +71,7 @@ object FloatingVideoPlayerComponent {
         video: VideoMediaInfo,
         originTabIndex: Int? = null
     ) {
+        activeVideoInfo = video
         if (!hasOverlayPermission(context)) {
             requestOverlayPermission(context)
             return

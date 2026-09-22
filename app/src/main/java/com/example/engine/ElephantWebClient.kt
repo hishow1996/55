@@ -73,6 +73,9 @@ class ElephantWebViewClient(
         if (tab.isDesktopMode) {
             view?.evaluateJavascript(Scripts.DESKTOP_MODE_INJECT, null)
         }
+
+        // Inject stream sniffer early to intercept fetch and XHR video requests
+        view?.evaluateJavascript(Scripts.STREAM_SNIFFER_SCRIPT, null)
     }
 
     override fun onPageFinished(view: WebView?, url: String?) {
@@ -121,17 +124,30 @@ class ElephantWebViewClient(
             view?.evaluateJavascript(Scripts.TRANSLATION_SCRIPT, null)
         }
 
-        // Probe for video elements
+        // Stream sniffer probe
+        view?.evaluateJavascript(Scripts.STREAM_SNIFFER_SCRIPT, null)
+
+        // Probe for video elements and inject UC In-Place Inline Player Engine
         view?.evaluateJavascript(Scripts.VIDEO_SNIFFER_PROBE, null)
+        view?.evaluateJavascript(Scripts.UC_INLINE_PLAYER_SCRIPT, null)
 
         onPageFinish(currentUrl, currentTitle)
     }
 
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+        val reqUrl = request?.url?.toString() ?: return null
+        val lowerUrl = reqUrl.lowercase()
+
+        // Sniff real playable streaming media URLs (m3u8, mp4, flv, ts streams)
+        if (lowerUrl.contains(".m3u8") || lowerUrl.contains(".mp4") || lowerUrl.contains(".flv") || 
+            (lowerUrl.contains("mime=") && lowerUrl.contains("video")) || lowerUrl.contains("/video/") ||
+            lowerUrl.contains("googlevideo.com") || lowerUrl.contains(".ts")) {
+            repository.setDetectedStreamUrl(tab.id, reqUrl)
+        }
+
         if (repository.isAdBlockEnabled.value) {
-            val url = request?.url?.toString()?.lowercase() ?: return null
             for (domain in adDomains) {
-                if (url.contains(domain)) {
+                if (lowerUrl.contains(domain)) {
                     repository.addSavedData(0.04f)
                     onAdBlocked()
                     // Return empty response to block request
@@ -156,6 +172,9 @@ class ElephantWebChromeClient(
         super.onProgressChanged(view, newProgress)
         tab.progress = newProgress
         onProgressChange(newProgress)
+        if (newProgress >= 70) {
+            view?.evaluateJavascript(Scripts.UC_INLINE_PLAYER_SCRIPT, null)
+        }
     }
 
     override fun onReceivedTitle(view: WebView?, title: String?) {

@@ -1,9 +1,11 @@
 package com.example
 
 import android.app.PictureInPictureParams
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -80,11 +82,32 @@ import com.example.ui.theme.MyApplicationTheme
 class MainActivity : ComponentActivity() {
 
     private var viewModelRef: com.example.viewmodel.BrowserViewModel? = null
-    private var isPipModeActive = false
+    private val isPipModeState = mutableStateOf(false)
+
+    private val downloadReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.example.ACTION_DOWNLOAD_VIDEO") {
+                val url = intent.getStringExtra("video_url") ?: ""
+                val title = intent.getStringExtra("video_title") ?: "下载视频"
+                if (url.isNotBlank()) {
+                    viewModelRef?.startVideoDownload(url, title)
+                }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        try {
+            val filter = android.content.IntentFilter("com.example.ACTION_DOWNLOAD_VIDEO")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(downloadReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(downloadReceiver, filter)
+            }
+        } catch (e: Exception) {}
 
         setContent {
             val viewModel: com.example.viewmodel.BrowserViewModel = viewModel()
@@ -120,6 +143,7 @@ class MainActivity : ComponentActivity() {
             val isAiChatVisible by viewModel.isAiChatVisible.collectAsState()
             val isDownloadManagerVisible by viewModel.isDownloadManagerVisible.collectAsState()
             val pendingDownload by viewModel.pendingDownload.collectAsState()
+            val inPipMode by remember { isPipModeState }
 
             // Back Press Handling
             BackHandler(enabled = true) {
@@ -138,11 +162,37 @@ class MainActivity : ComponentActivity() {
             }
 
             MyApplicationTheme(darkTheme = isNightMode, dynamicColor = false) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(if (isNightMode) Color(0xFF111418) else Color(0xFFFFFFFF))
-                ) {
+                if (inPipMode) {
+                    // DESKTOP PICTURE-IN-PICTURE (FIGURE 2 SCENARIO)
+                    // Render the exact same Unified Floating Player matching Figure 1 UI!
+                    val activeVideo = detectedVideo ?: VideoMediaInfo(
+                        url = currentTab.url,
+                        pageUrl = currentTab.url,
+                        title = currentTab.title.ifBlank { "正在播放" },
+                        videoWidth = 16,
+                        videoHeight = 9,
+                        originTabIndex = currentTabIndex
+                    )
+                    InAppFloatingPlayer(
+                        videoInfo = activeVideo,
+                        isDesktopPiP = true,
+                        currentTabIndex = currentTabIndex,
+                        onClose = { currentPos ->
+                            viewModel.closeFloatingPlayer(currentPos)
+                            finish()
+                        },
+                        onEnterGlobalPiP = {},
+                        onEnterFullscreen = {},
+                        onDownloadVideo = { url, title ->
+                            viewModel.startVideoDownload(url, title)
+                        }
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(if (isNightMode) Color(0xFF111418) else Color(0xFFFFFFFF))
+                    ) {
                     // --- MAIN BROWSING CONTENT ---
                     Column(
                         modifier = Modifier
@@ -201,6 +251,8 @@ class MainActivity : ComponentActivity() {
                                     ChromiumWebViewContainer(
                                         tab = currentTab,
                                         viewModel = viewModel,
+                                        onAdjustBrightness = { adjustWindowBrightness(it) },
+                                        onAdjustVolume = { adjustSystemVolume(it) },
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
@@ -248,17 +300,23 @@ class MainActivity : ComponentActivity() {
                     if (isFloatingPlayerVisible && detectedVideo != null) {
                         InAppFloatingPlayer(
                             videoInfo = detectedVideo!!,
+                            isDesktopPiP = false,
                             currentTabIndex = currentTabIndex,
                             onReturnToOriginTab = { originIdx ->
                                 viewModel.selectTab(originIdx)
                             },
-                            onClose = { viewModel.closeFloatingPlayer() },
+                            onClose = { currentPos ->
+                                viewModel.closeFloatingPlayer(currentPos)
+                            },
                             onEnterGlobalPiP = {
                                 triggerGlobalFloatingOrPiP(detectedVideo!!)
                             },
                             onEnterFullscreen = {
                                 viewModel.closeFloatingPlayer()
                                 Toast.makeText(this@MainActivity, "已在当前网页切换至全屏", Toast.LENGTH_SHORT).show()
+                            },
+                            onDownloadVideo = { url, title ->
+                                viewModel.startVideoDownload(url, title)
                             }
                         )
                     }
@@ -426,6 +484,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -448,23 +507,22 @@ class MainActivity : ComponentActivity() {
                 video = video,
                 originTabIndex = video.originTabIndex ?: viewModelRef?.currentTabIndex?.value ?: 0
             )
-        } else {
-            // Use Android Picture-in-Picture directly or request overlay
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try {
-                    val width = if (video.videoWidth > 0) video.videoWidth else 16
-                    val height = if (video.videoHeight > 0) video.videoHeight else 9
-                    val rational = Rational(width.coerceIn(1, 1000), height.coerceIn(1, 1000))
-                    val pipParams = PictureInPictureParams.Builder()
-                        .setAspectRatio(rational)
-                        .build()
-                    enterPictureInPictureMode(pipParams)
-                } catch (e: Exception) {
-                    FloatingVideoPlayerComponent.requestOverlayPermission(this)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val rational = if (video.videoWidth > 0 && video.videoHeight > 0 && video.videoWidth > video.videoHeight) {
+                    Rational(video.videoWidth.coerceIn(1, 1000), video.videoHeight.coerceIn(1, 1000))
+                } else {
+                    Rational(16, 9)
                 }
-            } else {
+                val pipParams = PictureInPictureParams.Builder()
+                    .setAspectRatio(rational)
+                    .build()
+                enterPictureInPictureMode(pipParams)
+            } catch (e: Exception) {
                 FloatingVideoPlayerComponent.requestOverlayPermission(this)
             }
+        } else {
+            FloatingVideoPlayerComponent.requestOverlayPermission(this)
         }
     }
 
@@ -473,12 +531,12 @@ class MainActivity : ComponentActivity() {
         newConfig: Configuration
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        isPipModeActive = isInPictureInPictureMode
+        isPipModeState.value = isInPictureInPictureMode
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // When exiting the app, continue playing in floating window mini player
+        // When exiting the app, continue playing seamlessly in desktop floating window matching Figure 1
         val vm = viewModelRef ?: return
         val video = vm.detectedVideo.value
         val isFloating = vm.isFloatingPlayerVisible.value
@@ -492,15 +550,51 @@ class MainActivity : ComponentActivity() {
                 )
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 try {
-                    val width = if (video.videoWidth > 0) video.videoWidth else 16
-                    val height = if (video.videoHeight > 0) video.videoHeight else 9
-                    val rational = Rational(width.coerceIn(1, 1000), height.coerceIn(1, 1000))
+                    val rational = if (video.videoWidth > 0 && video.videoHeight > 0 && video.videoWidth > video.videoHeight) {
+                        Rational(video.videoWidth.coerceIn(1, 1000), video.videoHeight.coerceIn(1, 1000))
+                    } else {
+                        Rational(16, 9)
+                    }
                     enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(rational).build())
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                } catch (e: Exception) {}
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(downloadReceiver)
+        } catch (e: Exception) {}
+    }
+
+    private var currentWindowBrightness: Float = -1f
+
+    fun adjustWindowBrightness(delta: Float): Float {
+        val lp = window.attributes
+        if (currentWindowBrightness < 0f) {
+            currentWindowBrightness = try {
+                Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS) / 255f
+            } catch (e: Exception) {
+                0.5f
+            }
+        }
+        currentWindowBrightness = (currentWindowBrightness + delta).coerceIn(0.05f, 1.0f)
+        runOnUiThread {
+            lp.screenBrightness = currentWindowBrightness
+            window.attributes = lp
+        }
+        return currentWindowBrightness
+    }
+
+    fun adjustSystemVolume(delta: Float): Float {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return 0.5f
+        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val step = if (delta > 0) 1 else if (delta < 0) -1 else 0
+        val newVol = (curVol + step).coerceIn(0, maxVol)
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+        return newVol.toFloat() / maxVol.toFloat().coerceAtLeast(1f)
     }
 }
 
@@ -508,6 +602,8 @@ class MainActivity : ComponentActivity() {
 fun ChromiumWebViewContainer(
     tab: com.example.model.BrowserTab,
     viewModel: com.example.viewmodel.BrowserViewModel,
+    onAdjustBrightness: (Float) -> Float = { 0.5f },
+    onAdjustVolume: (Float) -> Float = { 0.5f },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -562,6 +658,28 @@ fun ChromiumWebViewContainer(
                         },
                         onTranslationFinished = { success, count ->
                             // Handled in ViewModel
+                        },
+                        onAdjustBrightness = { delta ->
+                            onAdjustBrightness(delta)
+                        },
+                        onAdjustVolume = { delta ->
+                            onAdjustVolume(delta)
+                        },
+                        onOpenFloatingPlayer = { url, title, currentTime, duration, width, height ->
+                            (context as? ComponentActivity)?.runOnUiThread {
+                                viewModel.onVideoFound(url, title, duration, currentTime, width, height)
+                                viewModel.startFloatingPlayer()
+                            }
+                        },
+                        onDownloadVideo = { url, title ->
+                            (context as? ComponentActivity)?.runOnUiThread {
+                                viewModel.startVideoDownload(url, title)
+                            }
+                        },
+                        onShowToast = { msg ->
+                            (context as? ComponentActivity)?.runOnUiThread {
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
                         }
                     ),
                     "ElephantBridge"

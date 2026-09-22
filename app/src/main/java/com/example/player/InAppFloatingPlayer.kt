@@ -1,10 +1,13 @@
 package com.example.player
 
+import android.graphics.SurfaceTexture
 import android.media.MediaPlayer
+import android.media.PlaybackParams
 import android.net.Uri
+import android.os.Build
+import android.view.Surface
+import android.view.TextureView
 import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.VideoView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,7 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
@@ -40,7 +43,6 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
@@ -75,89 +77,136 @@ import kotlinx.coroutines.delay
 import kotlin.math.max
 import kotlin.math.roundToInt
 
+/**
+ * Unified Floating Video Player Component
+ * Provides identical UI and behavior for:
+ * 1. In-App Floating Window: Draggable, resizable (top/bottom/left/right), rounded borders.
+ * 2. Desktop Picture-in-Picture (PiP): Full-bleed layout with identical controls and buttons (Figure 1 UI).
+ * 3. Video Engine: Uses TextureView + MediaPlayer with HTTP headers (Referer, User-Agent)
+ *    to support HLS/m3u8, mp4, and live streaming smoothly without SurfaceView stuttering.
+ * 4. Progress Sync: Resumes from webpage video currentTime and reports back to web video on close.
+ */
 @Composable
 fun InAppFloatingPlayer(
     videoInfo: VideoMediaInfo,
-    onClose: () -> Unit,
+    onClose: (currentPositionSeconds: Double) -> Unit,
     onEnterGlobalPiP: () -> Unit,
     onEnterFullscreen: () -> Unit,
+    modifier: Modifier = Modifier,
+    isDesktopPiP: Boolean = false,
     currentTabIndex: Int = 0,
     onReturnToOriginTab: ((Int) -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onDownloadVideo: ((url: String, title: String) -> Unit)? = null
 ) {
     val density = LocalDensity.current
     val context = LocalContext.current
 
-    // Video aspect ratio calculation (matches video picture ratio)
+    // Video aspect ratio calculation
     val baseRatio = remember(videoInfo.videoWidth, videoInfo.videoHeight) {
         if (videoInfo.videoHeight > 0 && videoInfo.videoWidth > 0) {
-            videoInfo.videoWidth.toFloat() / videoInfo.videoHeight.toFloat()
+            (videoInfo.videoWidth.toFloat() / videoInfo.videoHeight.toFloat()).coerceIn(0.5f, 3.0f)
         } else {
             16f / 9f
         }
     }
 
-    // Window size state (default 260dp width, height computed from ratio)
+    // In-app window size states
     var windowWidthDp by remember { mutableFloatStateOf(280f) }
     var windowHeightDp by remember { mutableFloatStateOf(280f / baseRatio) }
 
-    // Lock aspect ratio toggle: when locked, resizing keeps the exact video ratio; when unlocked, freely resize in any direction
+    // Lock aspect ratio during resizing
     var lockAspectRatio by remember { mutableStateOf(false) }
 
-    // Window position offset (pixels)
-    var offsetX by remember { mutableFloatStateOf(60f) }
-    var offsetY by remember { mutableFloatStateOf(200f) }
+    // Floating window position offset
+    var offsetX by remember { mutableFloatStateOf(40f) }
+    var offsetY by remember { mutableFloatStateOf(160f) }
 
-    // Player playback state
-    var isPlaying by remember { mutableStateOf(videoInfo.isPlaying) }
+    // Playback state
+    var isPlaying by remember { mutableStateOf(true) }
     var currentPositionMs by remember { mutableIntStateOf((videoInfo.currentTime * 1000).toInt()) }
     var durationMs by remember { mutableIntStateOf((videoInfo.duration * 1000).toInt().coerceAtLeast(1000)) }
     var playbackSpeed by remember { mutableFloatStateOf(1.0f) }
     var showControls by remember { mutableStateOf(true) }
+    var isLocked by remember { mutableStateOf(false) }
+    var showLockHint by remember { mutableStateOf(false) }
 
-    // VideoView holder
-    var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
-    var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
+    // Hardware-accelerated MediaPlayer & Texture Surface holder
+    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var currentSurface by remember { mutableStateOf<Surface?>(null) }
+    var isVideoReady by remember { mutableStateOf(false) }
 
-    // Auto-hide controls after 4 seconds
-    LaunchedEffect(showControls, isPlaying) {
-        if (showControls && isPlaying) {
+    // Auto-hide controls after 4 seconds of playback
+    LaunchedEffect(showControls, isPlaying, isLocked) {
+        if (showControls && isPlaying && !isLocked) {
             delay(4000)
             showControls = false
         }
     }
 
-    // Progress updater timer
-    LaunchedEffect(isPlaying) {
-        while (isPlaying) {
-            videoViewRef?.let { vv ->
-                if (vv.isPlaying) {
-                    currentPositionMs = vv.currentPosition
-                    durationMs = max(vv.duration, durationMs)
-                }
-            }
-            delay(500)
+    // Auto-hide lock icon hint after 3 seconds
+    LaunchedEffect(showLockHint) {
+        if (showLockHint) {
+            delay(3000)
+            showLockHint = false
         }
     }
 
+    // High-frequency progress polling timer
+    LaunchedEffect(isPlaying, isVideoReady) {
+        while (isPlaying) {
+            try {
+                mediaPlayer?.let { mp ->
+                    if (mp.isPlaying) {
+                        val pos = mp.currentPosition
+                        val dur = mp.duration
+                        if (pos >= 0) currentPositionMs = pos
+                        if (dur > 0) durationMs = max(dur, durationMs)
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore transient media player calls
+            }
+            delay(400)
+        }
+    }
+
+    // Cleanup on dispose
     DisposableEffect(Unit) {
         onDispose {
-            videoViewRef?.stopPlayback()
+            try {
+                mediaPlayer?.stop()
+                mediaPlayer?.reset()
+                mediaPlayer?.release()
+                currentSurface?.release()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
-    // Minimum and maximum size limits in dp
+    // Min and max size constraints for in-app floating
     val minWidthDp = 180f
     val minHeightDp = 110f
     val maxWidthDp = 420f
     val maxHeightDp = 600f
 
-    // Root draggable container
-    Box(
-        modifier = modifier
+    val displayMetrics = context.resources.displayMetrics
+    val screenWidth = displayMetrics.widthPixels.toFloat()
+    val screenHeight = displayMetrics.heightPixels.toFloat()
+    val windowWidthPx = with(density) { windowWidthDp.dp.toPx() }
+
+    // --- Container Box Modifier ---
+    val rootModifier = if (isDesktopPiP) {
+        // Desktop Picture-in-Picture: full window bleed
+        modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    } else {
+        // In-App Floating Window: draggable, rounded corner container
+        modifier
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
             .size(windowWidthDp.dp, windowHeightDp.dp)
-            .shadow(16.dp, RoundedCornerShape(16.dp))
+            .shadow(12.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF0F172A))
             .border(
@@ -165,211 +214,348 @@ fun InAppFloatingPlayer(
                 if (lockAspectRatio) Color(0xFF60A5FA) else Color(0xFF38BDF8),
                 RoundedCornerShape(16.dp)
             )
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { showControls = !showControls })
-            }
-    ) {
-        // --- 1. Native Video Playback Surface ---
+    }
+
+    Box(modifier = rootModifier) {
+        // --- 1. Native TextureView Video Surface (Zero-Lag Hardware Accelerated) ---
         AndroidView(
             factory = { ctx ->
-                VideoView(ctx).apply {
-                    layoutParams = FrameLayout.LayoutParams(
+                TextureView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    try {
-                        if (videoInfo.url.isNotBlank() && (videoInfo.url.startsWith("http://") || videoInfo.url.startsWith("https://"))) {
-                            setVideoURI(Uri.parse(videoInfo.url))
-                            setOnPreparedListener { mp ->
-                                mediaPlayerRef = mp
-                                mp.isLooping = true
-                                durationMs = max(mp.duration, 1000)
-                                if (currentPositionMs > 0) seekTo(currentPositionMs)
-                                start()
-                                isPlaying = true
+                    surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                        override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+                            val surface = Surface(st)
+                            currentSurface = surface
+
+                            val mp = MediaPlayer().apply {
+                                setSurface(surface)
+                                isLooping = true
+                                setOnErrorListener { _, _, _ ->
+                                    true // Graceful error suppression
+                                }
+                                setOnPreparedListener { player ->
+                                    isVideoReady = true
+                                    val startPos = (videoInfo.currentTime * 1000).toInt()
+                                    if (startPos > 0) {
+                                        player.seekTo(startPos)
+                                        currentPositionMs = startPos
+                                    }
+                                    if (player.duration > 0) {
+                                        durationMs = max(player.duration, durationMs)
+                                    }
+                                    try {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                            player.playbackParams = PlaybackParams().setSpeed(playbackSpeed)
+                                        }
+                                    } catch (e: Exception) {}
+                                    player.start()
+                                    isPlaying = true
+                                }
+                            }
+                            mediaPlayer = mp
+
+                            // Prepare playback with HTTP anti-hotlinking headers (Referer & UserAgent)
+                            try {
+                                val urlStr = videoInfo.url.trim()
+                                if (urlStr.isNotBlank() && !urlStr.startsWith("blob:")) {
+                                    val headers = mutableMapOf<String, String>()
+                                    if (videoInfo.pageUrl.isNotBlank()) {
+                                        headers["Referer"] = videoInfo.pageUrl
+                                    }
+                                    headers["User-Agent"] = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+
+                                    mp.setDataSource(ctx, Uri.parse(urlStr), headers)
+                                    mp.prepareAsync()
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
                             }
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+
+                        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
+                        override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+                            try {
+                                mediaPlayer?.setSurface(null)
+                                currentSurface?.release()
+                                currentSurface = null
+                            } catch (e: Exception) {}
+                            return true
+                        }
+                        override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
                     }
-                    videoViewRef = this
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // --- 2. Floating Video Player Controls Overlay ---
+        // --- 2. Screen Lock Overlay & Unlock Trigger ---
+        if (isLocked) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            showLockHint = !showLockHint
+                        }
+                    }
+            ) {
+                if (showLockHint) {
+                    IconButton(
+                        onClick = {
+                            isLocked = false
+                            showControls = true
+                            showLockHint = false
+                        },
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = 12.dp)
+                            .size(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "点击解锁",
+                            tint = Color(0xFF38BDF8),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- 3. Fluid In-App Drag Gesture when Controls are Hidden ---
+        if (!isDesktopPiP && !showControls && !isLocked) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            offsetX = (offsetX + dragAmount.x).coerceIn(
+                                -windowWidthPx * 0.7f,
+                                screenWidth - windowWidthPx * 0.3f
+                            )
+                            offsetY = (offsetY + dragAmount.y).coerceIn(20f, screenHeight - 80f)
+                        }
+                    }
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            showControls = true
+                        }
+                    }
+            )
+        }
+
+        // --- 4. Floating Video Player Controls Overlay (Figure 1 UI in both PiP & In-App) ---
         AnimatedVisibility(
-            visible = showControls,
+            visible = showControls && !isLocked,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
         ) {
-            Box(
-                modifier = Modifier
+            val overlayModifier = if (isDesktopPiP) {
+                Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.65f))
-            ) {
-                // Top Header (Drag area + Actions)
+                    .pointerInput(Unit) {
+                        detectTapGestures { showControls = false }
+                    }
+            } else {
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            offsetX = (offsetX + dragAmount.x).coerceIn(
+                                -windowWidthPx * 0.7f,
+                                screenWidth - windowWidthPx * 0.3f
+                            )
+                            offsetY = (offsetY + dragAmount.y).coerceIn(20f, screenHeight - 80f)
+                        }
+                    }
+            }
+
+            Box(modifier = overlayModifier) {
+                // Top Header (Title + PiP + Fullscreen + Close)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.4f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        // Dragging top bar moves the entire floating window
-                        .pointerInput(Unit) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                offsetX += dragAmount.x
-                                offsetY += dragAmount.y
-                            }
-                        },
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = videoInfo.title.ifBlank { "网页视频" },
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        // Aspect Ratio Mode Indicator / Lock Toggle
-                        IconButton(
-                            onClick = { lockAspectRatio = !lockAspectRatio },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (lockAspectRatio) Icons.Default.Lock else Icons.Default.LockOpen,
-                                contentDescription = if (lockAspectRatio) "已锁定视频比例" else "自由缩放模式",
-                                tint = if (lockAspectRatio) Color(0xFF60A5FA) else Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = videoInfo.title.ifBlank { "网页视频" },
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    )
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Global PiP button
-                        IconButton(
-                            onClick = onEnterGlobalPiP,
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PictureInPictureAlt,
-                                contentDescription = "全局悬浮",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
+                        // Global PiP button (hidden if already in PiP)
+                        if (!isDesktopPiP) {
+                            IconButton(
+                                onClick = onEnterGlobalPiP,
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PictureInPictureAlt,
+                                    contentDescription = "桌面小窗",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                         }
                         // Fullscreen button
                         IconButton(
                             onClick = onEnterFullscreen,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Fullscreen,
                                 contentDescription = "全屏播放",
                                 tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
-                        // Close button
+                        // Close button (passes back current progress to sync with webpage video)
                         IconButton(
-                            onClick = onClose,
-                            modifier = Modifier.size(28.dp)
+                            onClick = { onClose(currentPositionMs / 1000.0) },
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "关闭悬浮窗",
+                                contentDescription = "关闭小窗",
                                 tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
                 }
 
-                // Center Play/Pause & Skip Controls
+                // Left-Middle Lock Button (Figure 2 clean icon only style)
+                IconButton(
+                    onClick = {
+                        isLocked = true
+                        showControls = false
+                        showLockHint = true
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 8.dp)
+                        .size(if (isDesktopPiP) 36.dp else 44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LockOpen,
+                        contentDescription = "锁定屏幕",
+                        tint = Color.White,
+                        modifier = Modifier.size(if (isDesktopPiP) 22.dp else 28.dp)
+                    )
+                }
+
+                // Right-Middle Download Button (Figure 2 clean icon only style)
+                IconButton(
+                    onClick = {
+                        onDownloadVideo?.invoke(videoInfo.url, videoInfo.title.ifBlank { "网页视频" })
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                        .size(if (isDesktopPiP) 36.dp else 44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowDownward,
+                        contentDescription = "下载视频",
+                        tint = Color.White,
+                        modifier = Modifier.size(if (isDesktopPiP) 22.dp else 28.dp)
+                    )
+                }
+
+                // Center Rewind 10s / Play-Pause / Forward 10s (Clean icons only)
                 Row(
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .fillMaxWidth(),
+                        .fillMaxWidth(if (isDesktopPiP) 0.55f else 0.65f),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Rewind 10s
                     IconButton(
                         onClick = {
-                            videoViewRef?.let { vv ->
-                                val target = max(0, vv.currentPosition - 10000)
-                                vv.seekTo(target)
-                                currentPositionMs = target
+                            mediaPlayer?.let { mp ->
+                                try {
+                                    val target = max(0, mp.currentPosition - 10000)
+                                    mp.seekTo(target)
+                                    currentPositionMs = target
+                                } catch (e: Exception) {}
                             }
                         },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 32.dp else 42.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Replay10,
                             contentDescription = "快退10秒",
                             tint = Color.White,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(if (isDesktopPiP) 20.dp else 26.dp)
                         )
                     }
 
-                    // Play/Pause
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFF38BDF8),
-                        modifier = Modifier.size(44.dp),
+                    // Play / Pause Button (Clean icon only - Figure 2 style)
+                    IconButton(
                         onClick = {
-                            videoViewRef?.let { vv ->
-                                if (isPlaying) {
-                                    vv.pause()
-                                    isPlaying = false
-                                } else {
-                                    vv.start()
-                                    isPlaying = true
-                                }
+                            mediaPlayer?.let { mp ->
+                                try {
+                                    if (isPlaying) {
+                                        mp.pause()
+                                        isPlaying = false
+                                    } else {
+                                        mp.start()
+                                        isPlaying = true
+                                    }
+                                } catch (e: Exception) {}
                             }
-                        }
+                        },
+                        modifier = Modifier.size(if (isDesktopPiP) 38.dp else 48.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (isPlaying) "暂停" else "播放",
-                                tint = Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) "暂停" else "播放",
+                            tint = Color.White,
+                            modifier = Modifier.size(if (isDesktopPiP) 28.dp else 36.dp)
+                        )
                     }
 
                     // Forward 10s
                     IconButton(
                         onClick = {
-                            videoViewRef?.let { vv ->
-                                val target = (vv.currentPosition + 10000).coerceAtMost(durationMs)
-                                vv.seekTo(target)
-                                currentPositionMs = target
+                            mediaPlayer?.let { mp ->
+                                try {
+                                    val target = (mp.currentPosition + 10000).coerceAtMost(durationMs)
+                                    mp.seekTo(target)
+                                    currentPositionMs = target
+                                } catch (e: Exception) {}
                             }
                         },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 32.dp else 42.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Forward10,
                             contentDescription = "快进10秒",
                             tint = Color.White,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
 
-                // Return to Origin Tab Button (when viewing another tab in the browser!)
-                if (videoInfo.originTabIndex != null && videoInfo.originTabIndex != currentTabIndex && onReturnToOriginTab != null) {
+                // Return to Origin Tab Button (if watching from another tab)
+                if (!isDesktopPiP && videoInfo.originTabIndex != null && videoInfo.originTabIndex != currentTabIndex && onReturnToOriginTab != null) {
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = Color(0xFF2563EB).copy(alpha = 0.95f),
@@ -401,7 +587,7 @@ fun InAppFloatingPlayer(
                     }
                 }
 
-                // Bottom Progress Bar & Time
+                // Bottom Progress Bar, Speed Pill & Time Labels
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -416,10 +602,10 @@ fun InAppFloatingPlayer(
                     ) {
                         Text(
                             text = formatTime(currentPositionMs),
-                            color = Color.White.copy(alpha = 0.85f),
+                            color = Color.White.copy(alpha = 0.9f),
                             fontSize = 11.sp
                         )
-                        // Speed Switcher
+                        // Speed Switcher Pill Button
                         Text(
                             text = "${playbackSpeed}x",
                             color = Color(0xFF38BDF8),
@@ -435,14 +621,16 @@ fun InAppFloatingPlayer(
                                         val nextIndex = (speeds.indexOf(playbackSpeed) + 1) % speeds.size
                                         playbackSpeed = speeds[nextIndex]
                                         try {
-                                            mediaPlayerRef?.playbackParams = mediaPlayerRef?.playbackParams?.setSpeed(playbackSpeed) ?: return@detectTapGestures
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                                mediaPlayer?.playbackParams = PlaybackParams().setSpeed(playbackSpeed)
+                                            }
                                         } catch (e: Exception) {}
                                     })
                                 }
                         )
                         Text(
                             text = formatTime(durationMs),
-                            color = Color.White.copy(alpha = 0.85f),
+                            color = Color.White.copy(alpha = 0.9f),
                             fontSize = 11.sp
                         )
                     }
@@ -452,7 +640,9 @@ fun InAppFloatingPlayer(
                         onValueChange = { frac ->
                             val target = (frac * durationMs).toInt()
                             currentPositionMs = target
-                            videoViewRef?.seekTo(target)
+                            try {
+                                mediaPlayer?.seekTo(target)
+                            } catch (e: Exception) {}
                         },
                         colors = SliderDefaults.colors(
                             thumbColor = Color(0xFF38BDF8),
@@ -467,117 +657,116 @@ fun InAppFloatingPlayer(
             }
         }
 
-        // --- 3. Arbitrary Resizing Borders & Handles (Top, Bottom, Left, Right & Corners) ---
-        // As requested: "可以任意调整悬浮窗口的大小，无论上下左右都可以"
-
-        // TOP EDGE RESIZE HANDLE
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .height(14.dp)
-                .pointerInput(lockAspectRatio, baseRatio) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val deltaDp = with(density) { dragAmount.y.toDp().value }
-                        val newHeight = (windowHeightDp - deltaDp).coerceIn(minHeightDp, maxHeightDp)
-                        offsetY += with(density) { (windowHeightDp - newHeight).dp.toPx() }
-                        windowHeightDp = newHeight
-                        if (lockAspectRatio) {
-                            windowWidthDp = (newHeight * baseRatio).coerceIn(minWidthDp, maxWidthDp)
+        // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
+        if (!isDesktopPiP && !isLocked) {
+            // TOP EDGE RESIZE
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(14.dp)
+                    .pointerInput(lockAspectRatio, baseRatio) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            val deltaDp = with(density) { dragAmount.y.toDp().value }
+                            val newHeight = (windowHeightDp - deltaDp).coerceIn(minHeightDp, maxHeightDp)
+                            offsetY += with(density) { (windowHeightDp - newHeight).dp.toPx() }
+                            windowHeightDp = newHeight
+                            if (lockAspectRatio) {
+                                windowWidthDp = (newHeight * baseRatio).coerceIn(minWidthDp, maxWidthDp)
+                            }
                         }
                     }
-                }
-        )
+            )
 
-        // BOTTOM EDGE RESIZE HANDLE
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(14.dp)
-                .pointerInput(lockAspectRatio, baseRatio) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val deltaDp = with(density) { dragAmount.y.toDp().value }
-                        val newHeight = (windowHeightDp + deltaDp).coerceIn(minHeightDp, maxHeightDp)
-                        windowHeightDp = newHeight
-                        if (lockAspectRatio) {
-                            windowWidthDp = (newHeight * baseRatio).coerceIn(minWidthDp, maxWidthDp)
+            // BOTTOM EDGE RESIZE
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(14.dp)
+                    .pointerInput(lockAspectRatio, baseRatio) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            val deltaDp = with(density) { dragAmount.y.toDp().value }
+                            val newHeight = (windowHeightDp + deltaDp).coerceIn(minHeightDp, maxHeightDp)
+                            windowHeightDp = newHeight
+                            if (lockAspectRatio) {
+                                windowWidthDp = (newHeight * baseRatio).coerceIn(minWidthDp, maxWidthDp)
+                            }
                         }
                     }
-                }
-        )
+            )
 
-        // LEFT EDGE RESIZE HANDLE
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .fillMaxHeight()
-                .width(14.dp)
-                .pointerInput(lockAspectRatio, baseRatio) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val deltaDp = with(density) { dragAmount.x.toDp().value }
-                        val newWidth = (windowWidthDp - deltaDp).coerceIn(minWidthDp, maxWidthDp)
-                        offsetX += with(density) { (windowWidthDp - newWidth).dp.toPx() }
-                        windowWidthDp = newWidth
-                        if (lockAspectRatio) {
-                            windowHeightDp = (newWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+            // LEFT EDGE RESIZE
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxHeight()
+                    .width(14.dp)
+                    .pointerInput(lockAspectRatio, baseRatio) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            val deltaDp = with(density) { dragAmount.x.toDp().value }
+                            val newWidth = (windowWidthDp - deltaDp).coerceIn(minWidthDp, maxWidthDp)
+                            offsetX += with(density) { (windowWidthDp - newWidth).dp.toPx() }
+                            windowWidthDp = newWidth
+                            if (lockAspectRatio) {
+                                windowHeightDp = (newWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+                            }
                         }
                     }
-                }
-        )
+            )
 
-        // RIGHT EDGE RESIZE HANDLE
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(14.dp)
-                .pointerInput(lockAspectRatio, baseRatio) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val deltaDp = with(density) { dragAmount.x.toDp().value }
-                        val newWidth = (windowWidthDp + deltaDp).coerceIn(minWidthDp, maxWidthDp)
-                        windowWidthDp = newWidth
-                        if (lockAspectRatio) {
-                            windowHeightDp = (newWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+            // RIGHT EDGE RESIZE
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .width(14.dp)
+                    .pointerInput(lockAspectRatio, baseRatio) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            val deltaDp = with(density) { dragAmount.x.toDp().value }
+                            val newWidth = (windowWidthDp + deltaDp).coerceIn(minWidthDp, maxWidthDp)
+                            windowWidthDp = newWidth
+                            if (lockAspectRatio) {
+                                windowHeightDp = (newWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+                            }
                         }
                     }
-                }
-        )
+            )
 
-        // CORNER RESIZE VISUAL ACCENTS (Bottom-Right & Top-Left)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .size(24.dp)
-                .pointerInput(lockAspectRatio, baseRatio) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val deltaXDp = with(density) { dragAmount.x.toDp().value }
-                        val deltaYDp = with(density) { dragAmount.y.toDp().value }
-                        val newWidth = (windowWidthDp + deltaXDp).coerceIn(minWidthDp, maxWidthDp)
-                        val newHeight = if (lockAspectRatio) {
-                            (newWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
-                        } else {
-                            (windowHeightDp + deltaYDp).coerceIn(minHeightDp, maxHeightDp)
-                        }
-                        windowWidthDp = newWidth
-                        windowHeightDp = newHeight
-                    }
-                }
-        ) {
-            // Visual drag grip
+            // CORNER RESIZE VISUAL ACCENTS (Bottom-Right Corner)
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(4.dp)
-                    .size(8.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0xFF38BDF8))
-            )
+                    .size(26.dp)
+                    .pointerInput(lockAspectRatio, baseRatio) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            val deltaXDp = with(density) { dragAmount.x.toDp().value }
+                            val deltaYDp = with(density) { dragAmount.y.toDp().value }
+                            val newWidth = (windowWidthDp + deltaXDp).coerceIn(minWidthDp, maxWidthDp)
+                            val newHeight = if (lockAspectRatio) {
+                                (newWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+                            } else {
+                                (windowHeightDp + deltaYDp).coerceIn(minHeightDp, maxHeightDp)
+                            }
+                            windowWidthDp = newWidth
+                            windowHeightDp = newHeight
+                        }
+                    }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(4.dp)
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Color(0xFF38BDF8))
+                )
+            }
         }
     }
 }

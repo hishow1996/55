@@ -178,7 +178,7 @@ fun BrowserBottomSheetMenu(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // --- PRIMARY CIRCULAR TOOLS ROW (Image 3: 书签, 历史, 下载, 主题/插件, 悬浮播放器) ---
+            // --- PRIMARY CIRCULAR TOOLS ROW (书签, 历史, 下载, 插件扩展) ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
@@ -210,13 +210,6 @@ fun BrowserBottomSheetMenu(
                     bgColor = Color(0xFFEC4899), // Pink
                     textColor = textColor,
                     onClick = { onDismiss(); onOpenPlugins() }
-                )
-                MenuCircleButton(
-                    title = "悬浮播放",
-                    icon = Icons.Default.PictureInPictureAlt,
-                    bgColor = Color(0xFF8B5CF6), // Violet
-                    textColor = textColor,
-                    onClick = { onDismiss(); onOpenFloatingPlayer() }
                 )
             }
 

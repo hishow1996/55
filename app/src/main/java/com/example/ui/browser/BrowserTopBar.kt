@@ -221,37 +221,6 @@ fun BrowserTopBar(
                             }
                         }
 
-                        // Desktop mode quick toggle & indicator badge
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (tab.isDesktopMode) Color(0xFF3B82F6).copy(alpha = 0.15f) else Color.Transparent,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable(onClick = onToggleDesktopMode)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.DesktopMac,
-                                    contentDescription = if (tab.isDesktopMode) "已开启电脑模式，点击切换回手机版" else "点击切换为电脑版",
-                                    tint = if (tab.isDesktopMode) Color(0xFF2563EB) else subTextColor.copy(alpha = 0.6f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                if (tab.isDesktopMode) {
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = "电脑版",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF2563EB)
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(2.dp))
-
                         // Refresh or Stop button
                         IconButton(
                             onClick = {
@@ -266,38 +235,6 @@ fun BrowserTopBar(
                                 modifier = Modifier.size(18.dp)
                             )
                         }
-                    }
-                }
-            }
-
-            // Video Sniffer Floating Play Button (when a video is detected on page!)
-            if (detectedVideo != null) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFF2563EB),
-                    shadowElevation = 4.dp,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .clickable(onClick = onOpenFloatingPlayer)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PictureInPictureAlt,
-                            contentDescription = "悬浮播放",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "悬浮播放",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
                 }
             }

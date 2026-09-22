@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Orange circle background -->
+    <path
+        android:fillColor="#FF6C00"
+        android:pathData="M24,24m-22,0a22,22 0 1,0 44,0a22,22 0 1,0 -44,0" />
+    <!-- White outer concentric curve -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M16,14 C19,11 27,11 31,15 C35,19 35,27 31,31" />
+    <!-- White inner triangle play symbol -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M20,18 l12,6 l-12,6 z" />
+</vector>

@@ -59,13 +59,33 @@ class BrowserRepository(private val context: Context) {
     private val _plugins = MutableStateFlow<List<PluginItem>>(emptyList())
     val plugins: StateFlow<List<PluginItem>> = _plugins.asStateFlow()
 
+    // Search History list (Figure 2 search history)
+    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
+    val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
+
     // Quick sites
     private val _quickSites = MutableStateFlow<List<QuickSite>>(emptyList())
     val quickSites: StateFlow<List<QuickSite>> = _quickSites.asStateFlow()
 
+    // Sniffed media stream URLs for seamless floating player playback
+    private val detectedStreamUrls = java.util.concurrent.ConcurrentHashMap<String, String>()
+    @Volatile
+    var lastDetectedStreamUrl: String? = null
+        private set
+
+    fun setDetectedStreamUrl(tabId: String, url: String) {
+        if (url.isNotBlank()) {
+            detectedStreamUrls[tabId] = url
+            lastDetectedStreamUrl = url
+        }
+    }
+
+    fun getDetectedStreamUrl(tabId: String): String? = detectedStreamUrls[tabId] ?: lastDetectedStreamUrl
+
     init {
         loadBookmarks()
         loadHistory()
+        loadSearchHistory()
         loadPlugins()
         loadQuickSites()
     }
@@ -291,6 +311,68 @@ class BrowserRepository(private val context: Context) {
             array.put(obj)
         }
         prefs.edit().putString(KEY_HISTORY, array.toString()).apply()
+    }
+
+    // Search History Operations (matching Figure 2)
+    private fun loadSearchHistory() {
+        val raw = prefs.getString(KEY_SEARCH_HISTORY, null)
+        if (raw != null) {
+            try {
+                val array = JSONArray(raw)
+                val list = mutableListOf<String>()
+                for (i in 0 until array.length()) {
+                    val q = array.getString(i)
+                    if (q.isNotBlank()) list.add(q)
+                }
+                _searchHistory.value = list
+            } catch (e: Exception) {
+                _searchHistory.value = emptyList()
+            }
+        } else {
+            // Initial realistic items matching Figure 2 screenshot
+            val initial = listOf(
+                "google ai studio",
+                "github",
+                "大象粗线条极简轮廓画像拱桥",
+                "3D游戏动漫风格自然素材",
+                "动漫风格资源包免费下载",
+                "动漫风格资源包",
+                "卡车3D模型"
+            )
+            _searchHistory.value = initial
+            saveSearchHistory(initial)
+        }
+    }
+
+    fun addSearchQuery(query: String) {
+        val clean = query.trim()
+        if (clean.isBlank()) return
+        val current = _searchHistory.value.toMutableList()
+        current.removeAll { it.equals(clean, ignoreCase = true) }
+        current.add(0, clean)
+        if (current.size > 50) {
+            current.removeAt(current.lastIndex)
+        }
+        _searchHistory.value = current
+        saveSearchHistory(current)
+    }
+
+    fun removeSearchQuery(query: String) {
+        val current = _searchHistory.value.toMutableList()
+        current.removeAll { it.equals(query, ignoreCase = true) }
+        _searchHistory.value = current
+        saveSearchHistory(current)
+    }
+
+    fun clearSearchHistory() {
+        _searchHistory.value = emptyList()
+        saveSearchHistory(emptyList())
+    }
+
+    private fun saveSearchHistory(list: List<String>) {
+        val array = JSONArray()
+        list.forEach { array.put(it) }
+        prefs.edit().putString(KEY_SEARCH_HISTORY, array.toString()).apply()
     }
 
     // Plugins Operations
@@ -524,6 +606,7 @@ class BrowserRepository(private val context: Context) {
         private const val KEY_DATA_SAVED = "pref_data_saved"
         private const val KEY_BOOKMARKS = "pref_bookmarks"
         private const val KEY_HISTORY = "pref_history"
+        private const val KEY_SEARCH_HISTORY = "pref_search_history"
         private const val KEY_PLUGINS = "pref_plugins"
         private const val KEY_QUICK_SITES = "pref_quick_sites"
 

@@ -198,6 +198,62 @@ object Scripts {
         })();
     """.trimIndent()
 
+    fun resumeWebVideoAt(seconds: Double): String = """
+        (function() {
+            const videos = document.querySelectorAll('video');
+            videos.forEach(v => {
+                try {
+                    if ($seconds > 0 && Math.abs(v.currentTime - $seconds) > 0.4) {
+                        v.currentTime = $seconds;
+                    }
+                    v.play();
+                } catch(e) {}
+            });
+        })();
+    """.trimIndent()
+
+    val STREAM_SNIFFER_SCRIPT = """
+        (function() {
+            if (window._elephantSnifferHooked) return;
+            window._elephantSnifferHooked = true;
+            window._elephantLastMediaUrl = '';
+
+            function checkMedia(url) {
+                if (!url || typeof url !== 'string') return;
+                const lower = url.toLowerCase();
+                if (lower.endsWith('.js') || lower.endsWith('.css') || lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.svg')) return;
+                if (lower.includes('.m3u8') || lower.includes('.mp4') || lower.includes('.flv') || lower.includes('/video/') || lower.includes('mime=video') || lower.includes('googlevideo.com') || lower.includes('.ts')) {
+                    window._elephantLastMediaUrl = url;
+                    if (window.ElephantBridge && window.ElephantBridge.onVideoDetected) {
+                        try {
+                            window.ElephantBridge.onVideoDetected(url, document.title || '网页视频', 0, 0, 16, 9);
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            const origFetch = window.fetch;
+            if (origFetch) {
+                window.fetch = function() {
+                    try {
+                        const a = arguments[0];
+                        const u = typeof a === 'string' ? a : (a ? (a.url || '') : '');
+                        checkMedia(u);
+                    } catch(e) {}
+                    return origFetch.apply(this, arguments);
+                };
+            }
+
+            const origOpen = XMLHttpRequest.prototype.open;
+            if (origOpen) {
+                XMLHttpRequest.prototype.open = function(m, u) {
+                    try { checkMedia(u); } catch(e) {}
+                    return origOpen.apply(this, arguments);
+                };
+            }
+        })();
+    """.trimIndent()
+
     val NIGHT_MODE_CSS = """
         (function() {
             let style = document.getElementById('elephant-night-style');
@@ -324,4 +380,958 @@ object Scripts {
             } catch(e) {}
         })();
     """.trimIndent()
+
+    /**
+     * UC Browser In-Place Inline Built-in Player Engine.
+     * Intercepts and wraps HTML5 <video> elements directly on the webpage.
+     * Features:
+     * 1. In-place playback (playsinline, webkit-playsinline) without launching secondary windows.
+     * 2. Signature UC Gestures:
+     *    - Left side vertical slide: adjusts screen brightness with Sun HUD.
+     *    - Right side vertical slide: adjusts media volume with Speaker HUD.
+     *    - Horizontal slide: seek forward/backward with time HUD.
+     *    - Double tap: play/pause toggle.
+     *    - Long press: instant 2.0X speed sprint, releasing restores normal speed.
+     * 3. Top bar: Video title, [🗗] icon, [🔓] icon (icon-only, no text labels).
+     * 4. Bottom bar: Play/Pause, current/total time, interactive seek bar, [倍速 0.75x-3.0x], [全屏].
+     */
+    val UC_INLINE_PLAYER_SCRIPT = """
+        (function() {
+            if (window._ucPlayerEngineLoaded) {
+                if (window._ucScanVideos) window._ucScanVideos();
+                return;
+            }
+            window._ucPlayerEngineLoaded = true;
+
+            // Inject CSS styles for UC player UI
+            if (!document.getElementById('uc-player-engine-styles')) {
+                const style = document.createElement('style');
+                style.id = 'uc-player-engine-styles';
+                style.textContent = `
+                    .uc-player-overlay {
+                        position: absolute !important;
+                        z-index: 2147483640 !important;
+                        pointer-events: auto !important;
+                        user-select: none !important;
+                        -webkit-user-select: none !important;
+                        touch-action: none !important;
+                        overflow: hidden !important;
+                        box-sizing: border-box !important;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                    }
+                    .uc-player-controls {
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        width: 100% !important;
+                        height: 100% !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        justify-content: space-between !important;
+                        transition: opacity 0.25s ease !important;
+                        pointer-events: none !important;
+                    }
+                    .uc-player-controls.uc-hidden {
+                        opacity: 0 !important;
+                        pointer-events: none !important;
+                    }
+                    .uc-top-bar {
+                        background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%) !important;
+                        padding: 10px 14px 20px 14px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: space-between !important;
+                        color: #ffffff !important;
+                        pointer-events: auto !important;
+                    }
+                    .uc-title {
+                        font-size: 13px !important;
+                        font-weight: 500 !important;
+                        color: #ffffff !important;
+                        white-space: nowrap !important;
+                        overflow: hidden !important;
+                        text-overflow: ellipsis !important;
+                        max-width: 65% !important;
+                        text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+                    }
+                    .uc-btn-group {
+                        display: flex !important;
+                        align-items: center !important;
+                        gap: 12px !important;
+                    }
+                    .uc-btn-circle {
+                        background: transparent !important;
+                        border: none !important;
+                        color: #ffffff !important;
+                        border-radius: 0 !important;
+                        width: 38px !important;
+                        height: 38px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        cursor: pointer !important;
+                        -webkit-tap-highlight-color: transparent !important;
+                        padding: 0 !important;
+                        box-shadow: none !important;
+                        filter: drop-shadow(0 2px 5px rgba(0,0,0,0.85)) !important;
+                        transition: transform 0.15s ease, opacity 0.15s ease !important;
+                    }
+                    .uc-btn-circle:active {
+                        background: transparent !important;
+                        opacity: 0.65 !important;
+                        transform: scale(0.92) !important;
+                    }
+                    .uc-lock-side-btn {
+                        position: absolute !important;
+                        left: 14px !important;
+                        top: 50% !important;
+                        transform: translateY(-50%) !important;
+                        background: transparent !important;
+                        border: none !important;
+                        color: #ffffff !important;
+                        border-radius: 0 !important;
+                        width: 44px !important;
+                        height: 44px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        cursor: pointer !important;
+                        z-index: 2147483646 !important;
+                        pointer-events: auto !important;
+                        box-shadow: none !important;
+                        filter: drop-shadow(0 2px 6px rgba(0,0,0,0.9)) !important;
+                        -webkit-tap-highlight-color: transparent !important;
+                        transition: transform 0.15s ease, opacity 0.15s ease !important;
+                    }
+                    .uc-lock-side-btn:active {
+                        transform: translateY(-50%) scale(0.92) !important;
+                        opacity: 0.65 !important;
+                        background: transparent !important;
+                    }
+                    .uc-download-side-btn {
+                        position: absolute !important;
+                        right: 14px !important;
+                        top: 50% !important;
+                        transform: translateY(-50%) !important;
+                        background: transparent !important;
+                        border: none !important;
+                        color: #ffffff !important;
+                        border-radius: 0 !important;
+                        width: 44px !important;
+                        height: 44px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        cursor: pointer !important;
+                        z-index: 2147483646 !important;
+                        pointer-events: auto !important;
+                        box-shadow: none !important;
+                        filter: drop-shadow(0 2px 6px rgba(0,0,0,0.9)) !important;
+                        -webkit-tap-highlight-color: transparent !important;
+                        transition: transform 0.15s ease, opacity 0.15s ease !important;
+                    }
+                    .uc-download-side-btn:active {
+                        transform: translateY(-50%) scale(0.92) !important;
+                        opacity: 0.65 !important;
+                        background: transparent !important;
+                    }
+                    .uc-btn-circle svg, .uc-play-btn svg, .uc-fs-btn svg, .uc-lock-side-btn svg, .uc-download-side-btn svg, .uc-lock-icon-only svg {
+                        pointer-events: none !important;
+                    }
+                    .uc-speed-btn {
+                        background: rgba(0,0,0,0.55) !important;
+                        border: 1px solid rgba(255,255,255,0.25) !important;
+                        color: #ffffff !important;
+                        border-radius: 14px !important;
+                        padding: 3px 8px !important;
+                        font-size: 11px !important;
+                        font-weight: 600 !important;
+                        cursor: pointer !important;
+                        -webkit-tap-highlight-color: transparent !important;
+                    }
+                    .uc-speed-btn:active {
+                        background: rgba(37,99,235,0.8) !important;
+                    }
+                    .uc-bottom-bar {
+                        background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%) !important;
+                        padding: 20px 12px 10px 12px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        gap: 12px !important;
+                        color: #ffffff !important;
+                        pointer-events: auto !important;
+                    }
+                    .uc-play-btn, .uc-fs-btn {
+                        background: none !important;
+                        border: none !important;
+                        color: #ffffff !important;
+                        font-size: 24px !important;
+                        cursor: pointer !important;
+                        padding: 4px 6px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        -webkit-tap-highlight-color: transparent !important;
+                        transition: transform 0.15s ease !important;
+                    }
+                    .uc-play-btn:active {
+                        transform: scale(0.9) !important;
+                    }
+                    .uc-time {
+                        font-size: 11px !important;
+                        color: #e2e8f0 !important;
+                        font-variant-numeric: tabular-nums !important;
+                        white-space: nowrap !important;
+                        text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+                    }
+                    .uc-progress-track {
+                        flex: 1 !important;
+                        height: 20px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        position: relative !important;
+                        cursor: pointer !important;
+                        touch-action: none !important;
+                    }
+                    .uc-progress-bar-bg {
+                        width: 100% !important;
+                        height: 4px !important;
+                        background: rgba(255,255,255,0.3) !important;
+                        border-radius: 2px !important;
+                        position: relative !important;
+                        overflow: visible !important;
+                    }
+                    .uc-progress-buffered {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        height: 100% !important;
+                        background: rgba(255,255,255,0.5) !important;
+                        border-radius: 2px !important;
+                        width: 0%;
+                    }
+                    .uc-progress-fill {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        height: 100% !important;
+                        background: #2563eb !important;
+                        border-radius: 2px !important;
+                        width: 0%;
+                    }
+                    .uc-progress-thumb {
+                        position: absolute !important;
+                        top: 50% !important;
+                        right: -5px !important;
+                        transform: translateY(-50%) !important;
+                        width: 12px !important;
+                        height: 12px !important;
+                        background: #ffffff !important;
+                        border-radius: 50% !important;
+                        box-shadow: 0 1px 4px rgba(0,0,0,0.6) !important;
+                    }
+                    .uc-hud {
+                        position: absolute !important;
+                        top: 50% !important;
+                        left: 50% !important;
+                        transform: translate(-50%, -50%) !important;
+                        background: rgba(17,20,24,0.88) !important;
+                        backdrop-filter: blur(10px) !important;
+                        border: 1px solid rgba(255,255,255,0.18) !important;
+                        border-radius: 12px !important;
+                        padding: 10px 18px !important;
+                        color: #ffffff !important;
+                        display: none !important;
+                        flex-direction: column !important;
+                        align-items: center !important;
+                        gap: 6px !important;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+                        pointer-events: none !important;
+                        z-index: 2147483645 !important;
+                        transition: opacity 0.2s ease !important;
+                    }
+                    .uc-hud.uc-visible {
+                        display: flex !important;
+                    }
+                    .uc-hud-title {
+                        font-size: 15px !important;
+                        font-weight: 600 !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        gap: 6px !important;
+                    }
+                    .uc-hud-icon svg {
+                        width: 22px !important;
+                        height: 22px !important;
+                    }
+                    .uc-hud-bar {
+                        width: 100px !important;
+                        height: 5px !important;
+                        background: rgba(255,255,255,0.25) !important;
+                        border-radius: 3px !important;
+                        overflow: hidden !important;
+                    }
+                    .uc-hud-bar-fill {
+                        height: 100% !important;
+                        background: #3b82f6 !important;
+                        width: 50%;
+                        border-radius: 3px !important;
+                    }
+                    .uc-speed-menu {
+                        position: absolute !important;
+                        bottom: 52px !important;
+                        right: 36px !important;
+                        background: rgba(17,20,24,0.95) !important;
+                        backdrop-filter: blur(10px) !important;
+                        border: 1px solid rgba(255,255,255,0.2) !important;
+                        border-radius: 10px !important;
+                        padding: 6px !important;
+                        display: none !important;
+                        flex-direction: column !important;
+                        gap: 4px !important;
+                        z-index: 2147483646 !important;
+                        pointer-events: auto !important;
+                    }
+                    .uc-speed-menu.uc-visible {
+                        display: flex !important;
+                    }
+                    .uc-speed-item {
+                        padding: 6px 16px !important;
+                        font-size: 12px !important;
+                        color: #e2e8f0 !important;
+                        border-radius: 6px !important;
+                        cursor: pointer !important;
+                        text-align: center !important;
+                        -webkit-tap-highlight-color: transparent !important;
+                    }
+                    .uc-speed-item.active {
+                        background: #2563eb !important;
+                        color: #ffffff !important;
+                        font-weight: bold !important;
+                    }
+                    .uc-lock-icon-only {
+                        position: absolute !important;
+                        left: 14px !important;
+                        top: 50% !important;
+                        transform: translateY(-50%) !important;
+                        background: transparent !important;
+                        border: none !important;
+                        color: #38bdf8 !important;
+                        border-radius: 0 !important;
+                        width: 44px !important;
+                        height: 44px !important;
+                        display: none !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        cursor: pointer !important;
+                        z-index: 2147483647 !important;
+                        pointer-events: auto !important;
+                        box-shadow: none !important;
+                        filter: drop-shadow(0 2px 6px rgba(0,0,0,0.9)) !important;
+                        -webkit-tap-highlight-color: transparent !important;
+                    }
+                    .uc-lock-icon-only.uc-visible {
+                        display: flex !important;
+                    }
+                `;
+                (document.head || document.documentElement).appendChild(style);
+            }
+
+            function formatTime(secs) {
+                if (!secs || isNaN(secs) || secs < 0) return "00:00";
+                secs = Math.floor(secs);
+                const m = Math.floor(secs / 60);
+                const s = secs % 60;
+                const mm = m < 10 ? "0" + m : "" + m;
+                const ss = s < 10 ? "0" + s : "" + s;
+                return mm + ":" + ss;
+            }
+
+            // High precision SVGs with enlarged icons (enlarged for easy tap)
+            const SVG_PLAY = '<svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>';
+            const SVG_PAUSE = '<svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><rect x="6" y="4" width="4.5" height="16" rx="1"></rect><rect x="13.5" y="4" width="4.5" height="16" rx="1"></rect></svg>';
+            const SVG_PIP = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><rect x="11" y="8" width="9" height="7" rx="1.5" ry="1.5" fill="currentColor"></rect></svg>';
+            const SVG_LOCK_OPEN = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>';
+            const SVG_LOCK_CLOSED = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+            const SVG_DOWNLOAD = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+            const SVG_FULLSCREEN = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
+            const SVG_SUN = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+            const SVG_SPEAKER = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+            const SVG_FORWARD = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>';
+            const SVG_BACKWARD = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><polygon points="11 19 2 12 11 5 11 19"></polygon><polygon points="22 19 13 12 22 5 22 19"></polygon></svg>';
+            const SVG_SPEED = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>';
+
+            function isMainVideo(video) {
+                if (!video || !video.isConnected) return false;
+                const rect = video.getBoundingClientRect();
+                const w = rect.width || video.offsetWidth || 0;
+                const h = rect.height || video.offsetHeight || 0;
+                // Exclude tiny recommendation cards, previews, or hidden audio elements
+                if (w < 220 || h < 140) return false;
+                return true;
+            }
+
+            function setupUcPlayer(video) {
+                if (!video || video._ucEnhanced) return;
+                if (!isMainVideo(video)) return;
+                video._ucEnhanced = true;
+
+                // Ensure single active UC player overlay on page
+                if (window._currentUcOverlay) {
+                    try { window._currentUcOverlay.remove(); } catch(e) {}
+                    window._currentUcOverlay = null;
+                }
+
+                // Ensure video plays inline without system popup
+                video.setAttribute('playsinline', 'true');
+                video.setAttribute('webkit-playsinline', 'true');
+                video.setAttribute('x5-playsinline', 'true');
+                video.controls = false;
+
+                const parent = video.parentElement;
+                if (!parent) return;
+
+                if (window.getComputedStyle(parent).position === 'static') {
+                    parent.style.position = 'relative';
+                }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'uc-player-overlay';
+                window._currentUcOverlay = overlay;
+
+                // Lock on left side middle, Pip on top bar right, Download on right side middle
+                overlay.innerHTML = 
+                    '<div class="uc-player-controls uc-hidden">' +
+                        '<div class="uc-top-bar">' +
+                            '<span class="uc-title">' + (document.title || '') + '</span>' +
+                            '<div class="uc-btn-group">' +
+                                '<button class="uc-btn-circle uc-pip-btn" title="小窗">' + SVG_PIP + '</button>' +
+                            '</div>' +
+                        '</div>' +
+                        '<button class="uc-lock-side-btn" title="锁屏">' + SVG_LOCK_OPEN + '</button>' +
+                        '<button class="uc-download-side-btn" title="下载视频">' + SVG_DOWNLOAD + '</button>' +
+                        '<div class="uc-bottom-bar">' +
+                            '<button class="uc-play-btn">' + SVG_PLAY + '</button>' +
+                            '<span class="uc-time">00:00 / 00:00</span>' +
+                            '<div class="uc-progress-track">' +
+                                '<div class="uc-progress-bar-bg">' +
+                                    '<div class="uc-progress-buffered"></div>' +
+                                    '<div class="uc-progress-fill"><div class="uc-progress-thumb"></div></div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<button class="uc-speed-btn">1.0X</button>' +
+                            '<button class="uc-fs-btn">' + SVG_FULLSCREEN + '</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="uc-hud">' +
+                        '<div class="uc-hud-title"><span class="uc-hud-icon"></span><span class="uc-hud-text"></span></div>' +
+                        '<div class="uc-hud-bar"><div class="uc-hud-bar-fill"></div></div>' +
+                    '</div>' +
+                    '<div class="uc-speed-menu">' +
+                        '<div class="uc-speed-item" data-speed="0.75">0.75X</div>' +
+                        '<div class="uc-speed-item active" data-speed="1.0">1.0X</div>' +
+                        '<div class="uc-speed-item" data-speed="1.25">1.25X</div>' +
+                        '<div class="uc-speed-item" data-speed="1.5">1.5X</div>' +
+                        '<div class="uc-speed-item" data-speed="2.0">2.0X</div>' +
+                        '<div class="uc-speed-item" data-speed="3.0">3.0X</div>' +
+                    '</div>' +
+                    '<div class="uc-lock-icon-only">' + SVG_LOCK_CLOSED + '</div>';
+
+                function syncOverlaySize() {
+                    if (!video.isConnected) {
+                        overlay.remove();
+                        return;
+                    }
+                    const rect = video.getBoundingClientRect();
+                    const parentRect = parent.getBoundingClientRect();
+                    
+                    const top = rect.top - parentRect.top;
+                    const left = rect.left - parentRect.left;
+                    const width = rect.width || video.offsetWidth || 320;
+                    const height = rect.height || video.offsetHeight || 180;
+                    
+                    if (width < 50 || height < 50) return;
+
+                    overlay.style.setProperty('top', top + 'px', 'important');
+                    overlay.style.setProperty('left', left + 'px', 'important');
+                    overlay.style.setProperty('width', width + 'px', 'important');
+                    overlay.style.setProperty('height', height + 'px', 'important');
+                }
+
+                syncOverlaySize();
+                parent.appendChild(overlay);
+
+                // Observe resizing to stay strictly pinned to video
+                if (window.ResizeObserver) {
+                    try {
+                        const ro = new ResizeObserver(() => syncOverlaySize());
+                        ro.observe(video);
+                        ro.observe(parent);
+                    } catch(e) {}
+                }
+
+                const controls = overlay.querySelector('.uc-player-controls');
+                const hud = overlay.querySelector('.uc-hud');
+                const hudIcon = overlay.querySelector('.uc-hud-icon');
+                const hudText = overlay.querySelector('.uc-hud-text');
+                const hudBar = overlay.querySelector('.uc-hud-bar');
+                const hudBarFill = overlay.querySelector('.uc-hud-bar-fill');
+                const playBtn = overlay.querySelector('.uc-play-btn');
+                const timeLabel = overlay.querySelector('.uc-time');
+                const progressTrack = overlay.querySelector('.uc-progress-track');
+                const progressFill = overlay.querySelector('.uc-progress-fill');
+                const progressBuffered = overlay.querySelector('.uc-progress-buffered');
+                const speedBtn = overlay.querySelector('.uc-speed-btn');
+                const speedMenu = overlay.querySelector('.uc-speed-menu');
+                const fsBtn = overlay.querySelector('.uc-fs-btn');
+                const pipBtn = overlay.querySelector('.uc-pip-btn');
+                const lockSideBtn = overlay.querySelector('.uc-lock-side-btn');
+                const downloadSideBtn = overlay.querySelector('.uc-download-side-btn');
+                const lockIconOnly = overlay.querySelector('.uc-lock-icon-only');
+
+                let isLocked = false;
+                let controlsTimer = null;
+                let hudTimer = null;
+                let lockTimer = null;
+                let normalSpeed = 1.0;
+                let isSeekingProgress = false;
+
+                function showControls() {
+                    if (isLocked) return;
+                    syncOverlaySize();
+                    controls.classList.remove('uc-hidden');
+                    clearTimeout(controlsTimer);
+                    controlsTimer = setTimeout(() => {
+                        if (!video.paused) controls.classList.add('uc-hidden');
+                        speedMenu.classList.remove('uc-visible');
+                    }, 3500);
+                }
+
+                function hideControls() {
+                    controls.classList.add('uc-hidden');
+                    speedMenu.classList.remove('uc-visible');
+                }
+
+                function toggleControls() {
+                    if (controls.classList.contains('uc-hidden')) {
+                        showControls();
+                    } else {
+                        hideControls();
+                    }
+                }
+
+                function showHud(iconSvg, text, percent, showBar) {
+                    clearTimeout(hudTimer);
+                    hudIcon.innerHTML = iconSvg;
+                    hudText.textContent = text;
+                    if (showBar && percent !== undefined) {
+                        hudBar.style.display = 'block';
+                        hudBarFill.style.width = Math.min(100, Math.max(0, percent)) + '%';
+                    } else {
+                        hudBar.style.display = 'none';
+                    }
+                    hud.classList.add('uc-visible');
+                }
+
+                function hideHud(delay) {
+                    clearTimeout(hudTimer);
+                    if (delay) {
+                        hudTimer = setTimeout(() => { hud.classList.remove('uc-visible'); }, delay);
+                    } else {
+                        hud.classList.remove('uc-visible');
+                    }
+                }
+
+                function lockPlayer() {
+                    isLocked = true;
+                    hideControls();
+                    lockIconOnly.classList.add('uc-visible');
+                    clearTimeout(lockTimer);
+                    lockTimer = setTimeout(() => {
+                        if (isLocked) lockIconOnly.classList.remove('uc-visible');
+                    }, 3500);
+                    showHud(SVG_LOCK_CLOSED, '', 0, false);
+                    hideHud(500);
+                }
+
+                function unlockPlayer() {
+                    isLocked = false;
+                    lockIconOnly.classList.remove('uc-visible');
+                    clearTimeout(lockTimer);
+                    showHud(SVG_LOCK_OPEN, '', 0, false);
+                    hideHud(500);
+                    showControls();
+                }
+
+                // Fast tap handler to avoid 300ms click delays and touch conflicts
+                function fastTap(element, handler) {
+                    let handled = false;
+                    element.addEventListener('touchend', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handled = true;
+                        setTimeout(() => { handled = false; }, 300);
+                        handler(e);
+                    });
+                    element.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (handled) return;
+                        handler(e);
+                    });
+                }
+
+                fastTap(lockSideBtn, () => {
+                    lockPlayer();
+                });
+
+                fastTap(downloadSideBtn, () => {
+                    let realSrc = '';
+                    if (window._elephantLastMediaUrl) realSrc = window._elephantLastMediaUrl;
+                    if (!realSrc && video.currentSrc && !video.currentSrc.startsWith('blob:')) realSrc = video.currentSrc;
+                    if (!realSrc && video.src && !video.src.startsWith('blob:')) realSrc = video.src;
+                    if (!realSrc && window.performance && window.performance.getEntriesByType) {
+                        const resources = window.performance.getEntriesByType('resource');
+                        for (let i = resources.length - 1; i >= 0; i--) {
+                            const name = resources[i].name || '';
+                            if (name.includes('.m3u8') || name.includes('.mp4') || name.includes('.flv') || name.includes('mime=video') || name.includes('/video/')) {
+                                realSrc = name;
+                                break;
+                            }
+                        }
+                    }
+                    if (!realSrc) {
+                        if (window.hls && window.hls.url) realSrc = window.hls.url;
+                        else if (window.dp && window.dp.video && window.dp.video.url) realSrc = window.dp.video.url;
+                        else if (window.player && window.player.url) realSrc = window.player.url;
+                    }
+                    if (!realSrc) {
+                        realSrc = video.currentSrc || video.src || window.location.href;
+                    }
+
+                    if (window.ElephantBridge && window.ElephantBridge.downloadVideo) {
+                        window.ElephantBridge.downloadVideo(realSrc, document.title || '网页视频');
+                    }
+                });
+
+                fastTap(lockIconOnly, () => {
+                    unlockPlayer();
+                });
+
+                fastTap(playBtn, () => {
+                    if (video.paused) {
+                        video.play();
+                    } else {
+                        video.pause();
+                    }
+                    showControls();
+                });
+
+                fastTap(fsBtn, () => {
+                    if (video.webkitRequestFullscreen) {
+                        video.webkitRequestFullscreen();
+                    } else if (video.requestFullscreen) {
+                        video.requestFullscreen();
+                    }
+                });
+
+                fastTap(pipBtn, () => {
+                    let realSrc = '';
+                    if (window._elephantLastMediaUrl) realSrc = window._elephantLastMediaUrl;
+                    if (!realSrc && video.currentSrc && !video.currentSrc.startsWith('blob:')) realSrc = video.currentSrc;
+                    if (!realSrc && video.src && !video.src.startsWith('blob:')) realSrc = video.src;
+                    if (!realSrc && window.performance && window.performance.getEntriesByType) {
+                        const resources = window.performance.getEntriesByType('resource');
+                        for (let i = resources.length - 1; i >= 0; i--) {
+                            const name = resources[i].name || '';
+                            if (name.includes('.m3u8') || name.includes('.mp4') || name.includes('.flv') || name.includes('mime=video') || name.includes('/video/')) {
+                                realSrc = name;
+                                break;
+                            }
+                        }
+                    }
+                    if (!realSrc) {
+                        if (window.hls && window.hls.url) realSrc = window.hls.url;
+                        else if (window.dp && window.dp.video && window.dp.video.url) realSrc = window.dp.video.url;
+                        else if (window.player && window.player.url) realSrc = window.player.url;
+                    }
+                    if (!realSrc) {
+                        realSrc = video.currentSrc || video.src || '';
+                    }
+
+                    if (window.ElephantBridge && window.ElephantBridge.openFloatingPlayer) {
+                        window.ElephantBridge.openFloatingPlayer(
+                            realSrc,
+                            document.title || '网页视频',
+                            video.currentTime || 0,
+                            video.duration || 0,
+                            video.videoWidth || 16,
+                            video.videoHeight || 9
+                        );
+                        video.pause();
+                    }
+                });
+
+                fastTap(speedBtn, () => {
+                    speedMenu.classList.toggle('uc-visible');
+                });
+
+                speedMenu.querySelectorAll('.uc-speed-item').forEach(item => {
+                    fastTap(item, () => {
+                        const sp = parseFloat(item.getAttribute('data-speed'));
+                        video.playbackRate = sp;
+                        normalSpeed = sp;
+                        speedBtn.textContent = sp + 'X';
+                        speedMenu.querySelectorAll('.uc-speed-item').forEach(it => it.classList.remove('active'));
+                        item.classList.add('active');
+                        speedMenu.classList.remove('uc-visible');
+                        showHud(SVG_SPEED, sp + 'X', 0, false);
+                        hideHud(500);
+                    });
+                });
+
+                let touchStartX = 0;
+                let touchStartY = 0;
+                let touchStartTime = 0;
+                let gestureType = '';
+                let initialTime = 0;
+                let seekDelta = 0;
+                let longPressTimer = null;
+                let lastTapTime = 0;
+
+                overlay.addEventListener('touchstart', (e) => {
+                    if (isLocked) {
+                        // Tapping screen while locked displays lock icon for 3.5s
+                        lockIconOnly.classList.add('uc-visible');
+                        clearTimeout(lockTimer);
+                        lockTimer = setTimeout(() => {
+                            if (isLocked) lockIconOnly.classList.remove('uc-visible');
+                        }, 3500);
+                        return;
+                    }
+                    if (e.target.closest('.uc-btn-circle') || e.target.closest('.uc-speed-btn') || e.target.closest('.uc-speed-menu') || e.target.closest('.uc-progress-track') || e.target.closest('.uc-play-btn') || e.target.closest('.uc-fs-btn') || e.target.closest('.uc-lock-icon-only')) {
+                        return;
+                    }
+                    const touch = e.touches[0];
+                    touchStartX = touch.clientX;
+                    touchStartY = touch.clientY;
+                    touchStartTime = Date.now();
+                    gestureType = '';
+                    initialTime = video.currentTime;
+                    seekDelta = 0;
+
+                    clearTimeout(longPressTimer);
+                    longPressTimer = setTimeout(() => {
+                        gestureType = 'press2x';
+                        normalSpeed = video.playbackRate || 1.0;
+                        video.playbackRate = 2.0;
+                        showHud(SVG_SPEED, '2.0X', 0, false);
+                    }, 450);
+                }, { passive: true });
+
+                overlay.addEventListener('touchmove', (e) => {
+                    if (isLocked) return;
+                    if (e.target.closest('.uc-btn-circle') || e.target.closest('.uc-speed-btn') || e.target.closest('.uc-speed-menu') || e.target.closest('.uc-progress-track')) {
+                        return;
+                    }
+                    const touch = e.touches[0];
+                    const dx = touch.clientX - touchStartX;
+                    const dy = touch.clientY - touchStartY;
+
+                    if (Math.hypot(dx, dy) > 10) {
+                        clearTimeout(longPressTimer);
+                    }
+
+                    if (gestureType === 'press2x') {
+                        return;
+                    }
+
+                    const rect = overlay.getBoundingClientRect();
+                    if (!gestureType && Math.hypot(dx, dy) > 12) {
+                        if (Math.abs(dx) > Math.abs(dy)) {
+                            gestureType = 'seek';
+                        } else {
+                            const isLeft = (touchStartX - rect.left) < (rect.width * 0.5);
+                            gestureType = isLeft ? 'brightness' : 'volume';
+                        }
+                    }
+
+                    if (gestureType === 'seek') {
+                        const maxSeek = Math.min(90, (video.duration || 60) * 0.4);
+                        seekDelta = (dx / rect.width) * maxSeek;
+                        const targetTime = Math.min(video.duration || 0, Math.max(0, initialTime + seekDelta));
+                        const sign = seekDelta >= 0 ? '+' : '';
+                        showHud(
+                            seekDelta >= 0 ? SVG_FORWARD : SVG_BACKWARD,
+                            sign + Math.round(seekDelta) + 's',
+                            (targetTime / (video.duration || 1)) * 100,
+                            true
+                        );
+                    } else if (gestureType === 'brightness') {
+                        const delta = -dy / rect.height * 0.4;
+                        let curPercent = 50;
+                        if (window.ElephantBridge && window.ElephantBridge.adjustBrightness) {
+                            try {
+                                const res = window.ElephantBridge.adjustBrightness(delta);
+                                curPercent = Math.round(res * 100);
+                            } catch(err) {}
+                        }
+                        showHud(SVG_SUN, curPercent + '%', curPercent, true);
+                    } else if (gestureType === 'volume') {
+                        const delta = -dy / rect.height * 0.4;
+                        let curPercent = 50;
+                        if (window.ElephantBridge && window.ElephantBridge.adjustVolume) {
+                            try {
+                                const res = window.ElephantBridge.adjustVolume(delta);
+                                curPercent = Math.round(res * 100);
+                            } catch(err) {}
+                        }
+                        showHud(SVG_SPEAKER, curPercent + '%', curPercent, true);
+                    }
+                }, { passive: true });
+
+                overlay.addEventListener('touchend', (e) => {
+                    clearTimeout(longPressTimer);
+                    if (isLocked) return;
+
+                    if (e.target.closest('.uc-btn-circle') || e.target.closest('.uc-speed-btn') || e.target.closest('.uc-speed-menu') || e.target.closest('.uc-progress-track') || e.target.closest('.uc-play-btn') || e.target.closest('.uc-fs-btn') || e.target.closest('.uc-lock-icon-only')) {
+                        return;
+                    }
+
+                    if (gestureType === 'press2x') {
+                        video.playbackRate = normalSpeed;
+                        hideHud(0);
+                        gestureType = '';
+                        return;
+                    }
+
+                    if (gestureType === 'seek') {
+                        const targetTime = Math.min(video.duration || 0, Math.max(0, initialTime + seekDelta));
+                        video.currentTime = targetTime;
+                        hideHud(200);
+                        gestureType = '';
+                        return;
+                    }
+
+                    if (gestureType === 'brightness' || gestureType === 'volume') {
+                        hideHud(400);
+                        gestureType = '';
+                        return;
+                    }
+
+                    const duration = Date.now() - touchStartTime;
+                    if (duration < 300) {
+                        const now = Date.now();
+                        if (now - lastTapTime < 320) {
+                            lastTapTime = 0;
+                            if (video.paused) {
+                                video.play();
+                                showHud(SVG_PLAY, '', 0, false);
+                            } else {
+                                video.pause();
+                                showHud(SVG_PAUSE, '', 0, false);
+                            }
+                            hideHud(400);
+                        } else {
+                            lastTapTime = now;
+                            setTimeout(() => {
+                                if (lastTapTime === now) {
+                                    toggleControls();
+                                }
+                            }, 280);
+                        }
+                    }
+                });
+
+                function seekFromProgress(e) {
+                    const rect = progressTrack.getBoundingClientRect();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+                    if (video.duration) {
+                        video.currentTime = pct * video.duration;
+                    }
+                }
+
+                progressTrack.addEventListener('touchstart', (e) => {
+                    e.stopPropagation();
+                    isSeekingProgress = true;
+                    seekFromProgress(e);
+                }, { passive: true });
+
+                progressTrack.addEventListener('touchmove', (e) => {
+                    e.stopPropagation();
+                    if (isSeekingProgress) seekFromProgress(e);
+                }, { passive: true });
+
+                progressTrack.addEventListener('touchend', (e) => {
+                    e.stopPropagation();
+                    isSeekingProgress = false;
+                });
+
+                progressTrack.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    seekFromProgress(e);
+                });
+
+                video.addEventListener('play', () => {
+                    playBtn.innerHTML = SVG_PAUSE;
+                    showControls();
+                });
+
+                video.addEventListener('pause', () => {
+                    playBtn.innerHTML = SVG_PLAY;
+                    showControls();
+                });
+
+                video.addEventListener('timeupdate', () => {
+                    timeLabel.textContent = formatTime(video.currentTime) + ' / ' + formatTime(video.duration);
+                    if (!isSeekingProgress && video.duration > 0) {
+                        const pct = (video.currentTime / video.duration) * 100;
+                        progressFill.style.width = pct + '%';
+                    }
+                    if (video.buffered && video.buffered.length > 0 && video.duration > 0) {
+                        const bufEnd = video.buffered.end(video.buffered.length - 1);
+                        progressBuffered.style.width = (bufEnd / video.duration) * 100 + '%';
+                    }
+                });
+
+                window.addEventListener('resize', syncOverlaySize, { passive: true });
+                window.addEventListener('scroll', syncOverlaySize, { passive: true });
+            }
+
+            window._ucScanVideos = function() {
+                const videos = Array.from(document.querySelectorAll('video'));
+                let bestVideo = null;
+                let maxArea = 0;
+                for (const v of videos) {
+                    if (!isMainVideo(v)) continue;
+                    const area = (v.offsetWidth || 0) * (v.offsetHeight || 0);
+                    if (area > maxArea) {
+                        maxArea = area;
+                        bestVideo = v;
+                    }
+                }
+                if (bestVideo) {
+                    setupUcPlayer(bestVideo);
+                }
+            };
+
+            window._ucScanVideos();
+
+            window.addEventListener('play', (e) => {
+                if (e.target && e.target.tagName === 'VIDEO' && isMainVideo(e.target)) {
+                    setupUcPlayer(e.target);
+                }
+            }, true);
+
+            const obs = new MutationObserver(() => {
+                window._ucScanVideos();
+            });
+            obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
+
+            setTimeout(window._ucScanVideos, 500);
+            setTimeout(window._ucScanVideos, 1500);
+            setTimeout(window._ucScanVideos, 3000);
+        })();
+    """.trimIndent()
 }
+

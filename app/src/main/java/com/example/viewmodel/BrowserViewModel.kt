@@ -120,6 +120,28 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
+    fun startVideoDownload(url: String, title: String) {
+        val effectiveUrl = if (url.isBlank() || url.startsWith("blob:") || !url.startsWith("http")) {
+            repository.getDetectedStreamUrl(currentTab.id) ?: repository.lastDetectedStreamUrl ?: currentTab.url
+        } else {
+            url
+        }
+        val cleanTitle = title.trim()
+            .replace(Regex("[\\\\/:*?\"<>|\\r\\n]"), "_")
+            .ifBlank { "video_${System.currentTimeMillis()}" }
+        val ext = if (effectiveUrl.contains(".m3u8")) ".m3u8" else ".mp4"
+        val fileName = if (cleanTitle.endsWith(".mp4") || cleanTitle.endsWith(".m3u8")) cleanTitle else "$cleanTitle$ext"
+        val mimeType = if (ext == ".m3u8") "application/vnd.apple.mpegurl" else "video/mp4"
+
+        downloadManager.enqueueDownload(
+            url = effectiveUrl,
+            suggestedFileName = fileName,
+            mimeType = mimeType,
+            contentLength = 0L
+        )
+        _isDownloadManagerVisible.value = true
+    }
+
     fun confirmPendingDownload() {
         val pending = _pendingDownload.value ?: return
         downloadManager.enqueueDownload(
@@ -431,8 +453,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     // Video Detection & Floating Player
     fun onVideoFound(url: String, title: String, duration: Double, currentTime: Double, width: Int, height: Int) {
         val cleanTitle = title.ifBlank { currentTab.title }
+        val effectiveUrl = if (url.isBlank() || url.startsWith("blob:") || !url.startsWith("http")) {
+            repository.getDetectedStreamUrl(currentTab.id) ?: repository.lastDetectedStreamUrl ?: url
+        } else {
+            url
+        }
+        if (effectiveUrl.isNotBlank() && !effectiveUrl.startsWith("blob:")) {
+            repository.setDetectedStreamUrl(currentTab.id, effectiveUrl)
+        }
         val info = VideoMediaInfo(
-            url = url,
+            url = effectiveUrl,
             pageUrl = currentTab.url,
             title = cleanTitle,
             duration = duration,
@@ -446,9 +476,17 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun startFloatingPlayer(customVideo: VideoMediaInfo? = null) {
-        val video = customVideo ?: _detectedVideo.value
-        if (video != null) {
-            val updatedVideo = if (video.originTabIndex == null) video.copy(originTabIndex = _currentTabIndex.value) else video
+        val baseVideo = customVideo ?: _detectedVideo.value
+        if (baseVideo != null) {
+            val streamUrl = if (baseVideo.url.isBlank() || baseVideo.url.startsWith("blob:") || !baseVideo.url.startsWith("http")) {
+                repository.getDetectedStreamUrl(currentTab.id) ?: repository.lastDetectedStreamUrl ?: baseVideo.url
+            } else {
+                baseVideo.url
+            }
+            val updatedVideo = baseVideo.copy(
+                url = streamUrl,
+                originTabIndex = baseVideo.originTabIndex ?: _currentTabIndex.value
+            )
             _detectedVideo.value = updatedVideo
             _isFloatingPlayerVisible.value = true
             // Pause page video so only floating player plays
@@ -458,8 +496,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             activeWebView?.evaluateJavascript(Scripts.VIDEO_SNIFFER_PROBE, null)
             // Or create playable stream from active page
             if (currentTab.url.isNotBlank()) {
+                val streamUrl = repository.getDetectedStreamUrl(currentTab.id) ?: repository.lastDetectedStreamUrl ?: currentTab.url
                 val fallback = VideoMediaInfo(
-                    url = currentTab.url,
+                    url = streamUrl,
+                    pageUrl = currentTab.url,
                     title = currentTab.title,
                     videoWidth = 16,
                     videoHeight = 9,
@@ -467,13 +507,18 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 )
                 _detectedVideo.value = fallback
                 _isFloatingPlayerVisible.value = true
+                activeWebView?.evaluateJavascript(Scripts.PAUSE_WEB_VIDEOS, null)
             }
         }
     }
 
-    fun closeFloatingPlayer() {
+    fun closeFloatingPlayer(resumePositionSeconds: Double? = null) {
         _isFloatingPlayerVisible.value = false
-        activeWebView?.evaluateJavascript(Scripts.RESUME_WEB_VIDEOS, null)
+        if (resumePositionSeconds != null && resumePositionSeconds > 0) {
+            activeWebView?.evaluateJavascript(Scripts.resumeWebVideoAt(resumePositionSeconds), null)
+        } else {
+            activeWebView?.evaluateJavascript(Scripts.RESUME_WEB_VIDEOS, null)
+        }
     }
 
     // Fullscreen Custom View (Web Video)
