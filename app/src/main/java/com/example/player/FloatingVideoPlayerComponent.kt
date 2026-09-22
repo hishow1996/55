@@ -195,6 +195,7 @@ object FloatingVideoPlayerComponent {
             } else {
                 context.startService(intent)
             }
+            pendingGlobalVideo = null
             Toast.makeText(context, "已开启桌面悬浮窗播放", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             e.printStackTrace()
