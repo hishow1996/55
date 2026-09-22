@@ -303,11 +303,17 @@ class FloatingPlayerService : Service() {
             layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt())
             setOnClickListener {
                 currentSizeIndex = (currentSizeIndex + 1) % sizePresets.size
-                val newW = (sizePresets[currentSizeIndex] * density).toInt()
+                val screenW = resources.displayMetrics.widthPixels
+                val screenH = resources.displayMetrics.heightPixels
+                val newW = (sizePresets[currentSizeIndex] * density).toInt().coerceIn((160 * density).toInt(), screenW)
                 val effectiveRatio = if (videoRatio >= 1.2f) videoRatio else (16f / 9f)
-                val newH = (newW / effectiveRatio).toInt().coerceAtLeast((140 * density).toInt())
+                val newH = (newW / effectiveRatio).toInt().coerceIn((100 * density).toInt(), (screenH * 0.85f).toInt())
                 params.width = newW
                 params.height = newH
+                val maxX = (screenW - newW).coerceAtLeast(0)
+                val maxY = (screenH - newH).coerceAtLeast(0)
+                params.x = params.x.coerceIn(0, maxX)
+                params.y = params.y.coerceIn(0, maxY)
                 windowManager?.updateViewLayout(root, params)
                 resetHideTimer()
             }
@@ -583,8 +589,12 @@ class FloatingPlayerService : Service() {
                     val dy = event.rawY - initialTouchY
                     if (dx * dx + dy * dy > 16) {
                         isDragging = true
-                        params.x = (initialX + dx).toInt()
-                        params.y = (initialY + dy).toInt()
+                        val screenW = resources.displayMetrics.widthPixels
+                        val screenH = resources.displayMetrics.heightPixels
+                        val maxX = (screenW - params.width).coerceAtLeast(0)
+                        val maxY = (screenH - params.height).coerceAtLeast(0)
+                        params.x = (initialX + dx).toInt().coerceIn(0, maxX)
+                        params.y = (initialY + dy).toInt().coerceIn(0, maxY)
                         windowManager?.updateViewLayout(root, params)
                     }
                     true

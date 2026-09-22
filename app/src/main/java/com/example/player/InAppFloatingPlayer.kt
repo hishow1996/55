@@ -110,16 +110,41 @@ fun InAppFloatingPlayer(
         }
     }
 
+    val displayMetrics = context.resources.displayMetrics
+    val screenWidth = displayMetrics.widthPixels.toFloat()
+    val screenHeight = displayMetrics.heightPixels.toFloat()
+    val screenWidthDp = with(density) { screenWidth.toDp().value }
+    val screenHeightDp = with(density) { screenHeight.toDp().value }
+
+    // Floating window width can NEVER exceed the screen width
+    val maxWidthDp = screenWidthDp
+    val maxHeightDp = screenHeightDp * 0.85f
+
+    val minWidthDp = 160f.coerceAtMost(screenWidthDp * 0.5f)
+    val minHeightDp = 90f.coerceAtMost(screenHeightDp * 0.4f)
+
+    val initialWidthDp = remember(screenWidthDp) {
+        (screenWidthDp * 0.75f).coerceIn(minWidthDp, maxWidthDp)
+    }
+    val initialHeightDp = remember(initialWidthDp, baseRatio) {
+        (initialWidthDp / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+    }
+
     // In-app window size states
-    var windowWidthDp by remember { mutableFloatStateOf(280f) }
-    var windowHeightDp by remember { mutableFloatStateOf(280f / baseRatio) }
+    var windowWidthDp by remember { mutableFloatStateOf(initialWidthDp) }
+    var windowHeightDp by remember { mutableFloatStateOf(initialHeightDp) }
 
     // Lock aspect ratio during resizing
     var lockAspectRatio by remember { mutableStateOf(false) }
 
-    // Floating window position offset
-    var offsetX by remember { mutableFloatStateOf(40f) }
-    var offsetY by remember { mutableFloatStateOf(160f) }
+    // Floating window position offset (centered horizontally initially, strictly inside screen)
+    var offsetX by remember {
+        val initWidthPx = with(density) { initialWidthDp.dp.toPx() }
+        mutableFloatStateOf(((screenWidth - initWidthPx) / 2f).coerceAtLeast(0f))
+    }
+    var offsetY by remember {
+        mutableFloatStateOf((120f * density.density).coerceIn(0f, (screenHeight - 200f).coerceAtLeast(0f)))
+    }
 
     // Playback state
     var isPlaying by remember { mutableStateOf(true) }
@@ -184,16 +209,18 @@ fun InAppFloatingPlayer(
         }
     }
 
-    // Min and max size constraints for in-app floating
-    val minWidthDp = 180f
-    val minHeightDp = 110f
-    val maxWidthDp = 420f
-    val maxHeightDp = 600f
-
-    val displayMetrics = context.resources.displayMetrics
-    val screenWidth = displayMetrics.widthPixels.toFloat()
-    val screenHeight = displayMetrics.heightPixels.toFloat()
     val windowWidthPx = with(density) { windowWidthDp.dp.toPx() }
+    val windowHeightPx = with(density) { windowHeightDp.dp.toPx() }
+
+    // Ensure the floating window stays strictly within screen boundaries at all times
+    LaunchedEffect(windowWidthDp, windowHeightDp, screenWidth, screenHeight) {
+        val curW = with(density) { windowWidthDp.dp.toPx() }
+        val curH = with(density) { windowHeightDp.dp.toPx() }
+        val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
+        val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
+        offsetX = offsetX.coerceIn(0f, maxOffsetX)
+        offsetY = offsetY.coerceIn(0f, maxOffsetY)
+    }
 
     // --- Container Box Modifier ---
     val rootModifier = if (isDesktopPiP) {
@@ -333,11 +360,12 @@ fun InAppFloatingPlayer(
                     .pointerInput(Unit) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
-                            offsetX = (offsetX + dragAmount.x).coerceIn(
-                                -windowWidthPx * 0.7f,
-                                screenWidth - windowWidthPx * 0.3f
-                            )
-                            offsetY = (offsetY + dragAmount.y).coerceIn(20f, screenHeight - 80f)
+                            val curW = with(density) { windowWidthDp.dp.toPx() }
+                            val curH = with(density) { windowHeightDp.dp.toPx() }
+                            val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
+                            val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
+                            offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxOffsetX)
+                            offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxOffsetY)
                         }
                     }
                     .pointerInput(Unit) {
@@ -369,11 +397,12 @@ fun InAppFloatingPlayer(
                     .pointerInput(Unit) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
-                            offsetX = (offsetX + dragAmount.x).coerceIn(
-                                -windowWidthPx * 0.7f,
-                                screenWidth - windowWidthPx * 0.3f
-                            )
-                            offsetY = (offsetY + dragAmount.y).coerceIn(20f, screenHeight - 80f)
+                            val curW = with(density) { windowWidthDp.dp.toPx() }
+                            val curH = with(density) { windowHeightDp.dp.toPx() }
+                            val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
+                            val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
+                            offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxOffsetX)
+                            offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxOffsetY)
                         }
                     }
             }
@@ -658,22 +687,30 @@ fun InAppFloatingPlayer(
         }
 
         // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
+        // Resizing cannot exceed screen width or move/expand outside phone screen
         if (!isDesktopPiP && !isLocked) {
             // TOP EDGE RESIZE
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .height(14.dp)
+                    .height(16.dp)
                     .pointerInput(lockAspectRatio, baseRatio) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
                             val deltaDp = with(density) { dragAmount.y.toDp().value }
-                            val newHeight = (windowHeightDp - deltaDp).coerceIn(minHeightDp, maxHeightDp)
-                            offsetY += with(density) { (windowHeightDp - newHeight).dp.toPx() }
+                            val maxAllowedHeightDp = windowHeightDp + with(density) { offsetY.toDp().value }
+                            val maxH = minOf(maxHeightDp, maxAllowedHeightDp)
+                            val newHeight = (windowHeightDp - deltaDp).coerceIn(minHeightDp, maxH)
+                            val heightDiffPx = with(density) { (newHeight - windowHeightDp).dp.toPx() }
+                            offsetY = (offsetY - heightDiffPx).coerceAtLeast(0f)
                             windowHeightDp = newHeight
                             if (lockAspectRatio) {
-                                windowWidthDp = (newHeight * baseRatio).coerceIn(minWidthDp, maxWidthDp)
+                                val maxW = minOf(maxWidthDp, with(density) { (screenWidth - offsetX).toDp().value })
+                                val newWidth = (newHeight * baseRatio).coerceIn(minWidthDp, maxW)
+                                val newWidthPx = with(density) { newWidth.dp.toPx() }
+                                offsetX = offsetX.coerceIn(0f, (screenWidth - newWidthPx).coerceAtLeast(0f))
+                                windowWidthDp = newWidth
                             }
                         }
                     }
@@ -684,15 +721,21 @@ fun InAppFloatingPlayer(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(14.dp)
+                    .height(16.dp)
                     .pointerInput(lockAspectRatio, baseRatio) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
                             val deltaDp = with(density) { dragAmount.y.toDp().value }
-                            val newHeight = (windowHeightDp + deltaDp).coerceIn(minHeightDp, maxHeightDp)
+                            val maxAllowedHeightDp = with(density) { (screenHeight - offsetY).toDp().value }
+                            val maxH = minOf(maxHeightDp, maxAllowedHeightDp)
+                            val newHeight = (windowHeightDp + deltaDp).coerceIn(minHeightDp, maxH)
                             windowHeightDp = newHeight
                             if (lockAspectRatio) {
-                                windowWidthDp = (newHeight * baseRatio).coerceIn(minWidthDp, maxWidthDp)
+                                val maxW = minOf(maxWidthDp, with(density) { (screenWidth - offsetX).toDp().value })
+                                val newWidth = (newHeight * baseRatio).coerceIn(minWidthDp, maxW)
+                                val newWidthPx = with(density) { newWidth.dp.toPx() }
+                                offsetX = offsetX.coerceIn(0f, (screenWidth - newWidthPx).coerceAtLeast(0f))
+                                windowWidthDp = newWidth
                             }
                         }
                     }
@@ -703,16 +746,23 @@ fun InAppFloatingPlayer(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .fillMaxHeight()
-                    .width(14.dp)
+                    .width(16.dp)
                     .pointerInput(lockAspectRatio, baseRatio) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
                             val deltaDp = with(density) { dragAmount.x.toDp().value }
-                            val newWidth = (windowWidthDp - deltaDp).coerceIn(minWidthDp, maxWidthDp)
-                            offsetX += with(density) { (windowWidthDp - newWidth).dp.toPx() }
+                            val maxAllowedWidthDp = windowWidthDp + with(density) { offsetX.toDp().value }
+                            val maxW = minOf(maxWidthDp, maxAllowedWidthDp)
+                            val newWidth = (windowWidthDp - deltaDp).coerceIn(minWidthDp, maxW)
+                            val widthDiffPx = with(density) { (newWidth - windowWidthDp).dp.toPx() }
+                            offsetX = (offsetX - widthDiffPx).coerceAtLeast(0f)
                             windowWidthDp = newWidth
                             if (lockAspectRatio) {
-                                windowHeightDp = (newWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+                                val maxH = minOf(maxHeightDp, with(density) { (screenHeight - offsetY).toDp().value })
+                                val newHeight = (newWidth / baseRatio).coerceIn(minHeightDp, maxH)
+                                val newHeightPx = with(density) { newHeight.dp.toPx() }
+                                offsetY = offsetY.coerceIn(0f, (screenHeight - newHeightPx).coerceAtLeast(0f))
+                                windowHeightDp = newHeight
                             }
                         }
                     }
@@ -723,47 +773,64 @@ fun InAppFloatingPlayer(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .fillMaxHeight()
-                    .width(14.dp)
+                    .width(16.dp)
                     .pointerInput(lockAspectRatio, baseRatio) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
                             val deltaDp = with(density) { dragAmount.x.toDp().value }
-                            val newWidth = (windowWidthDp + deltaDp).coerceIn(minWidthDp, maxWidthDp)
+                            val maxAllowedWidthDp = with(density) { (screenWidth - offsetX).toDp().value }
+                            val maxW = minOf(maxWidthDp, maxAllowedWidthDp)
+                            val newWidth = (windowWidthDp + deltaDp).coerceIn(minWidthDp, maxW)
                             windowWidthDp = newWidth
                             if (lockAspectRatio) {
-                                windowHeightDp = (newWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+                                val maxH = minOf(maxHeightDp, with(density) { (screenHeight - offsetY).toDp().value })
+                                val newHeight = (newWidth / baseRatio).coerceIn(minHeightDp, maxH)
+                                val newHeightPx = with(density) { newHeight.dp.toPx() }
+                                offsetY = offsetY.coerceIn(0f, (screenHeight - newHeightPx).coerceAtLeast(0f))
+                                windowHeightDp = newHeight
                             }
                         }
                     }
             )
 
-            // CORNER RESIZE VISUAL ACCENTS (Bottom-Right Corner)
+            // CORNER RESIZE VISUAL ACCENTS (Bottom-Right Corner Handle)
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .size(26.dp)
+                    .size(32.dp)
                     .pointerInput(lockAspectRatio, baseRatio) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
                             val deltaXDp = with(density) { dragAmount.x.toDp().value }
                             val deltaYDp = with(density) { dragAmount.y.toDp().value }
-                            val newWidth = (windowWidthDp + deltaXDp).coerceIn(minWidthDp, maxWidthDp)
-                            val newHeight = if (lockAspectRatio) {
-                                (newWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
-                            } else {
-                                (windowHeightDp + deltaYDp).coerceIn(minHeightDp, maxHeightDp)
+                            val maxAllowedWidthDp = with(density) { (screenWidth - offsetX).toDp().value }
+                            val maxAllowedHeightDp = with(density) { (screenHeight - offsetY).toDp().value }
+                            val maxW = minOf(maxWidthDp, maxAllowedWidthDp)
+                            val maxH = minOf(maxHeightDp, maxAllowedHeightDp)
+
+                            var targetWidth = (windowWidthDp + deltaXDp).coerceIn(minWidthDp, maxW)
+                            var targetHeight = (windowHeightDp + deltaYDp).coerceIn(minHeightDp, maxH)
+
+                            if (lockAspectRatio) {
+                                val hFromW = targetWidth / baseRatio
+                                if (hFromW <= maxH && hFromW >= minHeightDp) {
+                                    targetHeight = hFromW
+                                } else {
+                                    targetHeight = targetHeight.coerceIn(minHeightDp, maxH)
+                                    targetWidth = (targetHeight * baseRatio).coerceIn(minWidthDp, maxW)
+                                }
                             }
-                            windowWidthDp = newWidth
-                            windowHeightDp = newHeight
+                            windowWidthDp = targetWidth
+                            windowHeightDp = targetHeight
                         }
                     }
             ) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(4.dp)
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(2.dp))
+                        .padding(5.dp)
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(3.dp))
                         .background(Color(0xFF38BDF8))
                 )
             }

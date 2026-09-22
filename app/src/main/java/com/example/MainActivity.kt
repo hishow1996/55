@@ -169,7 +169,7 @@ class MainActivity : ComponentActivity() {
                 if (inPipMode) {
                     // DESKTOP PICTURE-IN-PICTURE (FIGURE 2 SCENARIO)
                     // Render the exact same Unified Floating Player matching Figure 1 UI!
-                    val activeVideo = detectedVideo ?: VideoMediaInfo(
+                    val rawVideo = detectedVideo ?: VideoMediaInfo(
                         url = currentTab.url,
                         pageUrl = currentTab.url,
                         title = currentTab.title.ifBlank { "正在播放" },
@@ -177,6 +177,11 @@ class MainActivity : ComponentActivity() {
                         videoHeight = 9,
                         originTabIndex = currentTabIndex
                     )
+                    val activeVideo = if (FloatingVideoPlayerComponent.lastPlaybackPositionSeconds > 0) {
+                        rawVideo.copy(currentTime = FloatingVideoPlayerComponent.lastPlaybackPositionSeconds)
+                    } else {
+                        rawVideo
+                    }
                     InAppFloatingPlayer(
                         videoInfo = activeVideo,
                         isDesktopPiP = true,
@@ -531,29 +536,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun triggerGlobalFloatingOrPiP(video: VideoMediaInfo) {
-        if (FloatingVideoPlayerComponent.hasOverlayPermission(this)) {
-            viewModelRef?.closeFloatingPlayer()
-            FloatingVideoPlayerComponent.startSystemFloatingPlayer(
-                context = this,
-                video = video,
-                originTabIndex = video.originTabIndex ?: viewModelRef?.currentTabIndex?.value ?: 0
-            )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val rational = if (video.videoWidth > 0 && video.videoHeight > 0 && video.videoWidth > video.videoHeight) {
-                    Rational(video.videoWidth.coerceIn(1, 1000), video.videoHeight.coerceIn(1, 1000))
-                } else {
-                    Rational(16, 9)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (FloatingVideoPlayerComponent.hasPipPermission(this)) {
+                try {
+                    val pipParams = FloatingVideoPlayerComponent.buildPipParams(video)
+                    val entered = enterPictureInPictureMode(pipParams)
+                    if (!entered) {
+                        FloatingVideoPlayerComponent.openPipSettings(this)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    FloatingVideoPlayerComponent.openPipSettings(this)
                 }
-                val pipParams = PictureInPictureParams.Builder()
-                    .setAspectRatio(rational)
-                    .build()
-                enterPictureInPictureMode(pipParams)
-            } catch (e: Exception) {
-                FloatingVideoPlayerComponent.requestOverlayPermission(this)
+            } else {
+                // If Picture-in-Picture permission is not opened yet, jump directly to PiP settings page
+                FloatingVideoPlayerComponent.openPipSettings(this)
             }
         } else {
-            FloatingVideoPlayerComponent.requestOverlayPermission(this)
+            Toast.makeText(this, "当前系统版本不支持画中画全局悬浮", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -567,27 +567,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // When exiting the app, continue playing seamlessly in desktop floating window matching Figure 1
+        // When exiting the app, continue playing seamlessly in desktop PiP floating window
         val vm = viewModelRef ?: return
         val video = vm.detectedVideo.value
         val isFloating = vm.isFloatingPlayerVisible.value
         if ((isFloating || (video != null && video.isPlaying)) && video != null) {
-            if (FloatingVideoPlayerComponent.hasOverlayPermission(this)) {
-                vm.closeFloatingPlayer()
-                FloatingVideoPlayerComponent.startSystemFloatingPlayer(
-                    context = this,
-                    video = video,
-                    originTabIndex = video.originTabIndex ?: vm.currentTabIndex.value
-                )
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && FloatingVideoPlayerComponent.hasPipPermission(this)) {
                 try {
-                    val rational = if (video.videoWidth > 0 && video.videoHeight > 0 && video.videoWidth > video.videoHeight) {
-                        Rational(video.videoWidth.coerceIn(1, 1000), video.videoHeight.coerceIn(1, 1000))
-                    } else {
-                        Rational(16, 9)
-                    }
-                    enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(rational).build())
-                } catch (e: Exception) {}
+                    val pipParams = FloatingVideoPlayerComponent.buildPipParams(video)
+                    enterPictureInPictureMode(pipParams)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
