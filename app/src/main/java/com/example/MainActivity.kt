@@ -24,14 +24,22 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +52,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.BrowserRepository
@@ -51,11 +62,13 @@ import com.example.engine.ElephantWebBridge
 import com.example.engine.ElephantWebChromeClient
 import com.example.engine.ElephantWebViewClient
 import com.example.model.VideoMediaInfo
+import com.example.player.FloatingVideoPlayerComponent
 import com.example.player.InAppFloatingPlayer
 import com.example.service.FloatingPlayerService
 import com.example.ui.ai.AiChatDialog
 import com.example.ui.browser.BottomNavBar
 import com.example.ui.browser.BrowserTopBar
+import com.example.ui.download.DownloadManagerScreen
 import com.example.ui.history.HistoryBookmarksScreen
 import com.example.ui.home.HomeScreen
 import com.example.ui.menu.BrowserBottomSheetMenu
@@ -77,11 +90,16 @@ class MainActivity : ComponentActivity() {
             val viewModel: com.example.viewmodel.BrowserViewModel = viewModel()
             viewModelRef = viewModel
 
+            LaunchedEffect(Unit) {
+                handleTabIntent(intent)
+            }
+
             val isNightMode by viewModel.repository.isNightMode.collectAsState()
             val isDesktopMode by viewModel.repository.isDesktopMode.collectAsState()
             val isIncognito by viewModel.repository.isIncognito.collectAsState()
             val searchEngine by viewModel.repository.searchEngine.collectAsState()
             val quickSites by viewModel.repository.quickSites.collectAsState()
+            val bookmarks by viewModel.repository.bookmarks.collectAsState()
             val dataSavedMb by viewModel.repository.dataSavedMb.collectAsState()
 
             val tabs by viewModel.tabs.collectAsState()
@@ -100,12 +118,15 @@ class MainActivity : ComponentActivity() {
             val isHistoryBookmarksVisible by viewModel.isHistoryBookmarksVisible.collectAsState()
             val historyBookmarksInitialTab by viewModel.historyBookmarksInitialTab.collectAsState()
             val isAiChatVisible by viewModel.isAiChatVisible.collectAsState()
+            val isDownloadManagerVisible by viewModel.isDownloadManagerVisible.collectAsState()
+            val pendingDownload by viewModel.pendingDownload.collectAsState()
 
             // Back Press Handling
             BackHandler(enabled = true) {
                 when {
                     customVideoView != null -> viewModel.hideCustomVideoView()
                     isFloatingPlayerVisible -> viewModel.closeFloatingPlayer()
+                    isDownloadManagerVisible -> viewModel.setDownloadManagerVisible(false)
                     isPluginManagerVisible -> viewModel.setPluginManagerVisible(false)
                     isSettingsVisible -> viewModel.setSettingsVisible(false)
                     isHistoryBookmarksVisible -> viewModel.setHistoryBookmarksVisible(false)
@@ -129,7 +150,7 @@ class MainActivity : ComponentActivity() {
                             .statusBarsPadding()
                     ) {
                         // Top Bar: Visible when on a webpage
-                        if (currentTab.url.isNotBlank() && customVideoView == null) {
+                        if (!currentTab.isAtHome && customVideoView == null) {
                             BrowserTopBar(
                                 tab = currentTab,
                                 detectedVideo = detectedVideo,
@@ -140,7 +161,8 @@ class MainActivity : ComponentActivity() {
                                 onStop = { viewModel.stopLoading() },
                                 onToggleTranslation = { viewModel.toggleTranslation() },
                                 onDismissTranslation = { viewModel.dismissTranslationBanner() },
-                                onOpenFloatingPlayer = { viewModel.startFloatingPlayer() }
+                                onOpenFloatingPlayer = { viewModel.startFloatingPlayer() },
+                                onToggleDesktopMode = { viewModel.toggleDesktopMode() }
                             )
                         }
 
@@ -150,28 +172,38 @@ class MainActivity : ComponentActivity() {
                                 .weight(1f)
                                 .fillMaxWidth()
                         ) {
-                            if (currentTab.url.isBlank()) {
+                            if (currentTab.isAtHome) {
                                 HomeScreen(
                                     searchEngine = searchEngine,
                                     isIncognito = currentTab.isIncognito,
                                     isNightMode = isNightMode,
                                     quickSites = quickSites,
+                                    bookmarks = bookmarks,
                                     onSearch = { viewModel.navigateTo(it) },
                                     onSelectEngine = { viewModel.repository.setSearchEngine(it) },
-                                    onOpenDownloads = {
-                                        Toast.makeText(this@MainActivity, "暂无正在下载的文件", Toast.LENGTH_SHORT).show()
+                                    onAddQuickSite = { title, url, bgColor ->
+                                        viewModel.repository.addQuickSite(title, url, bgColor = bgColor)
                                     },
+                                    onRemoveQuickSite = { url ->
+                                        viewModel.repository.removeQuickSite(url)
+                                    },
+                                    onAddBookmarkToQuickSites = { bookmark ->
+                                        viewModel.repository.addBookmarkToQuickSites(bookmark)
+                                    },
+                                    onOpenDownloads = { viewModel.openDownloads() },
                                     onOpenAi = { viewModel.setAiChatVisible(true) },
                                     onOpenHistory = { viewModel.openHistory() },
                                     onOpenBookmarks = { viewModel.openBookmarks() }
                                 )
                             } else {
-                                // Chromium Core WebView Host
-                                ChromiumWebViewContainer(
-                                    tab = currentTab,
-                                    viewModel = viewModel,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                // Chromium Core WebView Host keyed by tab ID
+                                androidx.compose.runtime.key(currentTab.id) {
+                                    ChromiumWebViewContainer(
+                                        tab = currentTab,
+                                        viewModel = viewModel,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
 
                             // Fullscreen Web Video (HTML5 Custom View)
@@ -196,8 +228,8 @@ class MainActivity : ComponentActivity() {
                         // Bottom Navigation Bar (Image 2 style)
                         if (customVideoView == null) {
                             BottomNavBar(
-                                canGoBack = currentTab.canGoBack || currentTab.url.isNotBlank(),
-                                canGoForward = currentTab.canGoForward,
+                                canGoBack = !currentTab.isAtHome && (currentTab.canGoBack || viewModel.activeWebView?.canGoBack() == true),
+                                canGoForward = !currentTab.isAtHome && (currentTab.canGoForward || viewModel.activeWebView?.canGoForward() == true),
                                 tabCount = tabs.size,
                                 isIncognito = currentTab.isIncognito,
                                 isNightMode = isNightMode,
@@ -216,6 +248,10 @@ class MainActivity : ComponentActivity() {
                     if (isFloatingPlayerVisible && detectedVideo != null) {
                         InAppFloatingPlayer(
                             videoInfo = detectedVideo!!,
+                            currentTabIndex = currentTabIndex,
+                            onReturnToOriginTab = { originIdx ->
+                                viewModel.selectTab(originIdx)
+                            },
                             onClose = { viewModel.closeFloatingPlayer() },
                             onEnterGlobalPiP = {
                                 triggerGlobalFloatingOrPiP(detectedVideo!!)
@@ -238,9 +274,7 @@ class MainActivity : ComponentActivity() {
                             onDismiss = { viewModel.setMenuVisible(false) },
                             onOpenBookmarks = { viewModel.openBookmarks() },
                             onOpenHistory = { viewModel.openHistory() },
-                            onOpenDownloads = {
-                                Toast.makeText(this@MainActivity, "暂无正在下载的文件", Toast.LENGTH_SHORT).show()
-                            },
+                            onOpenDownloads = { viewModel.openDownloads() },
                             onOpenPlugins = { viewModel.setPluginManagerVisible(true) },
                             onOpenFloatingPlayer = { viewModel.startFloatingPlayer() },
                             onBookmarkPage = {
@@ -341,53 +375,95 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+
+                    // --- DOWNLOAD MANAGER SCREEN ---
+                    AnimatedVisibility(
+                        visible = isDownloadManagerVisible,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        DownloadManagerScreen(
+                            downloadManager = viewModel.downloadManager,
+                            isNightMode = isNightMode,
+                            onBack = { viewModel.setDownloadManagerVisible(false) }
+                        )
+                    }
+
+                    // --- PENDING DOWNLOAD CONFIRMATION DIALOG ---
+                    pendingDownload?.let { pending ->
+                        AlertDialog(
+                            onDismissRequest = { viewModel.dismissPendingDownload() },
+                            title = { Text("下载网页文件", fontWeight = FontWeight.Bold) },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("检测到可下载文件，是否开始下载？", fontSize = 14.sp)
+                                    Text("文件名: ${pending.fileName}", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                    if (pending.contentLength > 0) {
+                                        Text(
+                                            "文件大小: ${com.example.model.DownloadItem.formatBytes(pending.contentLength)}",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF64748B)
+                                        )
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                Button(
+                                    onClick = { viewModel.confirmPendingDownload() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                                ) {
+                                    Text("开始下载")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { viewModel.dismissPendingDownload() }) {
+                                    Text("取消")
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 
-    private fun triggerGlobalFloatingOrPiP(video: VideoMediaInfo) {
-        val width = if (video.videoWidth > 0) video.videoWidth else 16
-        val height = if (video.videoHeight > 0) video.videoHeight else 9
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleTabIntent(intent)
+    }
 
-        // 1. Check if can draw system overlays
-        val hasOverlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Settings.canDrawOverlays(this)
-        } else {
-            true
+    private fun handleTabIntent(intent: Intent?) {
+        if (intent != null && intent.hasExtra(FloatingPlayerService.EXTRA_SELECT_TAB)) {
+            val tabIndex = intent.getIntExtra(FloatingPlayerService.EXTRA_SELECT_TAB, 0)
+            viewModelRef?.selectTab(tabIndex)
         }
+    }
 
-        if (hasOverlayPermission) {
-            val serviceIntent = Intent(this, FloatingPlayerService::class.java).apply {
-                putExtra(FloatingPlayerService.EXTRA_VIDEO_URL, video.url)
-                putExtra(FloatingPlayerService.EXTRA_VIDEO_TITLE, video.title)
-                putExtra(FloatingPlayerService.EXTRA_VIDEO_RATIO, width.toFloat() / height.toFloat())
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
-            } else {
-                startService(serviceIntent)
-            }
-            Toast.makeText(this, "全局悬浮窗已在桌面开启", Toast.LENGTH_SHORT).show()
+    private fun triggerGlobalFloatingOrPiP(video: VideoMediaInfo) {
+        if (FloatingVideoPlayerComponent.hasOverlayPermission(this)) {
+            viewModelRef?.closeFloatingPlayer()
+            FloatingVideoPlayerComponent.startSystemFloatingPlayer(
+                context = this,
+                video = video,
+                originTabIndex = video.originTabIndex ?: viewModelRef?.currentTabIndex?.value ?: 0
+            )
         } else {
-            // Use Android Picture-in-Picture directly!
+            // Use Android Picture-in-Picture directly or request overlay
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 try {
+                    val width = if (video.videoWidth > 0) video.videoWidth else 16
+                    val height = if (video.videoHeight > 0) video.videoHeight else 9
                     val rational = Rational(width.coerceIn(1, 1000), height.coerceIn(1, 1000))
                     val pipParams = PictureInPictureParams.Builder()
                         .setAspectRatio(rational)
                         .build()
                     enterPictureInPictureMode(pipParams)
                 } catch (e: Exception) {
-                    Toast.makeText(this, "正在为您请求全局悬浮窗权限...", Toast.LENGTH_SHORT).show()
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                    startActivity(intent)
+                    FloatingVideoPlayerComponent.requestOverlayPermission(this)
                 }
             } else {
-                Toast.makeText(this, "请在设置中开启悬浮窗权限", Toast.LENGTH_SHORT).show()
+                FloatingVideoPlayerComponent.requestOverlayPermission(this)
             }
         }
     }
@@ -402,17 +478,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // If in-app floating player is currently active, enter PiP smoothly
+        // When exiting the app, continue playing in floating window mini player
         val vm = viewModelRef ?: return
         val video = vm.detectedVideo.value
-        if (vm.isFloatingPlayerVisible.value && video != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val width = if (video.videoWidth > 0) video.videoWidth else 16
-                val height = if (video.videoHeight > 0) video.videoHeight else 9
-                val rational = Rational(width.coerceIn(1, 1000), height.coerceIn(1, 1000))
-                enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(rational).build())
-            } catch (e: Exception) {
-                e.printStackTrace()
+        val isFloating = vm.isFloatingPlayerVisible.value
+        if ((isFloating || (video != null && video.isPlaying)) && video != null) {
+            if (FloatingVideoPlayerComponent.hasOverlayPermission(this)) {
+                vm.closeFloatingPlayer()
+                FloatingVideoPlayerComponent.startSystemFloatingPlayer(
+                    context = this,
+                    video = video,
+                    originTabIndex = video.originTabIndex ?: vm.currentTabIndex.value
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    val width = if (video.videoWidth > 0) video.videoWidth else 16
+                    val height = if (video.videoHeight > 0) video.videoHeight else 9
+                    val rational = Rational(width.coerceIn(1, 1000), height.coerceIn(1, 1000))
+                    enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(rational).build())
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
@@ -425,14 +511,26 @@ fun ChromiumWebViewContainer(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val isNightMode = tab.isNightMode || viewModel.repository.isNightMode.value
 
     AndroidView(
         factory = { ctx ->
-            WebView(ctx).apply {
+            // Use UI_MODE_NIGHT_NO context when night mode is off so Chromium engine reports prefers-color-scheme: light
+            val webViewContext = if (isNightMode) {
+                ctx
+            } else {
+                val config = Configuration(ctx.resources.configuration).apply {
+                    uiMode = Configuration.UI_MODE_NIGHT_NO or (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv())
+                }
+                ctx.createConfigurationContext(config)
+            }
+
+            WebView(webViewContext).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
+                setBackgroundColor(if (isNightMode) 0xFF111418.toInt() else android.graphics.Color.WHITE)
 
                 settings.apply {
                     javaScriptEnabled = true
@@ -444,9 +542,16 @@ fun ChromiumWebViewContainer(
                     displayZoomControls = false
                     useWideViewPort = tab.isDesktopMode
                     loadWithOverviewMode = tab.isDesktopMode
-                    userAgentString = if (tab.isDesktopMode) BrowserRepository.DESKTOP_USER_AGENT else BrowserRepository.MOBILE_USER_AGENT
+                    userAgentString = viewModel.repository.getUserAgent(tab.isDesktopMode)
                     cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        forceDark = if (isNightMode) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        isAlgorithmicDarkeningAllowed = isNightMode
+                    }
                 }
 
                 // Attach JavaScript Bridge
@@ -466,11 +571,10 @@ fun ChromiumWebViewContainer(
                     tab = tab,
                     repository = viewModel.repository,
                     onPageStart = { url ->
-                        tab.url = url
+                        viewModel.onPageStarted(url)
                     },
                     onPageFinish = { url, title ->
-                        tab.url = url
-                        tab.title = title
+                        viewModel.onPageFinished(url, title)
                     },
                     onAdBlocked = {}
                 )
@@ -478,13 +582,13 @@ fun ChromiumWebViewContainer(
                 webChromeClient = ElephantWebChromeClient(
                     tab = tab,
                     onProgressChange = { progress ->
-                        tab.progress = progress
+                        viewModel.onProgressChanged(progress)
                     },
                     onTitleChange = { title ->
-                        tab.title = title
+                        viewModel.onTitleChanged(title)
                     },
                     onIconChange = { icon ->
-                        tab.favicon = icon
+                        viewModel.onIconChanged(icon)
                     },
                     onShowCustomVideo = { view, callback ->
                         viewModel.showCustomVideoView(view, callback)
@@ -494,22 +598,42 @@ fun ChromiumWebViewContainer(
                     }
                 )
 
+                setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+                    viewModel.onDownloadRequested(url, userAgent, contentDisposition, mimetype, contentLength)
+                }
+
                 viewModel.activeWebView = this
 
-                if (tab.url.isNotBlank()) {
+                if (!tab.isAtHome) {
                     loadUrl(tab.url)
                 }
             }
         },
         update = { webView ->
             viewModel.activeWebView = webView
+            val currentNight = tab.isNightMode || viewModel.repository.isNightMode.value
+            webView.setBackgroundColor(if (currentNight) 0xFF111418.toInt() else android.graphics.Color.WHITE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val targetDark = if (currentNight) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
+                if (webView.settings.forceDark != targetDark) {
+                    webView.settings.forceDark = targetDark
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (webView.settings.isAlgorithmicDarkeningAllowed != currentNight) {
+                    webView.settings.isAlgorithmicDarkeningAllowed = currentNight
+                }
+            }
             // Update User Agent if Desktop mode changed
-            val targetUa = if (tab.isDesktopMode) BrowserRepository.DESKTOP_USER_AGENT else BrowserRepository.MOBILE_USER_AGENT
+            val targetUa = viewModel.repository.getUserAgent(tab.isDesktopMode)
             if (webView.settings.userAgentString != targetUa) {
                 webView.settings.userAgentString = targetUa
                 webView.settings.useWideViewPort = tab.isDesktopMode
                 webView.settings.loadWithOverviewMode = tab.isDesktopMode
                 webView.reload()
+            }
+            if (!tab.isAtHome && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {
+                webView.loadUrl(tab.url)
             }
         },
         modifier = modifier

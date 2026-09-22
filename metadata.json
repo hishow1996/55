@@ -1,6 +1,6 @@
 {
   "name": "大象",
-  "description": "原生Chromium内核浏览器，支持自定义插件系统、网页与全局悬浮窗播放器、无痕隐私模式、网页全文翻译及电脑端模式。",
+  "description": "原生Chromium内核浏览器，内置多线程下载管理器，支持自定义插件系统、网页与全局悬浮窗播放器、无痕隐私模式、网页全文翻译及电脑端模式。",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

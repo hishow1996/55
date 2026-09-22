@@ -224,4 +224,104 @@ object Scripts {
             if (style) style.remove();
         })();
     """.trimIndent()
+
+    val ENFORCE_LIGHT_MODE_HEAD = """
+        (function() {
+            try {
+                let meta = document.querySelector('meta[name="color-scheme"]');
+                if (!meta) {
+                    meta = document.createElement('meta');
+                    meta.name = 'color-scheme';
+                    (document.head || document.documentElement).appendChild(meta);
+                }
+                meta.content = 'light';
+                if (document.documentElement) {
+                    document.documentElement.style.colorScheme = 'light';
+                }
+                const origMatchMedia = window.matchMedia;
+                window.matchMedia = function(q) {
+                    if (q && q.includes('prefers-color-scheme: dark')) {
+                        return { matches: false, media: q, onchange: null, addListener: function(){}, removeListener: function(){}, addEventListener: function(){}, removeEventListener: function(){} };
+                    }
+                    if (q && q.includes('prefers-color-scheme: light')) {
+                        return { matches: true, media: q, onchange: null, addListener: function(){}, removeListener: function(){}, addEventListener: function(){}, removeEventListener: function(){} };
+                    }
+                    return origMatchMedia ? origMatchMedia.call(window, q) : { matches: false, media: q };
+                };
+            } catch(e) {}
+        })();
+    """.trimIndent()
+
+    val ENFORCE_LIGHT_MODE_FULL = """
+        (function() {
+            try {
+                const nightStyle = document.getElementById('elephant-night-style');
+                if (nightStyle) nightStyle.remove();
+
+                if (document.documentElement) {
+                    document.documentElement.style.colorScheme = 'light';
+                    document.documentElement.classList.remove('dark-mode', 'dark');
+                }
+                if (document.body) {
+                    document.body.classList.remove('dark-mode', 'dark');
+                }
+
+                if (location.hostname.includes('google.') && location.pathname.includes('/search')) {
+                    let googleFix = document.getElementById('elephant-google-light-fix');
+                    if (!googleFix) {
+                        googleFix = document.createElement('style');
+                        googleFix.id = 'elephant-google-light-fix';
+                        googleFix.textContent = `
+                            html, body, #main, #cnt, .o30Phf, .RNNXgb, .g, .MjjYud, .ynAwRc, .ULSXZ {
+                                background-color: #ffffff !important;
+                                color: #202124 !important;
+                            }
+                            .RNNXgb {
+                                background: #ffffff !important;
+                                border: 1px solid #dfe1e5 !important;
+                                box-shadow: 0 1px 6px rgba(32,33,36,.28) !important;
+                            }
+                            .kno-ecr-pt, .h74SDe, .DKV0Md, .LC20lb, h3, a h3 {
+                                color: #1a0dab !important;
+                            }
+                            .VwiC3b, .MUxGbd, .s3v9rd {
+                                color: #4d5156 !important;
+                            }
+                            .appbar, #hdtb, .hdtb-mbe {
+                                background: #ffffff !important;
+                            }
+                        `;
+                        (document.head || document.documentElement).appendChild(googleFix);
+                    }
+                }
+            } catch(e) {}
+        })();
+    """.trimIndent()
+
+    /**
+     * Script injected when Desktop Mode is active.
+     * Overrides screen dimensions, platform, and viewport meta tags so websites render
+     * in full desktop layout without constraining to mobile phone viewports.
+     */
+    val DESKTOP_MODE_INJECT = """
+        (function() {
+            try {
+                if (window.screen) {
+                    try { Object.defineProperty(window.screen, 'width', { get: () => 1920 }); } catch(e){}
+                    try { Object.defineProperty(window.screen, 'height', { get: () => 1080 }); } catch(e){}
+                    try { Object.defineProperty(window.screen, 'availWidth', { get: () => 1920 }); } catch(e){}
+                    try { Object.defineProperty(window.screen, 'availHeight', { get: () => 1040 }); } catch(e){}
+                }
+                if (navigator) {
+                    try { Object.defineProperty(navigator, 'platform', { get: () => 'Win32' }); } catch(e){}
+                    try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 0 }); } catch(e){}
+                }
+                // If a mobile-restricting viewport exists, widen it to standard desktop 1280
+                const meta = document.querySelector('meta[name="viewport"]');
+                if (meta) {
+                    meta.setAttribute('content', 'width=1280, initial-scale=0.25, maximum-scale=3.0, user-scalable=yes');
+                }
+            } catch(e) {}
+        })();
+    """.trimIndent()
 }

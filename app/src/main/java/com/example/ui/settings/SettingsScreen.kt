@@ -16,28 +16,39 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.LaptopMac
+import androidx.compose.material.icons.filled.TabletMac
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +62,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.BrowserRepository
+import com.example.model.SearchEngines
+import com.example.ui.home.SearchEngineLogo
 
 @Composable
 fun SettingsScreen(
@@ -63,8 +76,11 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val desktopUaType by repository.desktopUaType.collectAsState()
+    val customUa by repository.customUserAgent.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
     var showSearchEngineDialog by remember { mutableStateOf(false) }
+    var showUaDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
 
     val bg = if (isNightMode) Color(0xFF111418) else Color(0xFFFFFFFF)
@@ -165,26 +181,37 @@ fun SettingsScreen(
             )
 
             SettingsItem(
-                title = "浏览设置",
-                detail = if (isDesktopMode) "默认电脑端模式" else "默认移动端模式",
+                title = "默认电脑端模式",
+                detail = if (isDesktopMode) "已开启 (新建标签页默认以电脑版打开)" else "已关闭 (新建标签页默认以移动端打开)",
                 textColor = textColor,
-                subTextColor = subTextColor,
+                subTextColor = if (isDesktopMode) Color(0xFF2563EB) else subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
-                    repository.setDesktopMode(!isDesktopMode)
-                    Toast.makeText(context, "已切换为${if (!isDesktopMode) "电脑端" else "移动端"}模式", Toast.LENGTH_SHORT).show()
+                    val newState = !isDesktopMode
+                    repository.setDesktopMode(newState)
+                    Toast.makeText(context, if (newState) "已开启默认电脑端模式" else "已恢复默认移动端模式", Toast.LENGTH_SHORT).show()
                 }
+            )
+
+            val uaDisplayName = when (desktopUaType) {
+                "mac" -> "Mac Safari / Chrome (苹果电脑)"
+                "ipad" -> "iPad / 平板电脑"
+                "custom" -> "自定义 User-Agent"
+                else -> "Windows Chrome (默认电脑版)"
+            }
+
+            SettingsItem(
+                title = "电脑版 User-Agent (用户代理)",
+                detail = "$uaDisplayName · 点击配置",
+                textColor = textColor,
+                subTextColor = Color(0xFF2563EB),
+                dividerColor = dividerColor,
+                onClick = { showUaDialog = true }
             )
 
             SettingsItem(
                 title = "搜索引擎",
-                detail = when (searchEngine) {
-                    "baidu" -> "百度"
-                    "bing" -> "微软必应"
-                    "360" -> "360 搜索"
-                    "sogou" -> "搜狗搜索"
-                    else -> "谷歌 Google"
-                },
+                detail = SearchEngines.getById(searchEngine).name,
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
@@ -298,35 +325,178 @@ fun SettingsScreen(
             onDismissRequest = { showSearchEngineDialog = false },
             title = { Text("选择默认搜索引擎") },
             text = {
-                Column {
-                    listOf(
-                        "google" to "谷歌 (Google)",
-                        "baidu" to "百度 (Baidu)",
-                        "bing" to "微软必应 (Bing)",
-                        "360" to "360 搜索",
-                        "sogou" to "搜狗搜索"
-                    ).forEach { (key, label) ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    SearchEngines.ALL.forEach { item ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    repository.setSearchEngine(key)
+                                    repository.setSearchEngine(item.id)
                                     showSearchEngineDialog = false
                                 }
-                                .padding(vertical = 12.dp),
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = label,
-                                fontSize = 15.sp,
-                                fontWeight = if (searchEngine == key) FontWeight.Bold else FontWeight.Normal,
-                                color = if (searchEngine == key) Color(0xFF2563EB) else textColor
+                            SearchEngineLogo(
+                                engine = item.id,
+                                modifier = Modifier.size(24.dp)
                             )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.name,
+                                    fontSize = 15.sp,
+                                    fontWeight = if (searchEngine == item.id) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (searchEngine == item.id) Color(0xFF2563EB) else textColor
+                                )
+                                Text(
+                                    text = item.category,
+                                    fontSize = 12.sp,
+                                    color = subTextColor
+                                )
+                            }
+                            if (searchEngine == item.id) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "已选择",
+                                    tint = Color(0xFF2563EB),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
             },
             confirmButton = {}
+        )
+    }
+
+    // User-Agent Selection & Customization Dialog
+    if (showUaDialog) {
+        var selectedType by remember { mutableStateOf(desktopUaType) }
+        var customInput by remember { mutableStateOf(customUa) }
+
+        AlertDialog(
+            onDismissRequest = { showUaDialog = false },
+            title = {
+                Text("电脑版 User-Agent (用户代理) 设置")
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = "切换为电脑版模式时，浏览器向网站发送的 User-Agent 标头。网站将根据此标头返回完整的电脑端桌面布局。",
+                        fontSize = 12.sp,
+                        color = subTextColor,
+                        lineHeight = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val options = listOf(
+                        Triple("windows", "Windows Chrome (推荐)", BrowserRepository.DESKTOP_WINDOWS_UA),
+                        Triple("mac", "Mac Safari / Chrome (苹果电脑)", BrowserRepository.DESKTOP_MAC_UA),
+                        Triple("ipad", "iPad / 平板电脑版", BrowserRepository.DESKTOP_IPAD_UA),
+                        Triple("custom", "自定义 User-Agent", if (customInput.isNotBlank()) customInput else "输入自定义 UA 字符串")
+                    )
+
+                    options.forEach { (typeKey, title, sampleUa) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedType = typeKey }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedType == typeKey,
+                                onClick = { selectedType = typeKey }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = title,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (selectedType == typeKey) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedType == typeKey) Color(0xFF2563EB) else textColor
+                                )
+                                Text(
+                                    text = sampleUa,
+                                    fontSize = 10.sp,
+                                    color = subTextColor,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    if (selectedType == "custom") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = customInput,
+                            onValueChange = { customInput = it },
+                            label = { Text("自定义 User-Agent 字符串", fontSize = 12.sp) },
+                            placeholder = { Text("例如：Mozilla/5.0 ...", fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            maxLines = 3
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF2563EB).copy(alpha = 0.08f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "当前选定 User-Agent：",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2563EB)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            val activeUaString = when (selectedType) {
+                                "mac" -> BrowserRepository.DESKTOP_MAC_UA
+                                "ipad" -> BrowserRepository.DESKTOP_IPAD_UA
+                                "custom" -> customInput.ifBlank { BrowserRepository.DESKTOP_WINDOWS_UA }
+                                else -> BrowserRepository.DESKTOP_WINDOWS_UA
+                            }
+                            Text(
+                                text = activeUaString,
+                                fontSize = 10.sp,
+                                color = subTextColor,
+                                lineHeight = 13.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    repository.setDesktopUaType(selectedType)
+                    if (selectedType == "custom") {
+                        repository.setCustomUserAgent(customInput.trim())
+                    }
+                    showUaDialog = false
+                    Toast.makeText(context, "电脑版 User-Agent 已保存", Toast.LENGTH_SHORT).show()
+                }) {
+                    Text("保存", color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUaDialog = false }) {
+                    Text("取消")
+                }
+            }
         )
     }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
@@ -39,6 +41,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -96,6 +99,7 @@ fun HistoryBookmarksScreen(
 
     val bookmarks by repository.bookmarks.collectAsState()
     val history by repository.history.collectAsState()
+    val quickSites by repository.quickSites.collectAsState()
 
     val bg = if (isNightMode) Color(0xFF111418) else Color(0xFFFFFFFF)
     val cardBg = if (isNightMode) Color(0xFF1A1F26) else Color(0xFFF8FAFC)
@@ -291,11 +295,21 @@ fun HistoryBookmarksScreen(
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(filteredBookmarks, key = { it.id }) { item ->
+                        val isInQuickSites = quickSites.any { it.url.equals(item.url, ignoreCase = true) }
                         BookmarkRow(
                             item = item,
                             textColor = textColor,
                             subTextColor = subTextColor,
                             isNightMode = isNightMode,
+                            isInQuickSites = isInQuickSites,
+                            onAddToQuickSites = {
+                                val added = repository.addBookmarkToQuickSites(item)
+                                if (added) {
+                                    Toast.makeText(context, "已添加到主页导航", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "已在主页导航中", Toast.LENGTH_SHORT).show()
+                                }
+                            },
                             onClick = { onOpenUrl(item.url) },
                             onDelete = {
                                 repository.deleteBookmark(item.id)
@@ -656,6 +670,8 @@ private fun BookmarkRow(
     textColor: Color,
     subTextColor: Color,
     isNightMode: Boolean,
+    isInQuickSites: Boolean,
+    onAddToQuickSites: () -> Unit,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -705,6 +721,45 @@ private fun BookmarkRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+
+        Spacer(modifier = Modifier.width(6.dp))
+
+        if (isInQuickSites) {
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = if (isNightMode) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(end = 4.dp)
+            ) {
+                Text(
+                    text = "已在主页",
+                    fontSize = 11.sp,
+                    color = if (isNightMode) Color(0xFF94A3B8) else Color(0xFF64748B),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
+        } else {
+            OutlinedButton(
+                onClick = onAddToQuickSites,
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier
+                    .height(28.dp)
+                    .padding(end = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Text(
+                    text = "加到主页",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
 
         IconButton(

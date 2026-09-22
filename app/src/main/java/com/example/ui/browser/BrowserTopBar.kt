@@ -21,11 +21,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DesktopMac
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Videocam
@@ -66,6 +68,7 @@ fun BrowserTopBar(
     onToggleTranslation: () -> Unit,
     onDismissTranslation: () -> Unit,
     onOpenFloatingPlayer: () -> Unit,
+    onToggleDesktopMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -129,12 +132,25 @@ fun BrowserTopBar(
                             value = inputUrl,
                             onValueChange = { inputUrl = it },
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                            keyboardActions = KeyboardActions(onGo = {
-                                isEditing = false
-                                focusManager.clearFocus()
-                                onNavigate(inputUrl)
-                            }),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    isEditing = false
+                                    focusManager.clearFocus()
+                                    val trimmed = inputUrl.trim()
+                                    if (trimmed.isNotEmpty()) {
+                                        onNavigate(trimmed)
+                                    }
+                                },
+                                onGo = {
+                                    isEditing = false
+                                    focusManager.clearFocus()
+                                    val trimmed = inputUrl.trim()
+                                    if (trimmed.isNotEmpty()) {
+                                        onNavigate(trimmed)
+                                    }
+                                }
+                            ),
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent,
@@ -144,6 +160,39 @@ fun BrowserTopBar(
                             ),
                             modifier = Modifier.weight(1f)
                         )
+
+                        if (inputUrl.isNotEmpty()) {
+                            IconButton(
+                                onClick = { inputUrl = "" },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "清空输入",
+                                    tint = subTextColor,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = {
+                                isEditing = false
+                                focusManager.clearFocus()
+                                val trimmed = inputUrl.trim()
+                                if (trimmed.isNotEmpty()) {
+                                    onNavigate(trimmed)
+                                }
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "前往",
+                                tint = Color(0xFF3B82F6),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     } else {
                         Column(
                             modifier = Modifier
@@ -171,32 +220,52 @@ fun BrowserTopBar(
                                 )
                             }
                         }
-                    }
 
-                    // Desktop mode indicator badge
-                    if (tab.isDesktopMode) {
-                        Icon(
-                            imageVector = Icons.Default.DesktopMac,
-                            contentDescription = "电脑端模式",
-                            tint = Color(0xFF3B82F6),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
+                        // Desktop mode quick toggle & indicator badge
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (tab.isDesktopMode) Color(0xFF3B82F6).copy(alpha = 0.15f) else Color.Transparent,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable(onClick = onToggleDesktopMode)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DesktopMac,
+                                    contentDescription = if (tab.isDesktopMode) "已开启电脑模式，点击切换回手机版" else "点击切换为电脑版",
+                                    tint = if (tab.isDesktopMode) Color(0xFF2563EB) else subTextColor.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                if (tab.isDesktopMode) {
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "电脑版",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2563EB)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(2.dp))
 
-                    // Refresh or Stop button
-                    IconButton(
-                        onClick = {
-                            if (tab.isLoading) onStop() else onReload()
-                        },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (tab.isLoading) Icons.Default.Close else Icons.Default.Refresh,
-                            contentDescription = if (tab.isLoading) "停止" else "刷新",
-                            tint = subTextColor,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        // Refresh or Stop button
+                        IconButton(
+                            onClick = {
+                                if (tab.isLoading) onStop() else onReload()
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (tab.isLoading) Icons.Default.Close else Icons.Default.Refresh,
+                                contentDescription = if (tab.isLoading) "停止" else "刷新",
+                                tint = subTextColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }

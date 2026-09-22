@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
@@ -79,6 +81,8 @@ fun InAppFloatingPlayer(
     onClose: () -> Unit,
     onEnterGlobalPiP: () -> Unit,
     onEnterFullscreen: () -> Unit,
+    currentTabIndex: Int = 0,
+    onReturnToOriginTab: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -361,6 +365,39 @@ fun InAppFloatingPlayer(
                             tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )
+                    }
+                }
+
+                // Return to Origin Tab Button (when viewing another tab in the browser!)
+                if (videoInfo.originTabIndex != null && videoInfo.originTabIndex != currentTabIndex && onReturnToOriginTab != null) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF2563EB).copy(alpha = 0.95f),
+                        shadowElevation = 4.dp,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 54.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { onReturnToOriginTab(videoInfo.originTabIndex) }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回视频标签",
+                                tint = Color.White,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "返回原标签页",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 

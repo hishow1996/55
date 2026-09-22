@@ -23,6 +23,14 @@ class BrowserRepository(private val context: Context) {
     private val _isDesktopMode = MutableStateFlow(prefs.getBoolean(KEY_DESKTOP_MODE, false))
     val isDesktopMode: StateFlow<Boolean> = _isDesktopMode.asStateFlow()
 
+    // Flow for Desktop UA profile: "windows", "mac", "ipad", "custom"
+    private val _desktopUaType = MutableStateFlow(prefs.getString(KEY_DESKTOP_UA_TYPE, "windows") ?: "windows")
+    val desktopUaType: StateFlow<String> = _desktopUaType.asStateFlow()
+
+    // Flow for custom user agent string
+    private val _customUserAgent = MutableStateFlow(prefs.getString(KEY_CUSTOM_UA, "") ?: "")
+    val customUserAgent: StateFlow<String> = _customUserAgent.asStateFlow()
+
     // Flow for Incognito Mode
     private val _isIncognito = MutableStateFlow(false)
     val isIncognito: StateFlow<Boolean> = _isIncognito.asStateFlow()
@@ -52,13 +60,14 @@ class BrowserRepository(private val context: Context) {
     val plugins: StateFlow<List<PluginItem>> = _plugins.asStateFlow()
 
     // Quick sites
-    private val _quickSites = MutableStateFlow<List<QuickSite>>(getQuickSites())
+    private val _quickSites = MutableStateFlow<List<QuickSite>>(emptyList())
     val quickSites: StateFlow<List<QuickSite>> = _quickSites.asStateFlow()
 
     init {
         loadBookmarks()
         loadHistory()
         loadPlugins()
+        loadQuickSites()
     }
 
     fun setNightMode(enabled: Boolean) {
@@ -69,6 +78,41 @@ class BrowserRepository(private val context: Context) {
     fun setDesktopMode(enabled: Boolean) {
         _isDesktopMode.value = enabled
         prefs.edit().putBoolean(KEY_DESKTOP_MODE, enabled).apply()
+    }
+
+    fun setDesktopUaType(type: String) {
+        _desktopUaType.value = type
+        prefs.edit().putString(KEY_DESKTOP_UA_TYPE, type).apply()
+    }
+
+    fun setCustomUserAgent(ua: String) {
+        _customUserAgent.value = ua
+        prefs.edit().putString(KEY_CUSTOM_UA, ua).apply()
+    }
+
+    fun getDesktopUserAgent(): String {
+        return when (_desktopUaType.value) {
+            "mac" -> DESKTOP_MAC_UA
+            "ipad" -> DESKTOP_IPAD_UA
+            "custom" -> _customUserAgent.value.ifBlank { DESKTOP_WINDOWS_UA }
+            else -> DESKTOP_WINDOWS_UA
+        }
+    }
+
+    fun getUserAgent(isDesktop: Boolean): String {
+        return if (isDesktop) getDesktopUserAgent() else MOBILE_USER_AGENT
+    }
+
+    fun convertToDesktopUrl(url: String): String {
+        if (url.isBlank()) return url
+        return url
+            .replace("://m.bilibili.com", "://www.bilibili.com")
+            .replace("://m.baidu.com", "://www.baidu.com")
+            .replace("://m.weibo.cn", "://weibo.com")
+            .replace("://m.youtube.com", "://www.youtube.com")
+            .replace("://m.zhihu.com", "://www.zhihu.com")
+            .replace("://mobile.twitter.com", "://twitter.com")
+            .replace("://mobile.x.com", "://x.com")
     }
 
     fun setIncognito(enabled: Boolean) {
@@ -331,7 +375,53 @@ class BrowserRepository(private val context: Context) {
         prefs.edit().putString(KEY_PLUGINS, array.toString()).apply()
     }
 
-    fun getQuickSites(): List<QuickSite> = listOf(
+    private fun loadQuickSites() {
+        val raw = prefs.getString(KEY_QUICK_SITES, null)
+        if (raw == null) {
+            val defaults = getDefaultQuickSites()
+            _quickSites.value = defaults
+            saveQuickSites(defaults)
+        } else {
+            try {
+                val array = JSONArray(raw)
+                val list = mutableListOf<QuickSite>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    list.add(
+                        QuickSite(
+                            title = obj.optString("title"),
+                            url = obj.optString("url"),
+                            iconName = obj.optString("iconName"),
+                            bgColor = obj.optLong("bgColor", 0xFFF1F5F9),
+                            isCustom = obj.optBoolean("isCustom", false)
+                        )
+                    )
+                }
+                if (list.none { it.url == "action://more" || it.title == "更多" }) {
+                    list.add(QuickSite("更多", "action://more", "more", 0xFF6366F1))
+                }
+                _quickSites.value = list
+            } catch (e: Exception) {
+                _quickSites.value = getDefaultQuickSites()
+            }
+        }
+    }
+
+    private fun saveQuickSites(list: List<QuickSite>) {
+        val array = JSONArray()
+        list.forEach { item ->
+            val obj = JSONObject()
+            obj.put("title", item.title)
+            obj.put("url", item.url)
+            obj.put("iconName", item.iconName)
+            obj.put("bgColor", item.bgColor)
+            obj.put("isCustom", item.isCustom)
+            array.put(obj)
+        }
+        prefs.edit().putString(KEY_QUICK_SITES, array.toString()).apply()
+    }
+
+    fun getDefaultQuickSites(): List<QuickSite> = listOf(
         QuickSite("Google", "https://www.google.com", "google", 0xFFFFFFFF),
         QuickSite("百度", "https://www.baidu.com", "baidu", 0xFF2932E1),
         QuickSite("哔哩哔哩", "https://m.bilibili.com", "bilibili", 0xFFFB7299),
@@ -341,38 +431,108 @@ class BrowserRepository(private val context: Context) {
         QuickSite("知乎", "https://www.zhihu.com", "zhihu", 0xFF0084FF),
         QuickSite("GitHub", "https://github.com", "github", 0xFF24292E),
         QuickSite("微博", "https://m.weibo.cn", "weibo", 0xFFE6162D),
-        QuickSite("更多", "https://hao.qq.com", "more", 0xFF6366F1)
+        QuickSite("更多", "action://more", "more", 0xFF6366F1)
     )
+
+    fun getQuickSites(): List<QuickSite> = _quickSites.value
+
+    fun addQuickSite(title: String, url: String, iconName: String = "", bgColor: Long = 0xFF3B82F6): Boolean {
+        val cleanUrl = url.trim()
+        if (cleanUrl.isBlank() || cleanUrl == "action://more") return false
+        val current = _quickSites.value.toMutableList()
+        if (current.any { it.url.equals(cleanUrl, ignoreCase = true) }) {
+            return false
+        }
+        val newSite = QuickSite(
+            title = title.trim().ifBlank { cleanUrl },
+            url = cleanUrl,
+            iconName = iconName.ifBlank { "custom" },
+            bgColor = bgColor,
+            isCustom = true
+        )
+        val moreIndex = current.indexOfFirst { it.url == "action://more" || it.title == "更多" }
+        if (moreIndex != -1) {
+            current.add(moreIndex, newSite)
+        } else {
+            current.add(newSite)
+            current.add(QuickSite("更多", "action://more", "more", 0xFF6366F1))
+        }
+        _quickSites.value = current
+        saveQuickSites(current)
+        return true
+    }
+
+    fun removeQuickSite(url: String) {
+        if (url == "action://more") return
+        val current = _quickSites.value.toMutableList()
+        current.removeAll { it.url == url }
+        if (current.none { it.url == "action://more" || it.title == "更多" }) {
+            current.add(QuickSite("更多", "action://more", "more", 0xFF6366F1))
+        }
+        _quickSites.value = current
+        saveQuickSites(current)
+    }
+
+    fun isQuickSite(url: String): Boolean {
+        val clean = url.trim()
+        return _quickSites.value.any { it.url.equals(clean, ignoreCase = true) }
+    }
+
+    fun addBookmarkToQuickSites(bookmark: BookmarkItem): Boolean {
+        return addQuickSite(bookmark.title, bookmark.url, "bookmark", 0xFF0284C7)
+    }
 
     fun getSearchUrl(query: String): String {
         val q = query.trim()
-        if (q.startsWith("http://") || q.startsWith("https://")) {
+        if (q.isBlank()) return ""
+        if (q.startsWith("http://", ignoreCase = true) || q.startsWith("https://", ignoreCase = true)) {
             return q
         }
-        if (q.contains(".") && !q.contains(" ") && (q.endsWith(".com") || q.endsWith(".cn") || q.endsWith(".org") || q.endsWith(".net") || q.endsWith(".io") || q.endsWith(".tv") || q.endsWith(".cc") || q.endsWith(".top"))) {
+        // Match common web addresses, domains or IP addresses (e.g. baidu.com, bilibili.com/video, 192.168.1.1)
+        val domainRegex = "^(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{2,6}\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)$".toRegex()
+        if (!q.contains(" ") && (domainRegex.matches(q) || q.startsWith("www.") || q.contains(".com") || q.contains(".cn") || q.contains(".org") || q.contains(".net") || q.contains(".tv") || q.contains(".io"))) {
             return "https://$q"
         }
-        val encoded = java.net.URLEncoder.encode(q, "UTF-8")
+        val encoded = try {
+            java.net.URLEncoder.encode(q, "UTF-8")
+        } catch (e: Exception) {
+            q
+        }
         return when (_searchEngine.value) {
             "baidu" -> "https://www.baidu.com/s?wd=$encoded"
             "bing" -> "https://www.bing.com/search?q=$encoded"
             "360" -> "https://www.so.com/s?q=$encoded"
             "sogou" -> "https://www.sogou.com/web?query=$encoded"
-            else -> "https://www.google.com/search?q=$encoded"
+            "quark" -> "https://quark.sm.cn/s?q=$encoded"
+            "toutiao" -> "https://so.toutiao.com/search?keyword=$encoded"
+            "duckduckgo" -> "https://duckduckgo.com/?q=$encoded"
+            "zhihu" -> "https://www.zhihu.com/search?type=content&q=$encoded"
+            "bilibili" -> "https://search.bilibili.com/all?keyword=$encoded"
+            "github" -> "https://github.com/search?q=$encoded"
+            "yandex" -> "https://yandex.com/search/?text=$encoded"
+            else -> "https://www.google.com/search?q=$encoded&cs=0"
         }
     }
 
     companion object {
         private const val KEY_NIGHT_MODE = "pref_night_mode"
         private const val KEY_DESKTOP_MODE = "pref_desktop_mode"
+        private const val KEY_DESKTOP_UA_TYPE = "pref_desktop_ua_type"
+        private const val KEY_CUSTOM_UA = "pref_custom_ua"
         private const val KEY_SEARCH_ENGINE = "pref_search_engine"
         private const val KEY_ADBLOCK = "pref_adblock"
         private const val KEY_DATA_SAVED = "pref_data_saved"
         private const val KEY_BOOKMARKS = "pref_bookmarks"
         private const val KEY_HISTORY = "pref_history"
         private const val KEY_PLUGINS = "pref_plugins"
+        private const val KEY_QUICK_SITES = "pref_quick_sites"
 
-        val DESKTOP_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-        val MOBILE_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36 Elephant/1.0"
+        // Desktop User Agents
+        const val DESKTOP_WINDOWS_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+        const val DESKTOP_MAC_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+        const val DESKTOP_IPAD_UA = "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
+
+        const val DESKTOP_USER_AGENT = DESKTOP_WINDOWS_UA
+        const val MOBILE_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36 Elephant/1.0"
     }
 }

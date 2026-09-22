@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Language
@@ -61,7 +64,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.BrowserRepository
+import com.example.model.BookmarkItem
 import com.example.model.QuickSite
+import com.example.model.SearchEngines
+
+@Composable
+fun SearchEngineLogo(
+    engine: String,
+    modifier: Modifier = Modifier
+) {
+    val info = SearchEngines.getById(engine)
+    Icon(
+        painter = painterResource(id = info.iconRes),
+        contentDescription = info.shortName,
+        tint = Color.Unspecified,
+        modifier = modifier
+    )
+}
 
 @Composable
 fun HomeScreen(
@@ -69,16 +88,22 @@ fun HomeScreen(
     isIncognito: Boolean,
     isNightMode: Boolean,
     quickSites: List<QuickSite>,
+    bookmarks: List<BookmarkItem> = emptyList(),
     onSearch: (String) -> Unit,
     onSelectEngine: (String) -> Unit,
+    onAddQuickSite: (title: String, url: String, bgColor: Long) -> Boolean = { _, _, _ -> false },
+    onRemoveQuickSite: (url: String) -> Unit = {},
+    onAddBookmarkToQuickSites: (bookmark: BookmarkItem) -> Boolean = { false },
     onOpenDownloads: () -> Unit,
     onOpenAi: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenBookmarks: () -> Unit,
+    onOpenMoreSites: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var query by remember { mutableStateOf("") }
     var engineMenuExpanded by remember { mutableStateOf(false) }
+    var showMoreSitesSheet by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     val bgColor = if (isNightMode) Color(0xFF111418) else Color(0xFFFAFBFD)
@@ -161,16 +186,10 @@ fun HomeScreen(
                             }
                         }
                     }
-                    Text(
-                        text = "原生Chromium内核 · 极速隐私播放器",
-                        fontSize = 11.sp,
-                        color = subTextColor,
-                        letterSpacing = 0.5.sp
-                    )
                 }
             }
 
-            // Search Capsule Bar (Image 2 style: rounded capsule with search engine + input)
+            // Search Capsule Bar (Image 2 style: rounded capsule with search engine icon only + input)
             Surface(
                 shape = RoundedCornerShape(32.dp),
                 color = cardBg,
@@ -187,64 +206,64 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    // Search Engine Picker Button
+                    // Search Engine Picker Button (Image 2 style: ONLY icon + dropdown arrow, NO text)
                     Box {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
+                                .clip(RoundedCornerShape(20.dp))
                                 .clickable { engineMenuExpanded = true }
-                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                                .padding(start = 6.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
                         ) {
-                            Text(
-                                text = when (searchEngine) {
-                                    "baidu" -> "百度"
-                                    "bing" -> "必应"
-                                    "360" -> "360"
-                                    "sogou" -> "搜狗"
-                                    else -> "谷歌"
-                                },
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = when (searchEngine) {
-                                    "baidu" -> Color(0xFF2563EB)
-                                    "bing" -> Color(0xFF0284C7)
-                                    "360" -> Color(0xFF16A34A)
-                                    else -> Color(0xFFEA4335)
-                                }
-                            )
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = "切换搜索引擎",
-                                tint = subTextColor,
+                                tint = subTextColor.copy(alpha = 0.8f),
                                 modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            SearchEngineLogo(
+                                engine = searchEngine,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
                         DropdownMenu(
                             expanded = engineMenuExpanded,
-                            onDismissRequest = { engineMenuExpanded = false }
+                            onDismissRequest = { engineMenuExpanded = false },
+                            modifier = Modifier
+                                .heightIn(max = 420.dp)
+                                .widthIn(min = 210.dp)
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("谷歌 (Google)") },
-                                onClick = { onSelectEngine("google"); engineMenuExpanded = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("百度 (Baidu)") },
-                                onClick = { onSelectEngine("baidu"); engineMenuExpanded = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("必应 (Bing)") },
-                                onClick = { onSelectEngine("bing"); engineMenuExpanded = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("360 搜索") },
-                                onClick = { onSelectEngine("360"); engineMenuExpanded = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("搜狗搜索") },
-                                onClick = { onSelectEngine("sogou"); engineMenuExpanded = false }
-                            )
+                            SearchEngines.ALL.forEach { item ->
+                                DropdownMenuItem(
+                                    leadingIcon = { SearchEngineLogo(item.id, Modifier.size(20.dp)) },
+                                    text = {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = item.name,
+                                                fontSize = 14.sp,
+                                                fontWeight = if (searchEngine == item.id) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (searchEngine == item.id) Color(0xFF2563EB) else textColor
+                                            )
+                                            if (searchEngine == item.id) {
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "✓",
+                                                    fontSize = 13.sp,
+                                                    color = Color(0xFF2563EB),
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = { onSelectEngine(item.id); engineMenuExpanded = false }
+                                )
+                            }
                         }
                     }
 
@@ -263,7 +282,10 @@ fun HomeScreen(
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(onSearch = {
                                 focusManager.clearFocus()
-                                onSearch(query)
+                                val trimmed = query.trim()
+                                if (trimmed.isNotEmpty()) {
+                                    onSearch(trimmed)
+                                }
                             }),
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
@@ -276,19 +298,20 @@ fun HomeScreen(
                         )
                     }
 
-                    IconButton(
-                        onClick = {
-                            focusManager.clearFocus()
-                            onSearch(query)
-                        },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "搜索",
-                            tint = Color(0xFF3B82F6),
-                            modifier = Modifier.size(24.dp)
-                        )
+                    if (query.isNotEmpty()) {
+                        IconButton(
+                            onClick = { query = "" },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "清空输入",
+                                tint = subTextColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
                 }
             }
@@ -344,12 +367,36 @@ fun HomeScreen(
                             SiteShortcutItem(
                                 site = site,
                                 isNightMode = isNightMode,
-                                onClick = { onSearch(site.url) }
+                                onClick = {
+                                    if (site.url == "action://more" || site.title == "更多" || site.iconName == "more") {
+                                        showMoreSitesSheet = true
+                                        onOpenMoreSites()
+                                    } else {
+                                        onSearch(site.url)
+                                    }
+                                }
                             )
                         }
                     }
                 }
             }
+        }
+
+        // More Quick Sites Bottom Sheet
+        if (showMoreSitesSheet) {
+            MoreQuickSitesSheet(
+                quickSites = quickSites,
+                bookmarks = bookmarks,
+                isNightMode = isNightMode,
+                onAddQuickSite = onAddQuickSite,
+                onRemoveQuickSite = onRemoveQuickSite,
+                onAddBookmarkToQuickSites = onAddBookmarkToQuickSites,
+                onOpenUrl = { url ->
+                    showMoreSitesSheet = false
+                    onSearch(url)
+                },
+                onDismiss = { showMoreSitesSheet = false }
+            )
         }
     }
 }

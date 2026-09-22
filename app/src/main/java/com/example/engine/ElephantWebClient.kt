@@ -46,6 +46,15 @@ class ElephantWebViewClient(
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         val currentUrl = url ?: return
+        if (currentUrl == "about:blank" || currentUrl.isBlank()) {
+            tab.url = ""
+            tab.isLoading = false
+            tab.canGoBack = false
+            tab.canGoForward = false
+            tab.title = if (tab.isIncognito) "无痕新标签" else "大象浏览器"
+            onPageStart("")
+            return
+        }
         tab.url = currentUrl
         tab.isLoading = true
         onPageStart(currentUrl)
@@ -54,11 +63,30 @@ class ElephantWebViewClient(
         repository.plugins.value.filter { it.isEnabled && it.runAt == "document_start" }.forEach { plugin ->
             view?.evaluateJavascript(plugin.scriptCode, null)
         }
+
+        // When night mode is OFF, enforce light color scheme at document start
+        if (!tab.isNightMode && !repository.isNightMode.value) {
+            view?.evaluateJavascript(Scripts.ENFORCE_LIGHT_MODE_HEAD, null)
+        }
+
+        // When in Desktop Mode, inject desktop viewport and environment emulation
+        if (tab.isDesktopMode) {
+            view?.evaluateJavascript(Scripts.DESKTOP_MODE_INJECT, null)
+        }
     }
 
     override fun onPageFinished(view: WebView?, url: String?) {
         super.onPageFinished(view, url)
         val currentUrl = url ?: return
+        if (currentUrl == "about:blank" || currentUrl.isBlank()) {
+            tab.url = ""
+            tab.isLoading = false
+            tab.canGoBack = false
+            tab.canGoForward = false
+            tab.title = if (tab.isIncognito) "无痕新标签" else "大象浏览器"
+            onPageFinish("", tab.title)
+            return
+        }
         tab.isLoading = false
         val currentTitle = view?.title ?: tab.title
         tab.title = currentTitle
@@ -76,9 +104,16 @@ class ElephantWebViewClient(
             view?.evaluateJavascript(plugin.scriptCode, null)
         }
 
-        // Apply night mode if tab or global night mode is enabled
+        // Apply night mode if tab or global night mode is enabled, otherwise enforce clean white background
         if (tab.isNightMode || repository.isNightMode.value) {
             view?.evaluateJavascript(Scripts.NIGHT_MODE_CSS, null)
+        } else {
+            view?.evaluateJavascript(Scripts.ENFORCE_LIGHT_MODE_FULL, null)
+        }
+
+        // When in Desktop Mode, ensure desktop metrics and viewport override
+        if (tab.isDesktopMode) {
+            view?.evaluateJavascript(Scripts.DESKTOP_MODE_INJECT, null)
         }
 
         // If translation is active for this tab, translate

@@ -393,7 +393,7 @@ private fun SwipeableTabCard(
                                 fontSize = 10.sp,
                                 color = subTextColor
                             )
-                        } else if (tab.url.isNotBlank()) {
+                        } else if (!tab.isAtHome) {
                             Text(
                                 text = tab.url,
                                 fontSize = 11.sp,

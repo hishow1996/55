@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Quark cyan-blue background circle -->
+    <path
+        android:fillColor="#0066FF"
+        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2z" />
+    <!-- Inner cyan glow ring -->
+    <path
+        android:fillColor="#00D2FF"
+        android:pathData="M12,4.5c4.14,0 7.5,3.36 7.5,7.5s-3.36,7.5 -7.5,7.5S4.5,16.14 4.5,12 7.86,4.5 12,4.5m0,-2C6.48,2.5 2,6.98 2,12.5s4.48,10.5 10,10.5 10,-4.48 10,-10.5S17.52,2.5 12,2.5z" />
+    <!-- White stylized Q lens -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,6.5c-3.04,0 -5.5,2.46 -5.5,5.5s2.46,5.5 5.5,5.5c1.2,0 2.3,-0.39 3.2,-1.05l2.1,2.1 1.4,-1.4 -2.1,-2.1c0.66,-0.9 1.05,-2 1.05,-3.2 0,-3.04 -2.61,-5.35 -5.65,-5.35zm0,8.5c-1.66,0 -3,-1.34 -3,-3s1.34,-3 3,-3 3,1.34 3,3 -1.34,3 -3,3z" />
+</vector>

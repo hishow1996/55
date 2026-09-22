@@ -8,6 +8,7 @@ import android.webkit.WebView
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.BrowserRepository
+import com.example.download.ElephantDownloadManager
 import com.example.engine.Scripts
 import com.example.model.BookmarkItem
 import com.example.model.BrowserTab
@@ -21,6 +22,14 @@ import kotlinx.coroutines.launch
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
     val repository = BrowserRepository(application)
+    val downloadManager = ElephantDownloadManager(application)
+
+    data class PendingDownload(
+        val url: String,
+        val fileName: String,
+        val mimeType: String?,
+        val contentLength: Long
+    )
 
     // Current open tabs
     private val _tabs = MutableStateFlow<List<BrowserTab>>(
@@ -73,6 +82,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _isAiChatVisible = MutableStateFlow(false)
     val isAiChatVisible: StateFlow<Boolean> = _isAiChatVisible.asStateFlow()
 
+    private val _isDownloadManagerVisible = MutableStateFlow(false)
+    val isDownloadManagerVisible: StateFlow<Boolean> = _isDownloadManagerVisible.asStateFlow()
+
+    private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
+    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
+
     // Translation Banner Status
     private val _translationBannerText = MutableStateFlow<String?>(null)
     val translationBannerText: StateFlow<String?> = _translationBannerText.asStateFlow()
@@ -80,40 +95,168 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     // Active WebView reference for executing actions
     var activeWebView: WebView? = null
 
+    fun setDownloadManagerVisible(visible: Boolean) {
+        _isDownloadManagerVisible.value = visible
+    }
+
+    fun openDownloads() {
+        _isMenuVisible.value = false
+        _isDownloadManagerVisible.value = true
+    }
+
+    fun onDownloadRequested(
+        url: String,
+        userAgent: String?,
+        contentDisposition: String?,
+        mimetype: String?,
+        contentLength: Long
+    ) {
+        val fileName = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype)
+        _pendingDownload.value = PendingDownload(
+            url = url,
+            fileName = fileName,
+            mimeType = mimetype,
+            contentLength = contentLength
+        )
+    }
+
+    fun confirmPendingDownload() {
+        val pending = _pendingDownload.value ?: return
+        downloadManager.enqueueDownload(
+            url = pending.url,
+            suggestedFileName = pending.fileName,
+            mimeType = pending.mimeType,
+            contentLength = pending.contentLength
+        )
+        _pendingDownload.value = null
+        _isDownloadManagerVisible.value = true
+    }
+
+    fun dismissPendingDownload() {
+        _pendingDownload.value = null
+    }
+
     fun setUrlInput(input: String) {
         _urlInput.value = input
     }
 
+    fun updateCurrentTab(transform: (BrowserTab) -> BrowserTab) {
+        val currentIndex = _currentTabIndex.value
+        val list = _tabs.value
+        if (currentIndex in list.indices) {
+            _tabs.value = list.mapIndexed { idx, tab ->
+                if (idx == currentIndex) transform(tab) else tab
+            }
+        }
+    }
+
     fun navigateTo(queryOrUrl: String) {
-        if (queryOrUrl.isBlank()) return
-        val finalUrl = repository.getSearchUrl(queryOrUrl)
+        val q = queryOrUrl.trim()
+        if (q.isBlank()) return
+        val finalUrl = repository.getSearchUrl(q)
         _urlInput.value = finalUrl
 
-        val current = currentTab
-        current.url = finalUrl
-        current.title = "加载中..."
-        current.progress = 10
-        current.isLoading = true
-        _tabs.value = _tabs.value.toList() // Trigger recomposition
+        updateCurrentTab { tab ->
+            tab.copy(
+                url = finalUrl,
+                title = "加载中...",
+                progress = 10,
+                isLoading = true
+            )
+        }
 
-        activeWebView?.loadUrl(finalUrl)
+        activeWebView?.post {
+            activeWebView?.loadUrl(finalUrl)
+        }
+    }
+
+    fun onPageStarted(url: String) {
+        if (url == "about:blank" || url.isBlank()) {
+            val isIncog = currentTab.isIncognito
+            updateCurrentTab {
+                it.copy(
+                    url = "",
+                    title = if (isIncog) "无痕新标签" else "大象浏览器",
+                    isLoading = false,
+                    canGoBack = false,
+                    canGoForward = false
+                )
+            }
+            _urlInput.value = ""
+            return
+        }
+        updateCurrentTab { it.copy(url = url, isLoading = true) }
+        _urlInput.value = url
+    }
+
+    fun onPageFinished(url: String, title: String) {
+        if (url == "about:blank" || url.isBlank()) {
+            val isIncog = currentTab.isIncognito
+            updateCurrentTab {
+                it.copy(
+                    url = "",
+                    title = if (isIncog) "无痕新标签" else "大象浏览器",
+                    isLoading = false,
+                    canGoBack = false,
+                    canGoForward = false
+                )
+            }
+            _urlInput.value = ""
+            return
+        }
+        updateCurrentTab {
+            it.copy(
+                url = url,
+                title = title.ifBlank { url },
+                isLoading = false,
+                canGoBack = activeWebView?.canGoBack() ?: false,
+                canGoForward = activeWebView?.canGoForward() ?: false
+            )
+        }
+        _urlInput.value = url
+    }
+
+    fun onProgressChanged(progress: Int) {
+        updateCurrentTab {
+            it.copy(progress = progress, isLoading = progress < 100)
+        }
+    }
+
+    fun onTitleChanged(title: String) {
+        if (title.isBlank()) return
+        updateCurrentTab { it.copy(title = title) }
+    }
+
+    fun onIconChanged(icon: Bitmap?) {
+        if (icon == null) return
+        updateCurrentTab { it.copy(favicon = icon) }
     }
 
     fun goHome() {
-        val current = currentTab
-        current.url = ""
-        current.title = if (current.isIncognito) "无痕新标签" else "大象浏览器"
-        current.progress = 0
-        current.isLoading = false
+        val isIncog = currentTab.isIncognito
+        updateCurrentTab {
+            it.copy(
+                url = "",
+                title = if (isIncog) "无痕新标签" else "大象浏览器",
+                progress = 0,
+                isLoading = false,
+                canGoBack = false,
+                canGoForward = false
+            )
+        }
         _urlInput.value = ""
-        _tabs.value = _tabs.value.toList()
-        activeWebView?.loadUrl("about:blank")
+        activeWebView?.post {
+            activeWebView?.stopLoading()
+            activeWebView?.loadUrl("about:blank")
+            activeWebView?.clearHistory()
+        }
     }
 
     fun goBack() {
+        if (currentTab.isAtHome) return
         if (activeWebView?.canGoBack() == true) {
             activeWebView?.goBack()
-        } else if (currentTab.url.isNotBlank()) {
+        } else {
             goHome()
         }
     }
@@ -125,15 +268,30 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun reload() {
-        activeWebView?.reload()
+        if (currentTab.url.isNotBlank()) {
+            updateCurrentTab { it.copy(isLoading = true, progress = 10) }
+            activeWebView?.post {
+                activeWebView?.reload()
+            }
+        }
     }
 
     fun stopLoading() {
-        activeWebView?.stopLoading()
+        updateCurrentTab { it.copy(isLoading = false) }
+        activeWebView?.post {
+            activeWebView?.stopLoading()
+        }
     }
 
     // Tab Management
     fun addNewTab(isIncognito: Boolean = repository.isIncognito.value, initialUrl: String = "") {
+        val oldIndex = _currentTabIndex.value
+        val video = _detectedVideo.value
+        if (video != null && video.isPlaying && (video.originTabIndex == oldIndex || video.originTabIndex == null)) {
+            _detectedVideo.value = video.copy(originTabIndex = oldIndex)
+            _isFloatingPlayerVisible.value = true
+        }
+
         val newTab = BrowserTab(
             url = initialUrl,
             title = if (isIncognito) "无痕新标签" else "新标签页",
@@ -153,6 +311,14 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun selectTab(index: Int) {
         if (index in _tabs.value.indices) {
+            val oldIndex = _currentTabIndex.value
+            if (oldIndex != index) {
+                val video = _detectedVideo.value
+                if (video != null && video.isPlaying && (video.originTabIndex == oldIndex || video.originTabIndex == null)) {
+                    _detectedVideo.value = video.copy(originTabIndex = oldIndex)
+                    _isFloatingPlayerVisible.value = true
+                }
+            }
             _currentTabIndex.value = index
             _urlInput.value = _tabs.value[index].url
             _isTabManagerVisible.value = false
@@ -162,6 +328,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun closeTab(index: Int) {
         val currentList = _tabs.value.toMutableList()
         if (index !in currentList.indices) return
+
+        val closedVideo = _detectedVideo.value
+        if (closedVideo != null && closedVideo.originTabIndex == index) {
+            _isFloatingPlayerVisible.value = false
+            _detectedVideo.value = null
+        }
+
         if (currentList.size <= 1) {
             // Keep at least one tab
             currentList[0] = BrowserTab(url = "", title = "大象浏览器")
@@ -190,8 +363,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun toggleNightMode() {
         val newMode = !repository.isNightMode.value
         repository.setNightMode(newMode)
-        currentTab.isNightMode = newMode
-        _tabs.value = _tabs.value.toList()
+        updateCurrentTab { it.copy(isNightMode = newMode) }
 
         if (newMode) {
             activeWebView?.evaluateJavascript(Scripts.NIGHT_MODE_CSS, null)
@@ -202,16 +374,29 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleDesktopMode() {
         val newMode = !currentTab.isDesktopMode
-        currentTab.isDesktopMode = newMode
+        updateCurrentTab { it.copy(isDesktopMode = newMode) }
         repository.setDesktopMode(newMode)
-        _tabs.value = _tabs.value.toList()
 
-        activeWebView?.settings?.let { s ->
-            s.userAgentString = if (newMode) BrowserRepository.DESKTOP_USER_AGENT else BrowserRepository.MOBILE_USER_AGENT
-            s.useWideViewPort = newMode
-            s.loadWithOverviewMode = newMode
+        val targetUa = repository.getUserAgent(newMode)
+        val toastMessage = if (newMode) "已切换为电脑版 (Desktop UA)" else "已切换为手机版"
+        android.widget.Toast.makeText(getApplication(), toastMessage, android.widget.Toast.LENGTH_SHORT).show()
+
+        activeWebView?.post {
+            activeWebView?.settings?.let { s ->
+                s.userAgentString = targetUa
+                s.useWideViewPort = newMode
+                s.loadWithOverviewMode = newMode
+            }
+            val currentUrl = currentTab.url
+            if (newMode && currentUrl.isNotBlank()) {
+                val desktopUrl = repository.convertToDesktopUrl(currentUrl)
+                if (desktopUrl != currentUrl) {
+                    navigateTo(desktopUrl)
+                    return@post
+                }
+            }
+            activeWebView?.reload()
         }
-        activeWebView?.reload()
     }
 
     fun toggleIncognito() {
@@ -225,10 +410,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val tab = currentTab
         if (tab.url.isBlank()) return
 
-        tab.isTranslated = !tab.isTranslated
-        _tabs.value = _tabs.value.toList()
+        val newTranslated = !tab.isTranslated
+        updateCurrentTab { it.copy(isTranslated = newTranslated) }
 
-        if (tab.isTranslated) {
+        if (newTranslated) {
             _translationBannerText.value = "正在翻译网页内容..."
             activeWebView?.evaluateJavascript(Scripts.TRANSLATION_SCRIPT) {
                 _translationBannerText.value = "已翻译为中文"
@@ -254,7 +439,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             currentTime = currentTime,
             videoWidth = if (width > 0) width else 16,
             videoHeight = if (height > 0) height else 9,
-            isPlaying = true
+            isPlaying = true,
+            originTabIndex = _currentTabIndex.value
         )
         _detectedVideo.value = info
     }
@@ -262,7 +448,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun startFloatingPlayer(customVideo: VideoMediaInfo? = null) {
         val video = customVideo ?: _detectedVideo.value
         if (video != null) {
-            _detectedVideo.value = video
+            val updatedVideo = if (video.originTabIndex == null) video.copy(originTabIndex = _currentTabIndex.value) else video
+            _detectedVideo.value = updatedVideo
             _isFloatingPlayerVisible.value = true
             // Pause page video so only floating player plays
             activeWebView?.evaluateJavascript(Scripts.PAUSE_WEB_VIDEOS, null)
@@ -275,7 +462,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                     url = currentTab.url,
                     title = currentTab.title,
                     videoWidth = 16,
-                    videoHeight = 9
+                    videoHeight = 9,
+                    originTabIndex = _currentTabIndex.value
                 )
                 _detectedVideo.value = fallback
                 _isFloatingPlayerVisible.value = true
