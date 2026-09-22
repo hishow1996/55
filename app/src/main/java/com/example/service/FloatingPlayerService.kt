@@ -271,10 +271,10 @@ class FloatingPlayerService : Service() {
             setBackgroundColor(0x70000000.toInt())
         }
 
-        // 3.1 Top Header Bar (Title, Size/Preset, Close)
+        // 3.1 Top Header Bar (Only Close button on top-right, clean and minimal)
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 (42 * density).toInt()
@@ -285,42 +285,7 @@ class FloatingPlayerService : Service() {
             setBackgroundColor(0x88000000.toInt())
         }
 
-        val titleTv = TextView(this).apply {
-            text = videoTitle
-            setTextColor(Color.WHITE)
-            textSize = 13f
-            maxLines = 1
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        topBar.addView(titleTv)
-
-        // Size Toggle Icon Button (Clean icon only - Figure 2 style)
-        val sizeBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_pip_window)
-            setBackgroundColor(Color.TRANSPARENT)
-            background = null
-            setColorFilter(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt())
-            setOnClickListener {
-                currentSizeIndex = (currentSizeIndex + 1) % sizePresets.size
-                val screenW = resources.displayMetrics.widthPixels
-                val screenH = resources.displayMetrics.heightPixels
-                val newW = (sizePresets[currentSizeIndex] * density).toInt().coerceIn((160 * density).toInt(), screenW)
-                val effectiveRatio = if (videoRatio >= 1.2f) videoRatio else (16f / 9f)
-                val newH = (newW / effectiveRatio).toInt().coerceIn((100 * density).toInt(), (screenH * 0.85f).toInt())
-                params.width = newW
-                params.height = newH
-                val maxX = (screenW - newW).coerceAtLeast(0)
-                val maxY = (screenH - newH).coerceAtLeast(0)
-                params.x = params.x.coerceIn(0, maxX)
-                params.y = params.y.coerceIn(0, maxY)
-                windowManager?.updateViewLayout(root, params)
-                resetHideTimer()
-            }
-        }
-        topBar.addView(sizeBtn)
-
-        // Close Button (Clean icon only - Figure 2 style)
+        // Close Button (Only X button retained)
         val closeBtn = ImageButton(this).apply {
             setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
             setBackgroundColor(Color.TRANSPARENT)
@@ -339,51 +304,6 @@ class FloatingPlayerService : Service() {
         }
         topBar.addView(closeBtn)
         controls.addView(topBar)
-
-        // 3.2 Lock Button on Left-Middle Side (Normal state: Unlocked icon, Clean icon without circle background)
-        val lockBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_lock_open)
-            setBackgroundColor(Color.TRANSPARENT)
-            background = null
-            setColorFilter(Color.WHITE)
-            setPadding(0, 0, 0, 0)
-            layoutParams = FrameLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt()).apply {
-                gravity = Gravity.CENTER_VERTICAL or Gravity.START
-                marginStart = (12 * density).toInt()
-            }
-            setOnClickListener {
-                isLocked = true
-                hideControls()
-                showLockOverlay()
-            }
-        }
-        controls.addView(lockBtn)
-
-        // 3.3 Download Button on Right-Middle Side (Clean icon without circle background)
-        val downloadBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_download_arrow)
-            setBackgroundColor(Color.TRANSPARENT)
-            background = null
-            setColorFilter(Color.WHITE)
-            setPadding(0, 0, 0, 0)
-            layoutParams = FrameLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt()).apply {
-                gravity = Gravity.CENTER_VERTICAL or Gravity.END
-                marginEnd = (12 * density).toInt()
-            }
-            setOnClickListener {
-                val activeInfo = FloatingVideoPlayerComponent.activeVideoInfo
-                val dlUrl = if (videoUrl.isNotBlank() && !videoUrl.startsWith("blob:")) videoUrl else (activeInfo?.url ?: videoUrl)
-                val dlIntent = Intent("com.example.ACTION_DOWNLOAD_VIDEO").apply {
-                    setPackage(packageName)
-                    putExtra("video_url", dlUrl)
-                    putExtra("video_title", videoTitle)
-                }
-                sendBroadcast(dlIntent)
-                Toast.makeText(this@FloatingPlayerService, "已添加至下载任务: $videoTitle", Toast.LENGTH_SHORT).show()
-                resetHideTimer()
-            }
-        }
-        controls.addView(downloadBtn)
 
         // 3.4 Center Controls (Rewind 10s, Enlarged Play/Pause, Forward 10s)
         val centerBar = LinearLayout(this).apply {

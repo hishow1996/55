@@ -408,103 +408,27 @@ fun InAppFloatingPlayer(
             }
 
             Box(modifier = overlayModifier) {
-                // Top Header (Title + PiP + Fullscreen + Close)
+                // Top Header (Only Close button on top-right, clean and minimal)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.5f))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Text(
-                        text = videoInfo.title.ifBlank { "网页视频" },
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(end = 8.dp)
-                    )
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Global PiP button (hidden if already in PiP)
-                        if (!isDesktopPiP) {
-                            IconButton(
-                                onClick = onEnterGlobalPiP,
-                                modifier = Modifier.size(34.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PictureInPictureAlt,
-                                    contentDescription = "桌面小窗",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                        // Fullscreen button
-                        IconButton(
-                            onClick = onEnterFullscreen,
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Fullscreen,
-                                contentDescription = "全屏播放",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        // Close button (passes back current progress to sync with webpage video)
-                        IconButton(
-                            onClick = { onClose(currentPositionMs / 1000.0) },
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "关闭小窗",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                    // Close button (passes back current progress to sync with webpage video)
+                    IconButton(
+                        onClick = { onClose(currentPositionMs / 1000.0) },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "关闭小窗",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
-                }
-
-                // Left-Middle Lock Button (Figure 2 clean icon only style)
-                IconButton(
-                    onClick = {
-                        isLocked = true
-                        showControls = false
-                        showLockHint = true
-                    },
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 8.dp)
-                        .size(if (isDesktopPiP) 36.dp else 44.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LockOpen,
-                        contentDescription = "锁定屏幕",
-                        tint = Color.White,
-                        modifier = Modifier.size(if (isDesktopPiP) 22.dp else 28.dp)
-                    )
-                }
-
-                // Right-Middle Download Button (Figure 2 clean icon only style)
-                IconButton(
-                    onClick = {
-                        onDownloadVideo?.invoke(videoInfo.url, videoInfo.title.ifBlank { "网页视频" })
-                    },
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 8.dp)
-                        .size(if (isDesktopPiP) 36.dp else 44.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowDownward,
-                        contentDescription = "下载视频",
-                        tint = Color.White,
-                        modifier = Modifier.size(if (isDesktopPiP) 22.dp else 28.dp)
-                    )
                 }
 
                 // Center Rewind 10s / Play-Pause / Forward 10s (Clean icons only)
