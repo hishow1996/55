@@ -53,7 +53,6 @@ fun BottomNavBar(
     }
 
     val iconTint = if (isIncognito) Color(0xFFC4B5FD) else if (isNightMode) Color(0xFFE2E8F0) else Color(0xFF334155)
-    val disabledTint = if (isNightMode) Color(0xFF475569) else Color(0xFFCBD5E1)
 
     Surface(
         color = barBg,
@@ -77,13 +76,12 @@ fun BottomNavBar(
             // 1. Back Button
             IconButton(
                 onClick = onBack,
-                enabled = canGoBack,
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "后退",
-                    tint = if (canGoBack) iconTint else disabledTint,
+                    tint = iconTint,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -91,13 +89,12 @@ fun BottomNavBar(
             // 2. Forward Button
             IconButton(
                 onClick = onForward,
-                enabled = canGoForward,
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "前进",
-                    tint = if (canGoForward) iconTint else disabledTint,
+                    tint = iconTint,
                     modifier = Modifier.size(22.dp)
                 )
             }
