@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Elephant Main Body Outline -->
+    <path
+        android:pathData="M 19,71
+            C 16,71 14,67 17,63
+            C 20,60 24,61 26,53
+            C 28,44 31,34 39,27
+            C 47,21 72,22 81,37
+            C 88,48 88,62 86,74
+            C 86,76 85,78 83,78
+            L 69,78
+            C 67,78 66,76 66,74
+            L 66,69
+            L 55,69
+            L 55,74
+            C 55,76 54,78 52,78
+            L 38,78
+            C 36,78 35,76 35,74
+            L 35,62
+            C 35,57 32,56 31,56
+            C 29,56 29,62 27,67
+            C 25,72 22,72 19,71 Z"
+        android:strokeColor="#1E242B"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Inner Leg Lines to show 4 legs like Image 1 -->
+    <path
+        android:pathData="M 45,78 L 45,69"
+        android:strokeColor="#1E242B"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <path
+        android:pathData="M 75,78 L 75,69"
+        android:strokeColor="#1E242B"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Cute Big Ear -->
+    <path
+        android:pathData="M 49,27
+            C 61,31 63,44 61,51
+            C 58,57 48,58 42,54
+            C 39,52 39,47 42,44"
+        android:strokeColor="#1E242B"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Smiling Dot Eye -->
+    <path
+        android:pathData="M 33,42
+            A 3.2,3.2 0 1,0 33,42.01 Z"
+        android:fillColor="#1E242B" />
+
+    <!-- Cute Tail with round pom-pom -->
+    <path
+        android:pathData="M 83,50
+            C 88,57 88,66 87,71"
+        android:strokeColor="#1E242B"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <path
+        android:pathData="M 87,74
+            A 2.5,2.5 0 1,0 87,74.01 Z"
+        android:fillColor="#1E242B" />
+
+</vector>
