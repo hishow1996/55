@@ -317,11 +317,18 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(30.dp))
 
             // Navigation Grid (5 columns per row, circular official logos matching Figure 3)
+            val displaySites = remember(quickSites) {
+                if (quickSites.any { it.url == "action://more" || it.title == "更多" || it.iconName == "more" }) {
+                    quickSites
+                } else {
+                    quickSites + QuickSite("更多", "action://more", "more", 0xFF6366F1)
+                }
+            }
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                val rows = quickSites.chunked(5)
+                val rows = displaySites.chunked(5)
                 rows.forEach { rowSites ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),

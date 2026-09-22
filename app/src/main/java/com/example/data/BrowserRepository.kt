@@ -461,12 +461,12 @@ class BrowserRepository(private val context: Context) {
     }
 
     private fun loadQuickSites() {
-        val sitesVersion = prefs.getInt("quick_sites_version_v4", 0)
-        if (sitesVersion < 4) {
+        val sitesVersion = prefs.getInt("quick_sites_version_v6", 0)
+        if (sitesVersion < 6) {
             val defaults = getDefaultQuickSites()
             _quickSites.value = defaults
             saveQuickSites(defaults)
-            prefs.edit().putInt("quick_sites_version_v4", 4).apply()
+            prefs.edit().putInt("quick_sites_version_v6", 6).apply()
             return
         }
         val raw = prefs.getString(KEY_QUICK_SITES, null)
@@ -489,6 +489,9 @@ class BrowserRepository(private val context: Context) {
                             isCustom = obj.optBoolean("isCustom", false)
                         )
                     )
+                }
+                if (list.none { it.url == "action://more" || it.title == "更多" }) {
+                    list.add(QuickSite("更多", "action://more", "more", 0xFF6366F1))
                 }
                 _quickSites.value = list
             } catch (e: Exception) {
@@ -515,7 +518,8 @@ class BrowserRepository(private val context: Context) {
         QuickSite("GitHub", "https://github.com", "github", 0xFF181717),
         QuickSite("TikTok", "https://www.tiktok.com", "tiktok", 0xFF010101),
         QuickSite("YouTube", "https://m.youtube.com", "youtube", 0xFFFF0000),
-        QuickSite("Instagram", "https://www.instagram.com", "instagram", 0xFFE1306C)
+        QuickSite("Instagram", "https://www.instagram.com", "instagram", 0xFFE1306C),
+        QuickSite("更多", "action://more", "more", 0xFF6366F1)
     )
 
     fun getQuickSites(): List<QuickSite> = _quickSites.value
