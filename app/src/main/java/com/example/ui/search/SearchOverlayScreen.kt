@@ -97,7 +97,7 @@ fun SearchOverlayScreen(
     var searchJob by remember { mutableStateOf<Job?>(null) }
 
     val engineInfo = SearchEngines.getById(searchEngine)
-    val placeholderText = "在 ${engineInfo.shortName} 中搜索或输入网址"
+    val placeholderText = "搜索或输入网址"
 
     val bgColor = if (isNightMode) Color(0xFF121212) else Color(0xFFFFFFFF)
     val cardBg = if (isNightMode) Color(0xFF1E1E1E) else Color(0xFFF1F3F4)

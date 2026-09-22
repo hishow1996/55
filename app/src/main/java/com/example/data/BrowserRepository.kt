@@ -461,12 +461,12 @@ class BrowserRepository(private val context: Context) {
     }
 
     private fun loadQuickSites() {
-        val sitesVersion = prefs.getInt("quick_sites_version_v6", 0)
-        if (sitesVersion < 6) {
+        val sitesVersion = prefs.getInt("quick_sites_version_v8", 0)
+        if (sitesVersion < 8) {
             val defaults = getDefaultQuickSites()
             _quickSites.value = defaults
             saveQuickSites(defaults)
-            prefs.edit().putInt("quick_sites_version_v6", 6).apply()
+            prefs.edit().putInt("quick_sites_version_v8", 8).apply()
             return
         }
         val raw = prefs.getString(KEY_QUICK_SITES, null)
@@ -490,10 +490,20 @@ class BrowserRepository(private val context: Context) {
                         )
                     )
                 }
+                if (list.none { it.url.contains("yfsp.tv", ignoreCase = true) }) {
+                    val moreIdx = list.indexOfFirst { it.url == "action://more" || it.title == "更多" }
+                    val yfspSite = QuickSite("爱壹帆", "https://m.yfsp.tv/list", "yfsp", 0xFFFF6200)
+                    if (moreIdx != -1) {
+                        list.add(moreIdx, yfspSite)
+                    } else {
+                        list.add(yfspSite)
+                    }
+                }
                 if (list.none { it.url == "action://more" || it.title == "更多" }) {
                     list.add(QuickSite("更多", "action://more", "more", 0xFF6366F1))
                 }
                 _quickSites.value = list
+                saveQuickSites(list)
             } catch (e: Exception) {
                 _quickSites.value = getDefaultQuickSites()
             }
@@ -518,6 +528,7 @@ class BrowserRepository(private val context: Context) {
         QuickSite("GitHub", "https://github.com", "github", 0xFF181717),
         QuickSite("TikTok", "https://www.tiktok.com", "tiktok", 0xFF010101),
         QuickSite("YouTube", "https://m.youtube.com", "youtube", 0xFFFF0000),
+        QuickSite("爱壹帆", "https://m.yfsp.tv/list", "yfsp", 0xFFFF6200),
         QuickSite("Instagram", "https://www.instagram.com", "instagram", 0xFFE1306C),
         QuickSite("更多", "action://more", "more", 0xFF6366F1)
     )

@@ -188,41 +188,41 @@ fun HomeScreen(
                 }
             }
 
-            // Search Capsule Bar: Clicking enters Figure 2 search screen directly
+            // Search Capsule Bar: Taller vertical height and deeper high-contrast border
             Surface(
-                shape = RoundedCornerShape(32.dp),
+                shape = RoundedCornerShape(29.dp),
                 color = cardBg,
-                shadowElevation = if (isNightMode) 2.dp else 4.dp,
+                shadowElevation = 0.dp,
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.6.dp,
+                    color = if (isNightMode) Color(0xFF64748B) else Color(0xFF757575)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(
-                        1.dp,
-                        if (isNightMode) Color(0xFF334155) else Color(0xFFE2E8F0),
-                        RoundedCornerShape(32.dp)
-                    )
-                    .clip(RoundedCornerShape(32.dp))
+                    .height(58.dp)
+                    .clip(RoundedCornerShape(29.dp))
                     .clickable { onOpenSearch() }
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
-                    // Search Engine Picker Button (Image 2 style: ONLY icon + dropdown arrow, NO text)
+                    // Search Engine Picker Button (Image 4 style: dropdown arrow + engine logo)
                     Box {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
                                 .clickable { engineMenuExpanded = true }
-                                .padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp)
+                                .padding(vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = "切换搜索引擎",
-                                tint = subTextColor.copy(alpha = 0.8f),
-                                modifier = Modifier.size(18.dp)
+                                tint = if (isNightMode) Color(0xFF94A3B8) else Color(0xFF757575),
+                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(2.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             SearchEngineLogo(
                                 engine = searchEngine,
                                 modifier = Modifier.size(24.dp)
@@ -268,11 +268,11 @@ fun HomeScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
                     Text(
-                        text = "在 ${SearchEngines.getById(searchEngine).shortName} 中搜索或输入网址",
-                        color = subTextColor,
+                        text = "搜索或输入网址",
+                        color = if (isNightMode) Color(0xFF94A3B8) else Color(0xFF757575),
                         fontSize = 15.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -424,6 +424,7 @@ fun SiteOfficialIcon(
         "tiktok" -> R.drawable.ic_site_tiktok
         "youtube" -> R.drawable.ic_site_youtube
         "instagram" -> R.drawable.ic_site_instagram
+        "yfsp" -> R.drawable.ic_site_yfsp
         "google" -> R.drawable.ic_engine_google
         "baidu" -> R.drawable.ic_engine_baidu
         "bilibili" -> R.drawable.ic_engine_bilibili
@@ -433,6 +434,7 @@ fun SiteOfficialIcon(
             site.url.contains("tiktok.com", ignoreCase = true) || site.title.contains("tiktok", ignoreCase = true) -> R.drawable.ic_site_tiktok
             site.url.contains("youtube.com", ignoreCase = true) || site.title.contains("youtube", ignoreCase = true) -> R.drawable.ic_site_youtube
             site.url.contains("instagram.com", ignoreCase = true) || site.title.contains("instagram", ignoreCase = true) -> R.drawable.ic_site_instagram
+            site.url.contains("yfsp.tv", ignoreCase = true) || site.title.contains("壹帆", ignoreCase = true) || site.iconName.contains("yfsp", ignoreCase = true) -> R.drawable.ic_site_yfsp
             site.url.contains("google.com", ignoreCase = true) || site.title.contains("google", ignoreCase = true) -> R.drawable.ic_engine_google
             site.url.contains("bilibili.com", ignoreCase = true) || site.title.contains("哔哩", ignoreCase = true) -> R.drawable.ic_engine_bilibili
             site.url.contains("baidu.com", ignoreCase = true) || site.title.contains("百度", ignoreCase = true) -> R.drawable.ic_engine_baidu

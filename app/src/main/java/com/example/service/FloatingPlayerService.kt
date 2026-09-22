@@ -516,21 +516,13 @@ class FloatingPlayerService : Service() {
             text = "00:00 / 00:00"
             setTextColor(Color.WHITE)
             textSize = 10f
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
         timeTv = tTv
         bottomRow.addView(tTv)
-
-        val returnBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_revert)
-            setBackgroundColor(Color.TRANSPARENT)
-            setColorFilter(0xFF38BDF8.toInt())
-            layoutParams = LinearLayout.LayoutParams((32 * density).toInt(), (32 * density).toInt())
-            setOnClickListener {
-                returnToBrowserTab()
-            }
-        }
-        bottomRow.addView(returnBtn)
         bottomBar.addView(bottomRow)
         controls.addView(bottomBar)
 

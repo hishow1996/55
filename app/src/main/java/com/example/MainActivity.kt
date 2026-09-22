@@ -535,7 +535,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun createFallbackVideoForCurrentTab(
+    fun createFallbackVideoForCurrentTab(
         viewModel: com.example.viewmodel.BrowserViewModel
     ): VideoMediaInfo {
         val tab = viewModel.currentTab
@@ -549,7 +549,7 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun triggerGlobalFloatingOrPiP(video: VideoMediaInfo) {
+    fun triggerGlobalFloatingOrPiP(video: VideoMediaInfo) {
         // UC-style global floating playback uses the WindowManager overlay service.
         // PiP permission is checked first to preserve the requested settings flow;
         // the actual cross-app window additionally requires overlay permission.
@@ -588,7 +588,7 @@ class MainActivity : ComponentActivity() {
         // page video, so playback continues after leaving the video page.
         FloatingVideoPlayerComponent.activeVideoInfo = effectiveVideo
         vm?.activeWebView?.evaluateJavascript(
-            com.example.viewmodel.Scripts.PAUSE_WEB_VIDEOS,
+            com.example.engine.Scripts.PAUSE_WEB_VIDEOS,
             null
         )
         vm?.closeFloatingPlayer()
@@ -731,11 +731,13 @@ fun ChromiumWebViewContainer(
                             onAdjustVolume(delta)
                         },
                         onOpenFloatingPlayer = { url, title, currentTime, duration, width, height ->
-                            (context as? ComponentActivity)?.runOnUiThread {
-                                viewModel.onVideoFound(url, title, duration, currentTime, width, height)
-                                val video = viewModel.detectedVideo.value
-                                    ?: createFallbackVideoForCurrentTab(viewModel)
-                                triggerGlobalFloatingOrPiP(video)
+                            (context as? MainActivity)?.let { activity ->
+                                activity.runOnUiThread {
+                                    viewModel.onVideoFound(url, title, duration, currentTime, width, height)
+                                    val video = viewModel.detectedVideo.value
+                                        ?: activity.createFallbackVideoForCurrentTab(viewModel)
+                                    activity.triggerGlobalFloatingOrPiP(video)
+                                }
                             }
                         },
                         onDownloadVideo = { url, title ->

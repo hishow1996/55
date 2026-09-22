@@ -96,6 +96,8 @@ fun SettingsScreen(
         true
     }
 
+    var showBrowserSettingsDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -103,11 +105,11 @@ fun SettingsScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
-        // --- TOP BAR WITH BACK ARROW AND TITLE "设置" (Image 4) ---
+        // --- TOP BAR WITH BACK ARROW AND TITLE "设置" (Image 2 style) ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 10.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
@@ -121,47 +123,54 @@ fun SettingsScreen(
             Text(
                 text = "设置",
                 fontSize = 19.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Medium,
                 color = textColor,
-                modifier = Modifier.padding(start = 4.dp)
+                modifier = Modifier.padding(start = 2.dp)
             )
         }
 
-        HorizontalDivider(color = dividerColor, thickness = 1.dp)
+        HorizontalDivider(color = dividerColor, thickness = 0.8.dp)
 
-        // --- SETTINGS LIST (Image 4 Style) ---
+        // --- SETTINGS LIST: Exact 11 options from Image 2, presented with Image 1 ultra-clean design ---
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
+            // 1. 广告设定与过滤
             SettingsItem(
                 title = "广告设定与过滤",
-                detail = if (repository.isAdBlockEnabled.value) "已开启强力拦截" else "已关闭",
+                detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
                     val newState = !repository.isAdBlockEnabled.value
                     repository.setAdBlockEnabled(newState)
-                    Toast.makeText(context, if (newState) "广告拦截已开启" else "广告拦截已关闭", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        if (newState) "广告拦截已开启" else "广告拦截已关闭",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             )
 
+            // 2. 插件扩展系统
             SettingsItem(
                 title = "插件扩展系统",
-                detail = "${repository.plugins.value.count { it.isEnabled }} 个已启用",
+                detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = onOpenPluginManager
             )
 
+            // 3. 悬浮窗与播放器权限
             SettingsItem(
                 title = "悬浮窗与播放器权限",
-                detail = if (canDrawOverlays) "全局悬浮已授权" else "点击授权系统悬浮窗",
+                detail = "",
                 textColor = textColor,
-                subTextColor = if (canDrawOverlays) Color(0xFF10B981) else Color(0xFFEF4444),
+                subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !canDrawOverlays) {
@@ -175,103 +184,118 @@ fun SettingsScreen(
                             Toast.makeText(context, "请在系统设置中允许在其他应用上层显示", Toast.LENGTH_SHORT).show()
                         }
                     } else {
-                        Toast.makeText(context, "悬浮窗与画中画功能已就绪", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "悬浮窗与画中画播放器已就绪", Toast.LENGTH_SHORT).show()
                     }
                 }
             )
 
+            // 4. 默认电脑端模式
             SettingsItem(
                 title = "默认电脑端模式",
-                detail = if (isDesktopMode) "已开启 (新建标签页默认以电脑版打开)" else "已关闭 (新建标签页默认以移动端打开)",
+                detail = "",
                 textColor = textColor,
-                subTextColor = if (isDesktopMode) Color(0xFF2563EB) else subTextColor,
+                subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
                     val newState = !isDesktopMode
                     repository.setDesktopMode(newState)
-                    Toast.makeText(context, if (newState) "已开启默认电脑端模式" else "已恢复默认移动端模式", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        if (newState) "已开启默认电脑端模式" else "已恢复默认移动端模式",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             )
 
-            val uaDisplayName = when (desktopUaType) {
-                "mac" -> "Mac Safari / Chrome (苹果电脑)"
-                "ipad" -> "iPad / 平板电脑"
-                "custom" -> "自定义 User-Agent"
-                else -> "Windows Chrome (默认电脑版)"
-            }
-
+            // 5. 电脑版 User-Agent (用户代理)
             SettingsItem(
                 title = "电脑版 User-Agent (用户代理)",
-                detail = "$uaDisplayName · 点击配置",
+                detail = "",
                 textColor = textColor,
-                subTextColor = Color(0xFF2563EB),
+                subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = { showUaDialog = true }
             )
 
+            // 6. 搜索引擎
             SettingsItem(
                 title = "搜索引擎",
-                detail = SearchEngines.getById(searchEngine).name,
+                detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = { showSearchEngineDialog = true }
             )
 
+            // 7. 网页全文翻译
             SettingsItem(
                 title = "网页全文翻译",
-                detail = "目标语言：简体中文 (智能DOM翻译)",
+                detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
-                    Toast.makeText(context, "在网页菜单中可一键翻译全文", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "支持网页全文智能翻译，可在浏览网页时随时调用", Toast.LENGTH_SHORT).show()
                 }
             )
 
+            // 8. 主题与色彩
             SettingsItem(
                 title = "主题与色彩",
-                detail = if (isNightMode) "黑夜模式" else "白天模式 (默认)",
+                detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
-                    repository.setNightMode(!isNightMode)
+                    val newMode = !isNightMode
+                    repository.setNightMode(newMode)
+                    Toast.makeText(
+                        context,
+                        if (newMode) "已切换为黑夜模式" else "已切换为白天模式",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             )
 
+            // 9. 数据节省与云加速
             SettingsItem(
                 title = "数据节省与云加速",
-                detail = "开启 · ${String.format("%.2f MB", repository.dataSavedMb.value)}",
+                detail = "",
                 textColor = textColor,
-                subTextColor = Color(0xFF0284C7),
+                subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
-                    Toast.makeText(context, "数据节省与智能广告压缩正在运行", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "数据节省与云加速正在运行 (${String.format("%.2f MB", repository.dataSavedMb.value)})",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             )
 
+            // 10. 清除记录与缓存
             SettingsItem(
                 title = "清除记录与缓存",
-                detail = "历史记录、缓存及Cookie",
+                detail = "",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = { showClearDialog = true }
             )
 
+            // 11. 关于大象
             SettingsItem(
                 title = "关于大象",
-                detail = "V1.0.0 (Chromium 内核)",
+                detail = "V1.0.0",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = { showAboutDialog = true }
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
-            // Centered "恢复默认" button (Image 4 bottom)
+            // Centered "恢复默认" button (Image 2 bottom)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -280,7 +304,7 @@ fun SettingsScreen(
             ) {
                 Text(
                     text = "恢复默认",
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     color = subTextColor,
                     modifier = Modifier
                         .clickable {
@@ -290,7 +314,7 @@ fun SettingsScreen(
                             repository.setAdBlockEnabled(true)
                             Toast.makeText(context, "已恢复为默认配置", Toast.LENGTH_SHORT).show()
                         }
-                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                        .padding(horizontal = 24.dp, vertical = 10.dp)
                 )
             }
         }
@@ -500,6 +524,77 @@ fun SettingsScreen(
         )
     }
 
+    // Browser Settings Dialog
+    if (showBrowserSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showBrowserSettingsDialog = false },
+            title = { Text("浏览设置") },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                repository.setDesktopMode(!isDesktopMode)
+                            }
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("默认电脑版模式", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text(
+                                if (isDesktopMode) "新建标签页默认以电脑版打开" else "新建标签页以移动端打开",
+                                fontSize = 12.sp,
+                                color = subTextColor
+                            )
+                        }
+                        Switch(
+                            checked = isDesktopMode,
+                            onCheckedChange = { repository.setDesktopMode(it) }
+                        )
+                    }
+
+                    HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showBrowserSettingsDialog = false
+                                showUaDialog = true
+                            }
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("电脑版 User-Agent", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            val uaName = when (desktopUaType) {
+                                "mac" -> "Mac Safari / Chrome"
+                                "ipad" -> "iPad / 平板电脑"
+                                "custom" -> "自定义 UA"
+                                else -> "Windows Chrome"
+                            }
+                            Text(uaName, fontSize = 12.sp, color = Color(0xFF2563EB))
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = subTextColor.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBrowserSettingsDialog = false }) {
+                    Text("完成")
+                }
+            }
+        )
+    }
+
     // About Dialog
     if (showAboutDialog) {
         AlertDialog(
@@ -550,13 +645,13 @@ private fun SettingsItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 20.dp, vertical = 18.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = title,
-                fontSize = 15.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
                 color = textColor
             )
@@ -565,7 +660,7 @@ private fun SettingsItem(
                 if (detail.isNotBlank()) {
                     Text(
                         text = detail,
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         color = subTextColor,
                         modifier = Modifier.padding(end = 6.dp)
                     )
@@ -573,11 +668,11 @@ private fun SettingsItem(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
-                    tint = subTextColor.copy(alpha = 0.6f),
-                    modifier = Modifier.size(20.dp)
+                    tint = subTextColor.copy(alpha = 0.45f),
+                    modifier = Modifier.size(19.dp)
                 )
             }
         }
-        HorizontalDivider(color = dividerColor, thickness = 0.8.dp)
+        HorizontalDivider(color = dividerColor, thickness = 0.6.dp)
     }
 }
