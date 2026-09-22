@@ -522,6 +522,20 @@ class MainActivity : ComponentActivity() {
     }
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        // If the user was sent to Android's PiP settings from the floating
+        // button, resume the pending request automatically after returning.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            FloatingVideoPlayerComponent.hasPipPermission(this)
+        ) {
+            FloatingVideoPlayerComponent.pendingGlobalVideo?.let { pending ->
+                triggerGlobalFloatingOrPiP(pending)
+            }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
