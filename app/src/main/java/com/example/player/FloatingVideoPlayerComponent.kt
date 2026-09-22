@@ -28,6 +28,11 @@ object FloatingVideoPlayerComponent {
     @Volatile
     var activeVideoInfo: VideoMediaInfo? = null
 
+    // Keeps the requested video while the user is sent to Android's PiP settings.
+    // MainActivity consumes this after returning from Settings.
+    @Volatile
+    var pendingGlobalVideo: VideoMediaInfo? = null
+
     var onProgressSyncListener: ((seconds: Double) -> Unit)? = null
 
     fun syncProgress(seconds: Double) {
@@ -70,10 +75,8 @@ object FloatingVideoPlayerComponent {
     fun openPipSettings(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                val intent = Intent(
-                    "android.settings.PICTURE_IN_PICTURE_SETTINGS",
-                    Uri.parse("package:${context.packageName}")
-                ).apply {
+                val intent = Intent(Settings.ACTION_PICTURE_IN_PICTURE_SETTINGS).apply {
+                    data = Uri.parse("package:${context.packageName}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
@@ -172,6 +175,7 @@ object FloatingVideoPlayerComponent {
         originTabIndex: Int? = null
     ) {
         activeVideoInfo = video
+        pendingGlobalVideo = video
         if (!hasOverlayPermission(context)) {
             requestOverlayPermission(context)
             return
