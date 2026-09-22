@@ -85,6 +85,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _isDownloadManagerVisible = MutableStateFlow(false)
     val isDownloadManagerVisible: StateFlow<Boolean> = _isDownloadManagerVisible.asStateFlow()
 
+    private val _isSearchOverlayVisible = MutableStateFlow(false)
+    val isSearchOverlayVisible: StateFlow<Boolean> = _isSearchOverlayVisible.asStateFlow()
+
     private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
     val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
 
@@ -94,6 +97,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     // Active WebView reference for executing actions
     var activeWebView: WebView? = null
+
+    fun setSearchOverlayVisible(visible: Boolean) {
+        _isSearchOverlayVisible.value = visible
+    }
 
     fun setDownloadManagerVisible(visible: Boolean) {
         _isDownloadManagerVisible.value = visible
@@ -175,6 +182,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun navigateTo(queryOrUrl: String) {
         val q = queryOrUrl.trim()
         if (q.isBlank()) return
+        _isSearchOverlayVisible.value = false
         val finalUrl = repository.getSearchUrl(q)
         _urlInput.value = finalUrl
 

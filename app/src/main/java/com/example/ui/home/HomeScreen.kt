@@ -90,6 +90,7 @@ fun HomeScreen(
     quickSites: List<QuickSite>,
     bookmarks: List<BookmarkItem> = emptyList(),
     onSearch: (String) -> Unit,
+    onOpenSearch: () -> Unit = {},
     onSelectEngine: (String) -> Unit,
     onAddQuickSite: (title: String, url: String, bgColor: Long) -> Boolean = { _, _, _ -> false },
     onRemoveQuickSite: (url: String) -> Unit = {},
@@ -101,10 +102,8 @@ fun HomeScreen(
     onOpenMoreSites: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var query by remember { mutableStateOf("") }
     var engineMenuExpanded by remember { mutableStateOf(false) }
     var showMoreSitesSheet by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
 
     val bgColor = if (isNightMode) Color(0xFF111418) else Color(0xFFFAFBFD)
     val cardBg = if (isNightMode) Color(0xFF1E232B) else Color(0xFFFFFFFF)
@@ -189,7 +188,7 @@ fun HomeScreen(
                 }
             }
 
-            // Search Capsule Bar (Image 2 style: rounded capsule with search engine icon only + input)
+            // Search Capsule Bar: Clicking enters Figure 2 search screen directly
             Surface(
                 shape = RoundedCornerShape(32.dp),
                 color = cardBg,
@@ -201,10 +200,12 @@ fun HomeScreen(
                         if (isNightMode) Color(0xFF334155) else Color(0xFFE2E8F0),
                         RoundedCornerShape(32.dp)
                     )
+                    .clip(RoundedCornerShape(32.dp))
+                    .clickable { onOpenSearch() }
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                 ) {
                     // Search Engine Picker Button (Image 2 style: ONLY icon + dropdown arrow, NO text)
                     Box {
@@ -213,7 +214,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
                                 .clickable { engineMenuExpanded = true }
-                                .padding(start = 6.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+                                .padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
@@ -267,84 +268,47 @@ fun HomeScreen(
                         }
                     }
 
-                    Box(modifier = Modifier.weight(1f)) {
-                        TextField(
-                            value = query,
-                            onValueChange = { query = it },
-                            placeholder = {
-                                Text(
-                                    text = "搜索或输入网址",
-                                    color = subTextColor,
-                                    fontSize = 15.sp
-                                )
-                            },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = {
-                                focusManager.clearFocus()
-                                val trimmed = query.trim()
-                                if (trimmed.isNotEmpty()) {
-                                    onSearch(trimmed)
-                                }
-                            }),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    Spacer(modifier = Modifier.width(10.dp))
 
-                    if (query.isNotEmpty()) {
-                        IconButton(
-                            onClick = { query = "" },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "清空输入",
-                                tint = subTextColor,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
+                    Text(
+                        text = "在 ${SearchEngines.getById(searchEngine).shortName} 中搜索或输入网址",
+                        color = subTextColor,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // Quick 4-Action Row (Image 2 style: 下载器, 问AI, 历史记录, 书签)
+            // Quick 4-Action Row (Figure 4 style: 下载器, 问AI, 历史记录, 书签)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 QuickActionItem(
                     title = "下载器",
-                    icon = Icons.Default.Download,
+                    iconRes = R.drawable.ic_action_download_hex,
                     isNightMode = isNightMode,
                     onClick = onOpenDownloads
                 )
                 QuickActionItem(
                     title = "问AI",
-                    icon = Icons.Default.AutoAwesome,
+                    iconRes = R.drawable.ic_action_ai_bubble,
                     isNightMode = isNightMode,
-                    accentColor = Color(0xFF6366F1),
                     onClick = onOpenAi
                 )
                 QuickActionItem(
                     title = "历史记录",
-                    icon = Icons.Default.History,
+                    iconRes = R.drawable.ic_action_history_clock,
                     isNightMode = isNightMode,
                     onClick = onOpenHistory
                 )
                 QuickActionItem(
                     title = "书签",
-                    icon = Icons.Default.Bookmark,
+                    iconRes = R.drawable.ic_action_bookmark_ribbon,
                     isNightMode = isNightMode,
                     onClick = onOpenBookmarks
                 )
@@ -352,7 +316,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            // Popular Websites Grid (Image 2 style)
+            // Navigation Grid (5 columns per row, circular official logos matching Figure 3)
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -361,21 +325,27 @@ fun HomeScreen(
                 rows.forEach { rowSites ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        rowSites.forEach { site ->
-                            SiteShortcutItem(
-                                site = site,
-                                isNightMode = isNightMode,
-                                onClick = {
-                                    if (site.url == "action://more" || site.title == "更多" || site.iconName == "more") {
-                                        showMoreSitesSheet = true
-                                        onOpenMoreSites()
-                                    } else {
-                                        onSearch(site.url)
-                                    }
-                                }
-                            )
+                        for (index in 0 until 5) {
+                            if (index < rowSites.size) {
+                                val site = rowSites[index]
+                                SiteShortcutItem(
+                                    site = site,
+                                    isNightMode = isNightMode,
+                                    onClick = {
+                                        if (site.url == "action://more" || site.title == "更多" || site.iconName == "more") {
+                                            showMoreSitesSheet = true
+                                            onOpenMoreSites()
+                                        } else {
+                                            onSearch(site.url)
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
                 }
@@ -404,38 +374,86 @@ fun HomeScreen(
 @Composable
 private fun QuickActionItem(
     title: String,
-    icon: ImageVector,
+    iconRes: Int,
     isNightMode: Boolean,
-    accentColor: Color = if (isNightMode) Color(0xFFE2E8F0) else Color(0xFF334155),
     onClick: () -> Unit
 ) {
+    val iconColor = if (isNightMode) Color(0xFFE2E8F0) else Color(0xFF262626)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(8.dp)
+            .padding(horizontal = 6.dp, vertical = 6.dp)
     ) {
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = if (isNightMode) Color(0xFF1E242C) else Color(0xFFF1F5F9),
-            modifier = Modifier.size(46.dp)
+        Box(
+            modifier = Modifier.size(36.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = accentColor,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = title,
+                tint = iconColor,
+                modifier = Modifier.size(28.dp)
+            )
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = title,
             fontSize = 12.sp,
-            color = if (isNightMode) Color(0xFFCBD5E1) else Color(0xFF475569)
+            color = if (isNightMode) Color(0xFFCBD5E1) else Color(0xFF262626),
+            fontWeight = FontWeight.Normal
         )
+    }
+}
+
+@Composable
+fun SiteOfficialIcon(
+    site: QuickSite,
+    modifier: Modifier = Modifier
+) {
+    val iconRes = when (site.iconName.lowercase()) {
+        "github" -> R.drawable.ic_site_github
+        "tiktok" -> R.drawable.ic_site_tiktok
+        "youtube" -> R.drawable.ic_site_youtube
+        "instagram" -> R.drawable.ic_site_instagram
+        "google" -> R.drawable.ic_engine_google
+        "baidu" -> R.drawable.ic_engine_baidu
+        "bilibili" -> R.drawable.ic_engine_bilibili
+        "more" -> R.drawable.ic_site_more
+        else -> when {
+            site.url.contains("github.com", ignoreCase = true) || site.title.contains("github", ignoreCase = true) -> R.drawable.ic_site_github
+            site.url.contains("tiktok.com", ignoreCase = true) || site.title.contains("tiktok", ignoreCase = true) -> R.drawable.ic_site_tiktok
+            site.url.contains("youtube.com", ignoreCase = true) || site.title.contains("youtube", ignoreCase = true) -> R.drawable.ic_site_youtube
+            site.url.contains("instagram.com", ignoreCase = true) || site.title.contains("instagram", ignoreCase = true) -> R.drawable.ic_site_instagram
+            site.url.contains("google.com", ignoreCase = true) || site.title.contains("google", ignoreCase = true) -> R.drawable.ic_engine_google
+            site.url.contains("bilibili.com", ignoreCase = true) || site.title.contains("哔哩", ignoreCase = true) -> R.drawable.ic_engine_bilibili
+            site.url.contains("baidu.com", ignoreCase = true) || site.title.contains("百度", ignoreCase = true) -> R.drawable.ic_engine_baidu
+            site.url == "action://more" || site.title == "更多" -> R.drawable.ic_site_more
+            else -> null
+        }
+    }
+
+    if (iconRes != null) {
+        Image(
+            painter = painterResource(id = iconRes),
+            contentDescription = site.title,
+            modifier = modifier
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .clip(CircleShape)
+                .background(Color(site.bgColor)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = site.title.take(1).uppercase(),
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color.White
+            )
+        }
     }
 }
 
@@ -443,28 +461,31 @@ private fun QuickActionItem(
 private fun SiteShortcutItem(
     site: QuickSite,
     isNightMode: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(62.dp)
-            .clip(RoundedCornerShape(12.dp))
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 4.dp)
     ) {
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color(site.bgColor),
-            shadowElevation = 2.dp,
+            shape = CircleShape,
+            color = Color.Transparent,
+            shadowElevation = 1.dp,
             modifier = Modifier.size(48.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = site.title.take(1),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = if (site.bgColor == 0xFFFFFFFF) Color(0xFFEA4335) else Color.White
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                SiteOfficialIcon(
+                    site = site,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
         }

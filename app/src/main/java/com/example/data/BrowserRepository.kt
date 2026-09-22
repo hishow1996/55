@@ -313,34 +313,37 @@ class BrowserRepository(private val context: Context) {
         prefs.edit().putString(KEY_HISTORY, array.toString()).apply()
     }
 
-    // Search History Operations (matching Figure 2)
+    // Search History Operations (matching Figure 2, starting empty)
     private fun loadSearchHistory() {
         val raw = prefs.getString(KEY_SEARCH_HISTORY, null)
         if (raw != null) {
             try {
                 val array = JSONArray(raw)
                 val list = mutableListOf<String>()
+                val sampleKeywords = setOf(
+                    "google ai studio",
+                    "github",
+                    "大象粗线条极简轮廓画像拱桥",
+                    "3D游戏动漫风格自然素材",
+                    "动漫风格资源包免费下载",
+                    "动漫风格资源包",
+                    "卡车3D模型"
+                )
                 for (i in 0 until array.length()) {
                     val q = array.getString(i)
-                    if (q.isNotBlank()) list.add(q)
+                    if (q.isNotBlank() && !sampleKeywords.contains(q)) {
+                        list.add(q)
+                    }
                 }
                 _searchHistory.value = list
+                saveSearchHistory(list)
             } catch (e: Exception) {
                 _searchHistory.value = emptyList()
             }
         } else {
-            // Initial realistic items matching Figure 2 screenshot
-            val initial = listOf(
-                "google ai studio",
-                "github",
-                "大象粗线条极简轮廓画像拱桥",
-                "3D游戏动漫风格自然素材",
-                "动漫风格资源包免费下载",
-                "动漫风格资源包",
-                "卡车3D模型"
-            )
-            _searchHistory.value = initial
-            saveSearchHistory(initial)
+            // Start empty as requested: do not add image history items
+            _searchHistory.value = emptyList()
+            saveSearchHistory(emptyList())
         }
     }
 
@@ -458,6 +461,14 @@ class BrowserRepository(private val context: Context) {
     }
 
     private fun loadQuickSites() {
+        val sitesVersion = prefs.getInt("quick_sites_version_v4", 0)
+        if (sitesVersion < 4) {
+            val defaults = getDefaultQuickSites()
+            _quickSites.value = defaults
+            saveQuickSites(defaults)
+            prefs.edit().putInt("quick_sites_version_v4", 4).apply()
+            return
+        }
         val raw = prefs.getString(KEY_QUICK_SITES, null)
         if (raw == null) {
             val defaults = getDefaultQuickSites()
@@ -478,9 +489,6 @@ class BrowserRepository(private val context: Context) {
                             isCustom = obj.optBoolean("isCustom", false)
                         )
                     )
-                }
-                if (list.none { it.url == "action://more" || it.title == "更多" }) {
-                    list.add(QuickSite("更多", "action://more", "more", 0xFF6366F1))
                 }
                 _quickSites.value = list
             } catch (e: Exception) {
@@ -504,16 +512,10 @@ class BrowserRepository(private val context: Context) {
     }
 
     fun getDefaultQuickSites(): List<QuickSite> = listOf(
-        QuickSite("Google", "https://www.google.com", "google", 0xFFFFFFFF),
-        QuickSite("百度", "https://www.baidu.com", "baidu", 0xFF2932E1),
-        QuickSite("哔哩哔哩", "https://m.bilibili.com", "bilibili", 0xFFFB7299),
-        QuickSite("腾讯视频", "https://m.v.qq.com", "video", 0xFFFF6C00),
-        QuickSite("爱奇艺", "https://m.iqiyi.com", "iqiyi", 0xFF00C752),
+        QuickSite("GitHub", "https://github.com", "github", 0xFF181717),
+        QuickSite("TikTok", "https://www.tiktok.com", "tiktok", 0xFF010101),
         QuickSite("YouTube", "https://m.youtube.com", "youtube", 0xFFFF0000),
-        QuickSite("知乎", "https://www.zhihu.com", "zhihu", 0xFF0084FF),
-        QuickSite("GitHub", "https://github.com", "github", 0xFF24292E),
-        QuickSite("微博", "https://m.weibo.cn", "weibo", 0xFFE6162D),
-        QuickSite("更多", "action://more", "more", 0xFF6366F1)
+        QuickSite("Instagram", "https://www.instagram.com", "instagram", 0xFFE1306C)
     )
 
     fun getQuickSites(): List<QuickSite> = _quickSites.value

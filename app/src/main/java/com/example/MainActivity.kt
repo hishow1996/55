@@ -75,6 +75,7 @@ import com.example.ui.history.HistoryBookmarksScreen
 import com.example.ui.home.HomeScreen
 import com.example.ui.menu.BrowserBottomSheetMenu
 import com.example.ui.plugin.PluginManagerScreen
+import com.example.ui.search.SearchOverlayScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.tabs.TabManagerScreen
 import com.example.ui.theme.MyApplicationTheme
@@ -142,12 +143,15 @@ class MainActivity : ComponentActivity() {
             val historyBookmarksInitialTab by viewModel.historyBookmarksInitialTab.collectAsState()
             val isAiChatVisible by viewModel.isAiChatVisible.collectAsState()
             val isDownloadManagerVisible by viewModel.isDownloadManagerVisible.collectAsState()
+            val isSearchOverlayVisible by viewModel.isSearchOverlayVisible.collectAsState()
+            val searchHistory by viewModel.repository.searchHistory.collectAsState()
             val pendingDownload by viewModel.pendingDownload.collectAsState()
             val inPipMode by remember { isPipModeState }
 
             // Back Press Handling
             BackHandler(enabled = true) {
                 when {
+                    isSearchOverlayVisible -> viewModel.setSearchOverlayVisible(false)
                     customVideoView != null -> viewModel.hideCustomVideoView()
                     isFloatingPlayerVisible -> viewModel.closeFloatingPlayer()
                     isDownloadManagerVisible -> viewModel.setDownloadManagerVisible(false)
@@ -230,6 +234,7 @@ class MainActivity : ComponentActivity() {
                                     quickSites = quickSites,
                                     bookmarks = bookmarks,
                                     onSearch = { viewModel.navigateTo(it) },
+                                    onOpenSearch = { viewModel.setSearchOverlayVisible(true) },
                                     onSelectEngine = { viewModel.repository.setSearchEngine(it) },
                                     onAddQuickSite = { title, url, bgColor ->
                                         viewModel.repository.addQuickSite(title, url, bgColor = bgColor)
@@ -477,6 +482,32 @@ class MainActivity : ComponentActivity() {
                                 TextButton(onClick = { viewModel.dismissPendingDownload() }) {
                                     Text("取消")
                                 }
+                            }
+                        )
+                    }
+
+                    // --- FULL-SCREEN SEARCH OVERLAY SCREEN (Figure 2 layout) ---
+                    AnimatedVisibility(
+                        visible = isSearchOverlayVisible,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        SearchOverlayScreen(
+                            searchEngine = searchEngine,
+                            searchHistory = searchHistory,
+                            isNightMode = isNightMode,
+                            onSearch = { query ->
+                                viewModel.repository.addSearchQuery(query)
+                                viewModel.navigateTo(query)
+                            },
+                            onDeleteHistoryItem = { item ->
+                                viewModel.repository.removeSearchQuery(item)
+                            },
+                            onClearAllHistory = {
+                                viewModel.repository.clearSearchHistory()
+                            },
+                            onClose = {
+                                viewModel.setSearchOverlayVisible(false)
                             }
                         )
                     }
