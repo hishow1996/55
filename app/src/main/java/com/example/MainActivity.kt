@@ -220,7 +220,7 @@ class MainActivity : ComponentActivity() {
                                 onStop = { viewModel.stopLoading() },
                                 onToggleTranslation = { viewModel.toggleTranslation() },
                                 onDismissTranslation = { viewModel.dismissTranslationBanner() },
-                                onOpenFloatingPlayer = { viewModel.startFloatingPlayer() },
+                                onOpenFloatingPlayer = { triggerGlobalFloatingOrPiP(viewModel.detectedVideo.value ?: createFallbackVideoForCurrentTab(viewModel)) },
                                 onToggleDesktopMode = { viewModel.toggleDesktopMode() }
                             )
                         }
@@ -535,25 +535,45 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun createFallbackVideoForCurrentTab(
+        viewModel: com.example.viewmodel.BrowserViewModel
+    ): VideoMediaInfo {
+        val tab = viewModel.currentTab
+        return VideoMediaInfo(
+            url = tab.url,
+            pageUrl = tab.url,
+            title = tab.title.ifBlank { "网页视频" },
+            videoWidth = 16,
+            videoHeight = 9,
+            originTabIndex = viewModel.currentTabIndex.value
+        )
+    }
+
     private fun triggerGlobalFloatingOrPiP(video: VideoMediaInfo) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (FloatingVideoPlayerComponent.hasPipPermission(this)) {
-                try {
-                    val pipParams = FloatingVideoPlayerComponent.buildPipParams(video)
-                    val entered = enterPictureInPictureMode(pipParams)
-                    if (!entered) {
-                        FloatingVideoPlayerComponent.openPipSettings(this)
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    FloatingVideoPlayerComponent.openPipSettings(this)
-                }
-            } else {
-                // If Picture-in-Picture permission is not opened yet, jump directly to PiP settings page
+        // Launch system-wide PiP instead of the Compose in-app floating player.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            Toast.makeText(this, "当前系统版本不支持全局画中画悬浮", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (!FloatingVideoPlayerComponent.hasPipPermission(this)) {
+            // Directly open this app's PiP settings page.
+            FloatingVideoPlayerComponent.openPipSettings(this)
+            return
+        }
+
+        try {
+            // Close the in-app player first to avoid two players playing together.
+            viewModelRef?.closeFloatingPlayer()
+
+            val pipParams = FloatingVideoPlayerComponent.buildPipParams(video)
+            val entered = enterPictureInPictureMode(pipParams)
+            if (!entered) {
                 FloatingVideoPlayerComponent.openPipSettings(this)
             }
-        } else {
-            Toast.makeText(this, "当前系统版本不支持画中画全局悬浮", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            FloatingVideoPlayerComponent.openPipSettings(this)
         }
     }
 
