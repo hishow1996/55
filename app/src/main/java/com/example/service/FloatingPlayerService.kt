@@ -11,8 +11,6 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.SurfaceTexture
 import android.graphics.drawable.GradientDrawable
-import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -34,6 +32,10 @@ import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.player.FloatingVideoPlayerComponent
+import com.example.player.Media3VideoPlayerController
+import com.example.model.VideoMediaInfo
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import java.util.Locale
 import kotlin.math.max
 
@@ -42,7 +44,8 @@ class FloatingPlayerService : Service() {
     private var windowManager: WindowManager? = null
     private var rootLayout: FrameLayout? = null
     private var textureView: TextureView? = null
-    private var mediaPlayer: MediaPlayer? = null
+    private var mediaPlayer: androidx.media3.exoplayer.ExoPlayer? = null
+    private var nativePlayerController: Media3VideoPlayerController? = null
     private var currentSurface: Surface? = null
 
     private var controlsLayout: FrameLayout? = null
@@ -212,13 +215,62 @@ class FloatingPlayerService : Service() {
                     val surface = Surface(st)
                     currentSurface = surface
 
-                    val mp = MediaPlayer().apply {
-                        setSurface(surface)
-                        isLooping = true
-                        setOnErrorListener { _, what, extra ->
+                    val activeInfo = FloatingVideoPlayerComponent.activeVideoInfo
+                    var streamUrl = videoUrl.trim()
+                    if (streamUrl.isBlank() || streamUrl.startsWith("blob:") || !streamUrl.startsWith("http")) {
+                        streamUrl = activeInfo?.url?.trim() ?: ""
+                    }
+
+                    if (streamUrl.isBlank() || streamUrl.startsWith("blob:")) {
+                        handler.post {
+                            Toast.makeText(
+                                this@FloatingPlayerService,
+                                "当前视频无法转换为原生播放地址",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        return
+                    }
+
+                    val effectiveVideo = (activeInfo ?: VideoMediaInfo(
+                        url = streamUrl,
+                        pageUrl = sourcePageUrl,
+                        title = videoTitle,
+                        currentTime = initialPositionMs / 1000.0,
+                        videoWidth = (videoRatio * 1000).toInt().coerceAtLeast(1),
+                        videoHeight = 1000,
+                        originTabIndex = originTabIndex
+                    )).copy(
+                        url = streamUrl,
+                        pageUrl = if (sourcePageUrl.isNotBlank()) sourcePageUrl else activeInfo?.pageUrl.orEmpty(),
+                        currentTime = initialPositionMs / 1000.0
+                    )
+
+                    val controller = Media3VideoPlayerController(this@FloatingPlayerService)
+                    nativePlayerController = controller
+                    val player = controller.rawPlayer()
+                    mediaPlayer = player
+                    controller.setSurface(surface)
+                    controller.addListener(object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            if (playbackState == Player.STATE_READY) {
+                                durationMs = player.duration.coerceAtLeast(0L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                if (initialPositionMs > 0L) {
+                                    player.seekTo(initialPositionMs)
+                                    currentPositionMs = initialPositionMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                }
+                                player.repeatMode = Player.REPEAT_MODE_ONE
+                                player.play()
+                                this@FloatingPlayerService.isPlaying = true
+                                playPauseBtn?.setImageResource(android.R.drawable.ic_media_pause)
+                            }
+                        }
+
+                        override fun onPlayerError(error: PlaybackException) {
                             android.util.Log.e(
                                 "FloatingPlayerService",
-                                "MediaPlayer error: what=$what extra=$extra url=$videoUrl"
+                                "Media3 playback error: code=${error.errorCode} url=$streamUrl",
+                                error
                             )
                             handler.post {
                                 Toast.makeText(
@@ -227,45 +279,33 @@ class FloatingPlayerService : Service() {
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
-                            false
                         }
-                        setOnPreparedListener { player ->
-                            if (initialPositionMs > 0) {
-                                player.seekTo(initialPositionMs.toInt())
-                                currentPositionMs = initialPositionMs.toInt()
-                            }
-                            if (player.duration > 0) {
-                                durationMs = player.duration
-                            }
-                            player.start()
-                            this@FloatingPlayerService.isPlaying = true
-                            playPauseBtn?.setImageResource(android.R.drawable.ic_media_pause)
-                        }
-                    }
-                    mediaPlayer = mp
 
+                        override fun onIsPlayingChanged(playing: Boolean) {
+                            this@FloatingPlayerService.isPlaying = playing
+                            playPauseBtn?.setImageResource(
+                                if (playing) android.R.drawable.ic_media_pause
+                                else android.R.drawable.ic_media_play
+                            )
+                            resetHideTimer()
+                        }
+                    })
                     try {
-                        val activeInfo = FloatingVideoPlayerComponent.activeVideoInfo
-                        var streamUrl = videoUrl.trim()
-                        if (streamUrl.isBlank() || streamUrl.startsWith("blob:") || !streamUrl.startsWith("http")) {
-                            streamUrl = activeInfo?.url?.trim() ?: ""
-                        }
-
-                        if (streamUrl.isNotBlank() && !streamUrl.startsWith("blob:")) {
-                            val headers = mutableMapOf<String, String>()
-                            // Match the WebView's current Android browser UA instead of a
-                            // hard-coded Chrome version; some CDNs reject the latter.
-                            headers["User-Agent"] = android.webkit.WebSettings.getDefaultUserAgent(this@FloatingPlayerService)
-                            headers["Accept"] = "*/*"
-                            val pageUrl = activeInfo?.pageUrl ?: ""
-                            if (pageUrl.isNotBlank()) {
-                                headers["Referer"] = pageUrl
-                            }
-                            mp.setDataSource(this@FloatingPlayerService, Uri.parse(streamUrl), headers)
-                            mp.prepareAsync()
-                        }
+                        controller.load(effectiveVideo, initialPositionMs)
+                        controller.play()
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        android.util.Log.e(
+                            "FloatingPlayerService",
+                            "Failed to load Media3 source: $streamUrl",
+                            e
+                        )
+                        handler.post {
+                            Toast.makeText(
+                                this@FloatingPlayerService,
+                                "悬浮视频加载失败",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                 }
 
@@ -689,10 +729,10 @@ class FloatingPlayerService : Service() {
             mediaPlayer?.let { mp ->
                 try {
                     FloatingVideoPlayerComponent.syncProgress(mp.currentPosition / 1000.0)
-                    mp.stop()
-                    mp.release()
                 } catch (e: Exception) {}
             }
+            try { nativePlayerController?.release() } catch (e: Exception) {}
+            nativePlayerController = null
             mediaPlayer = null
             currentSurface?.release()
             currentSurface = null
@@ -722,5 +762,6 @@ class FloatingPlayerService : Service() {
         const val EXTRA_SELECT_TAB = "select_tab_index"
         const val EXTRA_RESUME_WEB_VIDEO = "resume_web_video"
         const val EXTRA_VIDEO_POSITION_SECONDS = "video_position_seconds"
+        const val EXTRA_VIDEO_PAGE_URL = "extra_video_page_url"
     }
 }
