@@ -150,6 +150,9 @@ object Scripts {
         (function() {
             const videos = document.querySelectorAll('video');
             for (let v of videos) {
+                if (v && !window._elephantLastVideoElement) {
+                    window._elephantLastVideoElement = v;
+                }
                 const src = v.currentSrc || v.src;
                 if (src && !src.startsWith('blob:')) {
                     if (window.ElephantBridge) {
@@ -193,6 +196,10 @@ object Scripts {
     val LOCK_WEB_VIDEOS = """
         (function() {
             window._elephantFloatingLock = true;
+            if (!window._elephantLastVideoElement) {
+                const candidates = Array.from(document.querySelectorAll('video'));
+                window._elephantLastVideoElement = candidates.find(v => !v.paused) || candidates[0] || null;
+            }
             if (window._elephantFloatingLockTimer) clearInterval(window._elephantFloatingLockTimer);
             if (!window._elephantFloatingPlayHandler) {
                 window._elephantFloatingPlayHandler = function() {
@@ -225,14 +232,17 @@ object Scripts {
                 clearInterval(window._elephantFloatingLockTimer);
                 window._elephantFloatingLockTimer = null;
             }
-            document.querySelectorAll('video').forEach(function(v) {
+            const target = window._elephantLastVideoElement;
+            const videos = target ? [target] : Array.from(document.querySelectorAll('video')).slice(0, 1);
+            videos.forEach(function(v) {
                 try {
                     if (v._elephantFloatingPlayBound && window._elephantFloatingPlayHandler) {
                         v.removeEventListener('play', window._elephantFloatingPlayHandler);
                         v._elephantFloatingPlayBound = false;
                     }
                     if (${seconds} >= 0) v.currentTime = ${seconds};
-                    v.play();
+                    const p = v.play();
+                    if (p && typeof p.catch === 'function') p.catch(function(){});
                 } catch(e) {}
             });
         })();
