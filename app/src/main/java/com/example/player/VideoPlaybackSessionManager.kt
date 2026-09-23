@@ -75,6 +75,11 @@ object VideoPlaybackSessionManager {
     }
 
     @Synchronized
+    fun rebindTab(newTabIndex: Int) {
+        session = session?.copy(tabIndex = newTabIndex)
+    }
+
+    @Synchronized
     fun updatePlaybackRate(rate: Float) {
         session = session?.copy(playbackRate = rate.coerceIn(0.25f, 4.0f))
     }
