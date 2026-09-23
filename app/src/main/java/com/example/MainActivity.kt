@@ -840,6 +840,9 @@ fun ChromiumWebViewContainer(
                         onVideoFound = { url, title, duration, currentTime, width, height ->
                             viewModel.onVideoFound(url, title, duration, currentTime, width, height)
                         },
+                        onVideoPlaybackState = { currentTime, isPlaying ->
+                            viewModel.onWebVideoPlaybackState(currentTime, isPlaying)
+                        },
                         onTranslationFinished = { success, count ->
                             // Handled in ViewModel
                         },
