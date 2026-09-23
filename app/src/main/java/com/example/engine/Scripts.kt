@@ -225,7 +225,7 @@ object Scripts {
         })();
     """.trimIndent()
 
-    fun RESUME_WEB_VIDEO_AT(seconds: Double): String = """
+    fun RESUME_WEB_VIDEO_AT(seconds: Double, autoPlay: Boolean = true): String = """
         (function() {
             window._elephantFloatingLock = false;
             if (window._elephantFloatingLockTimer) {
@@ -241,8 +241,12 @@ object Scripts {
                         v._elephantFloatingPlayBound = false;
                     }
                     if (${seconds} >= 0) v.currentTime = ${seconds};
-                    const p = v.play();
-                    if (p && typeof p.catch === 'function') p.catch(function(){});
+                    if (${autoPlay}) {
+                        const p = v.play();
+                        if (p && typeof p.catch === 'function') p.catch(function(){});
+                    } else {
+                        v.pause();
+                    }
                 } catch(e) {}
             });
         })();
