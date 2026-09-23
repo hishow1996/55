@@ -126,6 +126,7 @@ class ElephantWebViewClient(
         // Discover media first. The native player now owns playback for
         // directly resolvable MP4/HLS/DASH sources; the WebView player remains
         // available as a compatibility fallback for Blob/MSE/DRM pages.
+        view?.evaluateJavascript(Scripts.VIDEO_STATE_MONITOR, null)
         view?.evaluateJavascript(Scripts.VIDEO_SNIFFER_PROBE, null)
         view?.evaluateJavascript(Scripts.UC_INLINE_PLAYER_SCRIPT, null)
 
