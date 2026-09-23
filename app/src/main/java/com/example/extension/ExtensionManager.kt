@@ -190,7 +190,7 @@ class ExtensionManager(private val context: Context) {
         wv.addJavascriptInterface(BackgroundBridge(ext.id), "ElephantExtensionBridge")
         val id = JSONObject.quote(ext.id)
         val root = JSONObject.quote("file://" + ext.rootPath + "/")
-        val polyfill = "(function(){window.chrome={runtime:{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){var r=ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},onMessage:{addListener:function(fn){window.__elephantOnMessage=fn}}},storage:{local:{get:function(k,c){var r=ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})},set:function(v,c){ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()},remove:function(k,c){ElephantExtensionBridge.storageRemove($id,k);if(c)c()},clear:function(c){ElephantExtensionBridge.storageClear($id);if(c)c()}}},tabs:{query:function(q,c){var r=ElephantExtensionBridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])},sendMessage:function(tabId,m,c){var r=ElephantExtensionBridge.tabsSendMessage($id,tabId,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)}},scripting:{executeScript:function(o,c){var r=ElephantExtensionBridge.executeScript($id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}}};})();"
+        val polyfill = "(function(){window.chrome={runtime:{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){var r=ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},onMessage:{addListener:function(fn){window.__elephantOnMessage=fn}}},storage:{local:{get:function(k,c){var r=ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})},set:function(v,c){ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()},remove:function(k,c){ElephantExtensionBridge.storageRemove($id,k);if(c)c()},clear:function(c){ElephantExtensionBridge.storageClear($id);if(c)c()}}},tabs:{query:function(q,c){var r=ElephantExtensionBridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])},sendMessage:function(tabId,m,c){var r=ElephantExtensionBridge.tabsSendMessage($id,tabId,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},update:function(tabId,p,c){var r=ElephantExtensionBridge.tabsUpdate($id,tabId,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):null)},create:function(p,c){var r=ElephantExtensionBridge.tabsCreate($id,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):null)}},scripting:{executeScript:function(o,c){var r=ElephantExtensionBridge.executeScript($id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}}};})();"
         wv.loadDataWithBaseURL("file://" + ext.rootPath + "/", "<html><script>" + polyfill + file.readText() + "</script></html>", "text/html", "UTF-8", null)
         backgroundHosts[ext.id] = wv
     }
@@ -219,6 +219,16 @@ class ExtensionManager(private val context: Context) {
             val idJson = JSONObject.quote(extensionId)
             target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});", null) }
             return JSONObject.NULL.toString()
+        }
+        @JavascriptInterface fun tabsCreate(extensionId: String, propertiesJson: String): String {
+            val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
+            val url = p.optString("url", "about:blank")
+            val active = p.optBoolean("active", true)
+            val newKey = "extension-tab-" + System.nanoTime()
+            if (active) setPageActive(newKey)
+            pageUrls[newKey] = url
+            pageActive[newKey] = active
+            return JSONObject().apply { put("id", newKey.hashCode()); put("url", url); put("active", active); put("status", "loading"); put("title", "") }.toString()
         }
         @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
             val target = pageWebViews.entries.firstOrNull { it.key.hashCode() == tabId }?.value ?: return JSONObject.NULL.toString()
