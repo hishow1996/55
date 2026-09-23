@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.example.model.BookmarkItem
 import com.example.model.HistoryItem
-import com.example.model.PluginItem
 import com.example.extension.ExtensionManager
 import com.example.model.QuickSite
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -379,88 +378,7 @@ class BrowserRepository(private val context: Context) {
         prefs.edit().putString(KEY_SEARCH_HISTORY, array.toString()).apply()
     }
 
-    // Plugins Operations
-    private fun loadPlugins() {
-        val raw = prefs.getString(KEY_PLUGINS, null)
-        val defaultList = DefaultPlugins.getBuiltInPlugins()
-        if (raw == null) {
-            _plugins.value = defaultList
-            savePlugins(defaultList)
-        } else {
-            try {
-                val array = JSONArray(raw)
-                val list = mutableListOf<PluginItem>()
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    list.add(
-                        PluginItem(
-                            id = obj.optString("id"),
-                            name = obj.optString("name"),
-                            description = obj.optString("description"),
-                            author = obj.optString("author", "大象开发者"),
-                            version = obj.optString("version", "1.0"),
-                            isEnabled = obj.optBoolean("isEnabled", true),
-                            matchPattern = obj.optString("matchPattern", "*"),
-                            runAt = obj.optString("runAt", "document_end"),
-                            scriptCode = obj.optString("scriptCode"),
-                            isBuiltIn = obj.optBoolean("isBuiltIn", false)
-                        )
-                    )
-                }
-                // Ensure built-in plugins exist
-                defaultList.forEach { def ->
-                    if (list.none { it.id == def.id }) {
-                        list.add(def)
-                    }
-                }
-                _plugins.value = list
-            } catch (e: Exception) {
-                _plugins.value = defaultList
-            }
-        }
-    }
-
-    fun togglePlugin(id: String, enabled: Boolean) {
-        val updated = _plugins.value.map {
-            if (it.id == id) it.copy(isEnabled = enabled) else it
-        }
-        _plugins.value = updated
-        savePlugins(updated)
-    }
-
-    fun addCustomPlugin(plugin: PluginItem) {
-        val list = _plugins.value.toMutableList()
-        list.removeAll { it.id == plugin.id }
-        list.add(0, plugin)
-        _plugins.value = list
-        savePlugins(list)
-    }
-
-    fun deletePlugin(id: String) {
-        val list = _plugins.value.filterNot { it.id == id && !it.isBuiltIn }
-        _plugins.value = list
-        savePlugins(list)
-    }
-
-    private fun savePlugins(list: List<PluginItem>) {
-        val array = JSONArray()
-        list.forEach { item ->
-            val obj = JSONObject()
-            obj.put("id", item.id)
-            obj.put("name", item.name)
-            obj.put("description", item.description)
-            obj.put("author", item.author)
-            obj.put("version", item.version)
-            obj.put("isEnabled", item.isEnabled)
-            obj.put("matchPattern", item.matchPattern)
-            obj.put("runAt", item.runAt)
-            obj.put("scriptCode", item.scriptCode)
-            obj.put("isBuiltIn", item.isBuiltIn)
-            array.put(obj)
-        }
-        prefs.edit().putString(KEY_PLUGINS, array.toString()).apply()
-    }
-
+    // Extension operations are owned by ExtensionManager.
     private fun loadQuickSites() {
         val sitesVersion = prefs.getInt("quick_sites_version_v8", 0)
         if (sitesVersion < 8) {
