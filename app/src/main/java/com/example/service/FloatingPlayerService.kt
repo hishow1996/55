@@ -232,6 +232,16 @@ class FloatingPlayerService : Service() {
             surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
                     // TextureView may recreate its Surface while the service stays alive.
+                    // Preserve the latest position before rebuilding Media3.
+                    val preservedPosition = try {
+                        mediaPlayer?.currentPosition?.coerceAtLeast(0L)
+                    } catch (_: Exception) {
+                        null
+                    } ?: VideoPlaybackSessionManager.current()?.positionMs?.coerceAtLeast(0L)
+                    ?: initialPositionMs.coerceAtLeast(0L)
+                    initialPositionMs = preservedPosition
+                    VideoPlaybackSessionManager.updatePosition(preservedPosition)
+
                     // Release the previous Media3 instance before binding the new Surface.
                     try { nativePlayerController?.release() } catch (_: Exception) {}
                     nativePlayerController = null
@@ -266,7 +276,8 @@ class FloatingPlayerService : Service() {
                         currentTime = initialPositionMs / 1000.0,
                         videoWidth = (videoRatio * 1000).toInt().coerceAtLeast(1),
                         videoHeight = 1000,
-                        originTabIndex = originTabIndex
+                        originTabIndex = originTabIndex,
+                        originTabId = originTabId
                     )).copy(
                         url = streamUrl,
                         pageUrl = if (sourcePageUrl.isNotBlank()) sourcePageUrl else activeInfo?.pageUrl.orEmpty(),
@@ -361,9 +372,11 @@ class FloatingPlayerService : Service() {
                     // surface will rebuild the player from VideoPlaybackSessionManager.
                     try {
                         mediaPlayer?.let { player ->
-                            VideoPlaybackSessionManager.updatePosition(
-                                player.currentPosition.coerceAtLeast(0L)
-                            )
+                            val pos = player.currentPosition.coerceAtLeast(0L)
+                            initialPositionMs = pos
+                            currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                            isPlaying = player.isPlaying
+                            VideoPlaybackSessionManager.updatePosition(pos)
                             VideoPlaybackSessionManager.updatePlaying(player.isPlaying)
                             player.setVideoSurface(null)
                         }
