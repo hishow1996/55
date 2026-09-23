@@ -280,14 +280,28 @@ class ExtensionManager(private val context: Context) {
             return JSONObject().apply { put("id", id); put("url", url); put("active", active); put("status", "loading"); put("title", "") }.toString()
         }
         @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
-            val target = pageWebViews.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value ?: return JSONObject.NULL.toString()
+            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return JSONObject.NULL.toString()
             val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
-            p.optString("url").takeIf { it.isNotBlank() }?.let { url ->
-                target.post { target.loadUrl(url) }
-                pageUrls.entries.firstOrNull { pageTabIds[it.key] == tabId }?.let { pageUrls[it.key] = url }
+            val targetUrl = p.optString("url").takeIf { it.isNotBlank() }
+            if (targetUrl != null) {
+                pageUrls[key] = targetUrl
+                browserTabUpdater?.invoke(tabId, targetUrl)
+                pageWebViews[key]?.post { it.loadUrl(targetUrl) }
             }
-            return tabsQuery(JSONObject().apply { put("active", true) }.toString())
+            if (p.has("active") && p.optBoolean("active")) {
+                setPageActive(key)
+                browserTabSelector?.invoke(tabId)
+            }
+            val obj = JSONObject().apply {
+                put("id", tabId)
+                put("url", pageUrls[key] ?: "")
+                put("active", pageActive[key] ?: false)
+                put("status", "loading")
+                put("title", pageTitles[key] ?: "")
+            }
+            return obj.toString()
         }
+
         @JavascriptInterface fun tabsQuery(queryJson: String): String {
             val q = try { JSONObject(queryJson) } catch (_: Exception) { JSONObject() }
             val result = JSONArray()
