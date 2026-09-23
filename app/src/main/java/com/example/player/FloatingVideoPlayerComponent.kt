@@ -177,7 +177,7 @@ object FloatingVideoPlayerComponent {
     ) {
         activeVideoInfo = video
         pendingGlobalVideo = video
-        if (!hasOverlayPermission(context) {
+        if (!hasOverlayPermission(context)) {
             requestOverlayPermission(context)
             return
         }

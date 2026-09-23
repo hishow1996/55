@@ -1,10 +1,11 @@
 package com.example.ui.browser
 
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,29 +17,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DesktopMac
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,9 +44,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,8 +76,17 @@ fun BrowserTopBar(
     modifier: Modifier = Modifier
 ) {
     var isEditing by remember { mutableStateOf(false) }
-    var inputUrl by remember(tab.url) { mutableStateOf(tab.url) }
+    var textFieldValue by remember(tab.url) {
+        mutableStateOf(TextFieldValue(text = tab.url, selection = TextRange(0, tab.url.length)))
+    }
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
+    BackHandler(enabled = isEditing) {
+        isEditing = false
+        focusManager.clearFocus()
+    }
 
     val barBg = if (tab.isIncognito) {
         Color(0xFF1E1B2E) // Incognito stealth purple/dark
@@ -107,11 +120,11 @@ fun BrowserTopBar(
         ) {
             // URL Capsule
             Surface(
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(22.dp),
                 color = cardBg,
                 modifier = Modifier
                     .weight(1f)
-                    .height(42.dp)
+                    .height(44.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -128,16 +141,22 @@ fun BrowserTopBar(
                     Spacer(modifier = Modifier.width(8.dp))
 
                     if (isEditing) {
-                        TextField(
-                            value = inputUrl,
-                            onValueChange = { inputUrl = it },
+                        BasicTextField(
+                            value = textFieldValue,
+                            onValueChange = { textFieldValue = it },
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            textStyle = TextStyle(
+                                fontSize = 14.sp,
+                                color = textColor,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            cursorBrush = SolidColor(if (tab.isIncognito) Color(0xFFA855F7) else Color(0xFF3B82F6)),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                             keyboardActions = KeyboardActions(
                                 onSearch = {
                                     isEditing = false
                                     focusManager.clearFocus()
-                                    val trimmed = inputUrl.trim()
+                                    val trimmed = textFieldValue.text.trim()
                                     if (trimmed.isNotEmpty()) {
                                         onNavigate(trimmed)
                                     }
@@ -145,26 +164,50 @@ fun BrowserTopBar(
                                 onGo = {
                                     isEditing = false
                                     focusManager.clearFocus()
-                                    val trimmed = inputUrl.trim()
+                                    val trimmed = textFieldValue.text.trim()
                                     if (trimmed.isNotEmpty()) {
                                         onNavigate(trimmed)
                                     }
                                 }
                             ),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 4.dp),
+                            decorationBox = { innerTextField ->
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    if (textFieldValue.text.isEmpty()) {
+                                        Text(
+                                            text = "搜索或输入网址",
+                                            fontSize = 14.sp,
+                                            color = subTextColor
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
                         )
 
-                        if (inputUrl.isNotEmpty()) {
+                        if (textFieldValue.text.isNotEmpty()) {
+                            // Copy URL button
                             IconButton(
-                                onClick = { inputUrl = "" },
-                                modifier = Modifier.size(28.dp)
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(textFieldValue.text))
+                                    Toast.makeText(context, "网址已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.size(30.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "复制网址",
+                                    tint = subTextColor,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            // Clear button
+                            IconButton(
+                                onClick = { textFieldValue = TextFieldValue("") },
+                                modifier = Modifier.size(30.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
@@ -175,16 +218,17 @@ fun BrowserTopBar(
                             }
                         }
 
+                        // Go / Navigate button
                         IconButton(
                             onClick = {
                                 isEditing = false
                                 focusManager.clearFocus()
-                                val trimmed = inputUrl.trim()
+                                val trimmed = textFieldValue.text.trim()
                                 if (trimmed.isNotEmpty()) {
                                     onNavigate(trimmed)
                                 }
                             },
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(30.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -198,12 +242,16 @@ fun BrowserTopBar(
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable {
-                                    inputUrl = tab.url
+                                    textFieldValue = TextFieldValue(
+                                        text = tab.url,
+                                        selection = TextRange(0, tab.url.length)
+                                    )
                                     isEditing = true
-                                }
+                                },
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = tab.title.ifBlank { tab.url },
+                                text = tab.title.ifBlank { tab.url.ifBlank { "搜索或输入网址" } },
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = textColor,
@@ -213,7 +261,7 @@ fun BrowserTopBar(
                             if (tab.url.isNotBlank()) {
                                 Text(
                                     text = tab.url.removePrefix("https://").removePrefix("http://"),
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     color = subTextColor,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -307,3 +355,4 @@ fun BrowserTopBar(
         }
     }
 }
+

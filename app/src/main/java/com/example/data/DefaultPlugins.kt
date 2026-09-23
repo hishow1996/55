@@ -5,35 +5,6 @@ import com.example.model.PluginItem
 object DefaultPlugins {
     fun getBuiltInPlugins(): List<PluginItem> = listOf(
         PluginItem(
-            id = "adblock",
-            name = "大象强力广告拦截",
-            description = "自动隐藏网页横幅、悬浮弹窗及常见广告推广组件",
-            author = "大象内核团队",
-            version = "2.3",
-            isEnabled = true,
-            matchPattern = "*",
-            runAt = "document_end",
-            scriptCode = """
-                (function() {
-                    const style = document.createElement('style');
-                    style.id = 'elephant-adblock-rules';
-                    style.textContent = `
-                        .ad, .ads, .ad-banner, .advert, [class*="advert"], [id*="advert"],
-                        .popup-ad, .float-ad, .ad-wrapper, .gg-box, [class*="gg_"], [id*="google_ads"],
-                        iframe[src*="ad"], iframe[src*="union"], iframe[src*="pagead"] {
-                            display: none !important;
-                            visibility: hidden !important;
-                            height: 0 !important;
-                            opacity: 0 !important;
-                            pointer-events: none !important;
-                        }
-                    `;
-                    (document.head || document.documentElement).appendChild(style);
-                })();
-            """.trimIndent(),
-            isBuiltIn = true
-        ),
-        PluginItem(
             id = "video_sniffer",
             name = "网页视频嗅探与提取",
             description = "自动监听页面内所有HTML5视频流，支持一键调起悬浮窗播放及全屏播放",

@@ -23,8 +23,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +37,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -54,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,6 +72,7 @@ import com.example.player.FloatingVideoPlayerComponent
 import com.example.player.InAppFloatingPlayer
 import com.example.service.FloatingPlayerService
 import com.example.ui.ai.AiChatDialog
+import com.example.ui.ai.ElephantAiScreen
 import com.example.ui.browser.BottomNavBar
 import com.example.ui.browser.BrowserTopBar
 import com.example.ui.download.DownloadManagerScreen
@@ -148,10 +153,17 @@ class MainActivity : ComponentActivity() {
             val pendingDownload by viewModel.pendingDownload.collectAsState()
             val inPipMode by remember { isPipModeState }
 
+            var isSplashVisible by remember { mutableStateOf(true) }
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(600)
+                isSplashVisible = false
+            }
+
             // Back Press Handling
             BackHandler(enabled = true) {
                 when {
                     isSearchOverlayVisible -> viewModel.setSearchOverlayVisible(false)
+                    isAiChatVisible -> viewModel.setAiChatVisible(false)
                     customVideoView != null -> viewModel.hideCustomVideoView()
                     isFloatingPlayerVisible -> viewModel.closeFloatingPlayer()
                     isDownloadManagerVisible -> viewModel.setDownloadManagerVisible(false)
@@ -379,7 +391,7 @@ class MainActivity : ComponentActivity() {
                             onSelectTab = { viewModel.selectTab(it) },
                             onCloseTab = { viewModel.closeTab(it) },
                             onCloseTabItem = { viewModel.closeTab(it) },
-                            onNewTab = { incognito ->\n                                // Creating a new tab must not inherit/render the old in-app floating player.\n                                // Otherwise the old overlay remains visible and a second, black floating window\n                                // can be composed for the newly selected tab.\n                                if (viewModel.isFloatingPlayerVisible.value) {\n                                    viewModel.closeFloatingPlayer()\n                                }\n                                viewModel.addNewTab(isIncognito = incognito)\n                            },
+                            onNewTab = { incognito -> viewModel.addNewTab(isIncognito = incognito) },
                             onBack = { viewModel.setTabManagerVisible(false) }
                         )
                     }
@@ -431,16 +443,15 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // --- ASK AI CHAT DIALOG ---
-                    if (isAiChatVisible) {
-                        AiChatDialog(
-                            currentPageTitle = currentTab.title,
-                            currentPageUrl = currentTab.url,
-                            onDismiss = { viewModel.setAiChatVisible(false) },
-                            onSummarizeWebpage = {},
-                            onTranslateWebpage = {
-                                viewModel.toggleTranslation()
-                            }
+                    // --- ASK AI FULL SCREEN ---
+                    AnimatedVisibility(
+                        visible = isAiChatVisible,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        ElephantAiScreen(
+                            isNightMode = isNightMode,
+                            onBack = { viewModel.setAiChatVisible(false) }
                         )
                     }
 
@@ -515,6 +526,26 @@ class MainActivity : ComponentActivity() {
                                 viewModel.setSearchOverlayVisible(false)
                             }
                         )
+                    }
+
+                    // --- STARTUP SPLASH SCREEN (White Background with Elephant Icon) ---
+                    AnimatedVisibility(
+                        visible = isSplashVisible,
+                        enter = fadeIn(),
+                        exit = fadeOut(animationSpec = tween(350))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_splash_elephant),
+                                contentDescription = "大象浏览器启动图标",
+                                modifier = Modifier.size(130.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -795,8 +826,7 @@ fun ChromiumWebViewContainer(
                     },
                     onPageFinish = { url, title ->
                         viewModel.onPageFinished(url, title)
-                    },
-                    onAdBlocked = {}
+                    }
                 )
 
                 webChromeClient = ElephantWebChromeClient(

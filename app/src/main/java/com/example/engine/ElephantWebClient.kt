@@ -13,22 +13,13 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.example.data.BrowserRepository
 import com.example.model.BrowserTab
-import java.io.ByteArrayInputStream
 
 class ElephantWebViewClient(
     private val tab: BrowserTab,
     private val repository: BrowserRepository,
     private val onPageStart: (url: String) -> Unit,
-    private val onPageFinish: (url: String, title: String) -> Unit,
-    private val onAdBlocked: () -> Unit
+    private val onPageFinish: (url: String, title: String) -> Unit
 ) : WebViewClient() {
-
-    private val adDomains = listOf(
-        "googleads", "doubleclick.net", "pagead2", "adservice.google",
-        "admob", "pos.baidu.com", "cpro.baidustatic.com", "union.baidu.com",
-        "atanx.com", "alimama.com", "tanx.com", "adash.m.taobao.com",
-        "sax.sina.com.cn", "adbox", "adsystem", "analytics", "statcounter"
-    )
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         val url = request?.url?.toString() ?: return false
@@ -145,16 +136,6 @@ class ElephantWebViewClient(
             repository.setDetectedStreamUrl(tab.id, reqUrl)
         }
 
-        if (repository.isAdBlockEnabled.value) {
-            for (domain in adDomains) {
-                if (lowerUrl.contains(domain)) {
-                    repository.addSavedData(0.04f)
-                    onAdBlocked()
-                    // Return empty response to block request
-                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
-                }
-            }
-        }
         return super.shouldInterceptRequest(view, request)
     }
 }

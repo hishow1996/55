@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Keep startup splash page background WHITE even if device system dark mode is active -->
     <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.Light.NoActionBar">
         <!-- White startup/launch background -->
         <item name="android:windowBackground">@color/white</item>

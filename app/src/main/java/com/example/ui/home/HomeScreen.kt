@@ -454,13 +454,6 @@ fun SiteOfficialIcon(
             modifier = modifier
         )
     } else {
-    if (iconRes != null) {
-        Image(
-            painter = painterResource(id = iconRes),
-            contentDescription = site.title,
-            modifier = modifier
-        )
-    } else {
         Box(
             modifier = modifier
                 .clip(CircleShape)

@@ -39,10 +39,6 @@ class BrowserRepository(private val context: Context) {
     private val _searchEngine = MutableStateFlow(prefs.getString(KEY_SEARCH_ENGINE, "google") ?: "google")
     val searchEngine: StateFlow<String> = _searchEngine.asStateFlow()
 
-    // Flow for Adblock
-    private val _isAdBlockEnabled = MutableStateFlow(prefs.getBoolean(KEY_ADBLOCK, true))
-    val isAdBlockEnabled: StateFlow<Boolean> = _isAdBlockEnabled.asStateFlow()
-
     // Saved data stats (MB)
     private val _dataSavedMb = MutableStateFlow(prefs.getFloat(KEY_DATA_SAVED, 27.04f))
     val dataSavedMb: StateFlow<Float> = _dataSavedMb.asStateFlow()
@@ -142,11 +138,6 @@ class BrowserRepository(private val context: Context) {
     fun setSearchEngine(engine: String) {
         _searchEngine.value = engine
         prefs.edit().putString(KEY_SEARCH_ENGINE, engine).apply()
-    }
-
-    fun setAdBlockEnabled(enabled: Boolean) {
-        _isAdBlockEnabled.value = enabled
-        prefs.edit().putBoolean(KEY_ADBLOCK, enabled).apply()
     }
 
     fun addSavedData(mb: Float) {
@@ -619,7 +610,6 @@ class BrowserRepository(private val context: Context) {
         private const val KEY_DESKTOP_UA_TYPE = "pref_desktop_ua_type"
         private const val KEY_CUSTOM_UA = "pref_custom_ua"
         private const val KEY_SEARCH_ENGINE = "pref_search_engine"
-        private const val KEY_ADBLOCK = "pref_adblock"
         private const val KEY_DATA_SAVED = "pref_data_saved"
         private const val KEY_BOOKMARKS = "pref_bookmarks"
         private const val KEY_HISTORY = "pref_history"

@@ -131,31 +131,13 @@ fun SettingsScreen(
 
         HorizontalDivider(color = dividerColor, thickness = 0.8.dp)
 
-        // --- SETTINGS LIST: Exact 11 options from Image 2, presented with Image 1 ultra-clean design ---
+        // --- SETTINGS LIST: Exact options from Image 2 without adblock, presented with clean design ---
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            // 1. 广告设定
-            SettingsItem(
-                title = "广告设定",
-                detail = "",
-                textColor = textColor,
-                subTextColor = subTextColor,
-                dividerColor = dividerColor,
-                onClick = {
-                    val newState = !repository.isAdBlockEnabled.value
-                    repository.setAdBlockEnabled(newState)
-                    Toast.makeText(
-                        context,
-                        if (newState) "广告拦截已开启" else "广告拦截已关闭",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            )
-
-            // 2. 插件扩展
+            // 1. 插件扩展
             SettingsItem(
                 title = "插件扩展",
                 detail = "",
@@ -165,7 +147,7 @@ fun SettingsScreen(
                 onClick = onOpenPluginManager
             )
 
-            // 3. 悬浮窗与播放器
+            // 2. 悬浮窗与播放器
             SettingsItem(
                 title = "悬浮窗与播放器",
                 detail = "",
@@ -189,7 +171,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 4. 电脑端模式
+            // 3. 电脑端模式
             SettingsItem(
                 title = "电脑端模式",
                 detail = "",
@@ -207,7 +189,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 5. 电脑版 User-Agent
+            // 4. 电脑版 User-Agent
             SettingsItem(
                 title = "电脑版 User-Agent",
                 detail = "",
@@ -217,7 +199,7 @@ fun SettingsScreen(
                 onClick = { showUaDialog = true }
             )
 
-            // 6. 搜索设置
+            // 5. 搜索设置
             SettingsItem(
                 title = "搜索设置",
                 detail = "",
@@ -227,7 +209,7 @@ fun SettingsScreen(
                 onClick = { showSearchEngineDialog = true }
             )
 
-            // 7. 网页翻译
+            // 6. 网页翻译
             SettingsItem(
                 title = "网页翻译",
                 detail = "",
@@ -239,7 +221,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 8. 主题
+            // 7. 主题
             SettingsItem(
                 title = "主题",
                 detail = "",
@@ -257,7 +239,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 9. 云加速
+            // 8. 云加速
             SettingsItem(
                 title = "云加速",
                 detail = "开启",
@@ -273,7 +255,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 10. 清除记录
+            // 9. 清除记录
             SettingsItem(
                 title = "清除记录",
                 detail = "",
@@ -283,7 +265,7 @@ fun SettingsScreen(
                 onClick = { showClearDialog = true }
             )
 
-            // 11. 关于大象
+            // 10. 关于大象
             SettingsItem(
                 title = "关于大象",
                 detail = "V1.0.0",
@@ -311,7 +293,6 @@ fun SettingsScreen(
                             repository.setNightMode(false) // Default Day mode
                             repository.setDesktopMode(false)
                             repository.setSearchEngine("google")
-                            repository.setAdBlockEnabled(true)
                             Toast.makeText(context, "已恢复为默认配置", Toast.LENGTH_SHORT).show()
                         }
                         .padding(horizontal = 24.dp, vertical = 10.dp)
