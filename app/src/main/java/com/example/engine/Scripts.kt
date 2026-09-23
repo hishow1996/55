@@ -146,6 +146,63 @@ object Scripts {
         })();
     """.trimIndent()
 
+    /**
+     * Continuously reports the real HTML5 video position/state to Android.
+     * Installed before native takeover so webpage seeking is not lost.
+     */
+    val VIDEO_STATE_MONITOR = """
+        (function() {
+            if (window._elephantVideoStateMonitorInstalled) return;
+            window._elephantVideoStateMonitorInstalled = true;
+            window._elephantStateLastReportAt = 0;
+            window._elephantStateLastPosition = -1;
+
+            function activeVideo() {
+                const videos = Array.from(document.querySelectorAll('video'));
+                return videos.find(v => !v.paused && !v.ended) ||
+                       window._elephantLastVideoElement || videos[0] || null;
+            }
+
+            function report(video, force) {
+                if (!video || window._elephantFloatingLock) return;
+                const now = Date.now();
+                const position = Number(video.currentTime || 0);
+                const playing = !video.paused && !video.ended;
+                if (!force && now - window._elephantStateLastReportAt < 250 &&
+                    Math.abs(position - window._elephantStateLastPosition) < 0.20) return;
+                window._elephantStateLastReportAt = now;
+                window._elephantStateLastPosition = position;
+                window._elephantLastVideoElement = video;
+                if (window.ElephantBridge && window.ElephantBridge.onVideoPlaybackState) {
+                    try { window.ElephantBridge.onVideoPlaybackState(position, playing); } catch (err) {}
+                }
+            }
+
+            function hook(video) {
+                if (!video || video._elephantStateHooked) return;
+                video._elephantStateHooked = true;
+                ['play','pause','seeking','seeked','loadedmetadata','emptied'].forEach(function(name) {
+                    video.addEventListener(name, function() { report(video, true); }, true);
+                });
+                video.addEventListener('timeupdate', function() { report(video, false); }, true);
+            }
+
+            function scan() {
+                document.querySelectorAll('video').forEach(hook);
+                const video = activeVideo();
+                if (video) report(video, false);
+            }
+
+            scan();
+            setInterval(scan, 1000);
+            if (window.MutationObserver) {
+                new MutationObserver(scan).observe(document.documentElement || document, {
+                    childList: true, subtree: true
+                });
+            }
+        })();
+    """
+
     val VIDEO_SNIFFER_PROBE = """
         (function() {
             const videos = document.querySelectorAll('video');
