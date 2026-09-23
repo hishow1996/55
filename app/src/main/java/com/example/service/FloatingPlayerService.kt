@@ -272,12 +272,18 @@ class FloatingPlayerService : Service() {
                                 "Media3 playback error: code=${error.errorCode} url=$streamUrl",
                                 error
                             )
+                            val positionSeconds = try {
+                                player.currentPosition.coerceAtLeast(0L) / 1000.0
+                            } catch (_: Exception) {
+                                initialPositionMs.coerceAtLeast(0L) / 1000.0
+                            }
                             handler.post {
                                 Toast.makeText(
                                     this@FloatingPlayerService,
-                                    "悬浮视频流无法播放，请重新点击悬浮按钮",
+                                    "原生悬浮播放器无法播放，已返回网页播放器",
                                     Toast.LENGTH_SHORT
                                 ).show()
+                                closeFloatingWindowOrResumeBrowser(positionSeconds)
                             }
                         }
 
