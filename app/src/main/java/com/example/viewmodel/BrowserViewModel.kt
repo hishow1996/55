@@ -609,10 +609,15 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     // Video Detection & Floating Player
     fun onVideoFound(url: String, title: String, duration: Double, currentTime: Double, width: Int, height: Int) {
         val cleanTitle = title.ifBlank { currentTab.title }
-        val effectiveUrl = if (url.isBlank() || url.startsWith("blob:") || !url.startsWith("http")) {
-            repository.getDetectedStreamUrlForTab(currentTab.id) ?: url
+        // A blob URL belongs to the current WebView video and must not be
+        // replaced with the previous native stream from this tab. Otherwise
+        // switching videos on the same page can silently keep playing the old
+        // media. Only an empty detector result may consult the current tab's
+        // native stream cache.
+        val effectiveUrl = if (url.isBlank()) {
+            repository.getDetectedStreamUrlForTab(currentTab.id) ?: ""
         } else {
-            url
+            url.trim()
         }
         val info = VideoMediaInfo(
             url = effectiveUrl,
