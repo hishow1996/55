@@ -46,7 +46,7 @@ object VideoPlaybackSessionManager {
                 source = resolvedSource,
                 positionMs = (video.currentTime * 1000).toLong().coerceAtLeast(0L),
                 durationMs = (video.duration * 1000).toLong().coerceAtLeast(0L),
-                isPlaying = true
+                isPlaying = video.isPlaying
             )
         }
         session = next
