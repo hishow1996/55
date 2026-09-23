@@ -165,6 +165,9 @@ object Scripts {
 
             function report(video, force) {
                 if (!video || window._elephantFloatingLock) return;
+                // Ignore events from an old/hidden video when another video is now active.
+                const current = activeVideo();
+                if (current && current !== video && (!current.paused && !current.ended)) return;
                 const now = Date.now();
                 const position = Number(video.currentTime || 0);
                 const playing = !video.paused && !video.ended;
@@ -211,16 +214,18 @@ object Scripts {
                     window._elephantLastVideoElement = v;
                 }
                 const src = v.currentSrc || v.src;
+                // A page can reuse one WebView for multiple videos, including Blob/MSE
+                // sources. Reset discovered-network caches whenever the element/source changes.
+                const sourceKey = src || ('blob-video-' + (v === window._elephantLastVideoElement ? 'same' : String(Date.now())));
+                if (window._elephantLastBoundVideoElement !== v ||
+                    window._elephantLastBoundVideoSrc !== sourceKey) {
+                    window._elephantLastBoundVideoElement = v;
+                    window._elephantLastBoundVideoSrc = sourceKey;
+                    window._elephantLastMediaUrl = '';
+                    window._elephantLastManifestUrl = '';
+                    window._elephantLastDirectVideoUrl = '';
+                }
                 if (src && !src.startsWith('blob:')) {
-                    // A page can reuse one WebView for multiple videos. When the
-                    // actual media source changes, discard the previous manifest/
-                    // direct URL cache so the next native handoff cannot reuse it.
-                    if (window._elephantLastBoundVideoSrc !== src) {
-                        window._elephantLastBoundVideoSrc = src;
-                        window._elephantLastMediaUrl = '';
-                        window._elephantLastManifestUrl = '';
-                        window._elephantLastDirectVideoUrl = '';
-                    }
                     if (window.ElephantBridge) {
                         window.ElephantBridge.onVideoDetected(
                             src,
