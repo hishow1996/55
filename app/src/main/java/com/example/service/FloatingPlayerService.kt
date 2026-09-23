@@ -833,7 +833,7 @@ class FloatingPlayerService : Service() {
         } else {
             // The user is on another tab (or the browser activity is not visible).
             // Release only the source tab's lock; never navigate to it or autoplay it.
-            MainActivity.unlockFloatingSourceTab(originTabId)
+            MainActivity.unlockFloatingSourceTab(originTabId, originTabIndex)
         }
 
         // Do not leave the old VideoMediaInfo around: a later video handoff must
