@@ -132,15 +132,37 @@ class FloatingPlayerService : Service() {
         originTabId = intent.getStringExtra(EXTRA_ORIGIN_TAB_ID)
         sourcePageUrl = intent.getStringExtra(EXTRA_VIDEO_PAGE_URL) ?: ""
 
-        FloatingVideoPlayerComponent.activeVideoInfo?.let { active ->
-            val session = VideoPlaybackSessionManager.handoffState(active)
-            initialPositionMs = session.positionMs.coerceAtLeast(0L)
+        // The intent payload identifies the exact playback request. Do not
+        // re-handoff from the global activeVideoInfo here: a rapid A -> B switch
+        // can otherwise make the service read a stale snapshot.
+        val session = VideoPlaybackSessionManager.current()
+        val requestedSource = if (videoUrl.isNotBlank()) {
+            VideoSourceResolver.resolve(
+                VideoMediaInfo(
+                    url = videoUrl,
+                    pageUrl = sourcePageUrl,
+                    title = videoTitle,
+                    currentTime = initialPositionMs / 1000.0,
+                    videoWidth = (videoRatio * 1000).toInt().coerceAtLeast(1),
+                    videoHeight = 1000,
+                    originTabIndex = originTabIndex,
+                    originTabId = originTabId
+                )
+            )
+        } else null
+        val sessionMatchesRequest = session != null &&
+            session.tabId == originTabId &&
+            session.pageUrl == sourcePageUrl &&
+            (requestedSource == null || session.source == requestedSource)
+        if (sessionMatchesRequest) {
+            initialPositionMs = session!!.positionMs.coerceAtLeast(0L)
             isPlaying = session.isPlaying
         } else {
-            VideoPlaybackSessionManager.current()?.let { session ->
-                initialPositionMs = session.positionMs.coerceAtLeast(0L)
-                isPlaying = session.isPlaying
-            }
+            // This is a genuinely new request. The caller's position/state is
+            // authoritative until Media3 reaches READY.
+            isPlaying = requestedShouldPlay
+            VideoPlaybackSessionManager.updatePlaying(requestedShouldPlay)
+            VideoPlaybackSessionManager.updatePlaybackRate(requestedPlaybackRate)
         }
 
         if (videoUrl.isNotBlank()) {
