@@ -228,6 +228,14 @@ class FloatingPlayerService : Service() {
             isFocusable = false
             surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+                    // TextureView may recreate its Surface while the service stays alive.
+                    // Release the previous Media3 instance before binding the new Surface.
+                    try { nativePlayerController?.release() } catch (_: Exception) {}
+                    nativePlayerController = null
+                    mediaPlayer = null
+                    try { currentSurface?.release() } catch (_: Exception) {}
+                    currentSurface = null
+
                     val surface = Surface(st)
                     currentSurface = surface
 
@@ -276,9 +284,13 @@ class FloatingPlayerService : Service() {
                                     currentPositionMs = initialPositionMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                                 }
                                 player.repeatMode = Player.REPEAT_MODE_ONE
-                                player.play()
-                                this@FloatingPlayerService.isPlaying = true
-                                playPauseBtn?.setImageResource(android.R.drawable.ic_media_pause)
+                                val sessionPlaying = VideoPlaybackSessionManager.current()?.isPlaying ?: isPlaying
+                                this@FloatingPlayerService.isPlaying = sessionPlaying
+                                if (sessionPlaying) player.play() else player.pause()
+                                playPauseBtn?.setImageResource(
+                                    if (sessionPlaying) android.R.drawable.ic_media_pause
+                                    else android.R.drawable.ic_media_play
+                                )
                             }
                         }
 
