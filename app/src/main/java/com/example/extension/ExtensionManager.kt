@@ -372,9 +372,17 @@ class ExtensionManager(private val context: Context) {
         prefs.edit().putString("installed", a.toString()).apply()
     }
 
-    private fun stableId(manifest: ExtensionManifest): String =
-        MessageDigest.getInstance("SHA-256").digest((manifest.name + "|" + manifest.version).toByteArray())
-            .joinToString("") { "%02x".format(it) }.take(32)
+    private fun stableId(manifest: ExtensionManifest): String {
+        val publicKey = manifest.key?.let { try { android.util.Base64.decode(it, android.util.Base64.DEFAULT) } catch (_: Exception) { null } }
+        val digest = MessageDigest.getInstance("SHA-256").digest(publicKey ?: (manifest.name + "|" + manifest.version).toByteArray(Charsets.UTF_8))
+        if (publicKey != null) {
+            return digest.take(16).joinToString("") { byte ->
+                val value = byte.toInt() and 0xFF
+                (('a'.code + ((value ushr 4) and 15)).toChar().toString() + ('a'.code + (value and 15)).toChar())
+            }
+        }
+        return digest.joinToString("") { "%02x".format(it) }.take(32)
+    }
 
     private fun safeChild(rootPath: String, relative: String): File? {
         val root = File(rootPath).canonicalFile
