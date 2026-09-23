@@ -46,6 +46,11 @@ class ElephantWebViewClient(
             onPageStart("")
             return
         }
+        // A tab can navigate from one video page to another. Drop the previous
+        // page's native stream immediately so a new Blob/MSE page cannot inherit
+        // and play an unrelated stream from the old page.
+        repository.clearDetectedStreamUrl(tab.id)
+
         tab.url = currentUrl
         tab.isLoading = true
         onPageStart(currentUrl)
