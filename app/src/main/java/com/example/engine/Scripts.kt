@@ -168,14 +168,17 @@ object Scripts {
                     }
                 }
             }
-            // Check for iframe embeds or common players
+            // An iframe src is normally a PLAYER PAGE, not a media stream.
+            // Never report it as a native video URL. The native layer can only
+            // use a stream discovered from an actual <video> element or network
+            // sniffer; otherwise WebView remains the compatibility path.
             const iframes = document.querySelectorAll('iframe');
             for (let f of iframes) {
                 if (f.src && (f.src.includes('player') || f.src.includes('video') || f.src.includes('bilibili') || f.src.includes('youtube'))) {
                     if (window.ElephantBridge) {
                         window.ElephantBridge.onVideoDetected(
-                            f.src,
-                            document.title || '网页视频流',
+                            '',
+                            document.title || '网页视频',
                             0, 0, 16, 9
                         );
                         return;
