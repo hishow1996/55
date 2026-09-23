@@ -575,8 +575,10 @@ class MainActivity : ComponentActivity() {
             // depends on an arbitrary delay or the previously active tab.
             viewModelRef?.let { vm ->
                 val tabIndex = intent.getIntExtra(FloatingPlayerService.EXTRA_SELECT_TAB, vm.currentTabIndex.value)
-                val pageUrl = vm.tabs.value.getOrNull(tabIndex)?.url.orEmpty()
-                vm.queueWebVideoResume(tabIndex, pageUrl, position, shouldPlay)
+                val targetTab = vm.tabs.value.getOrNull(tabIndex)
+                val pageUrl = targetTab?.url.orEmpty()
+                val tabId = intent.getStringExtra(FloatingPlayerService.EXTRA_ORIGIN_TAB_ID) ?: targetTab?.id
+                vm.queueWebVideoResume(tabIndex, tabId, pageUrl, position, shouldPlay)
             }
         }
     }
