@@ -171,8 +171,14 @@ class ExtensionManager(private val context: Context) {
 
     fun bindBrowserTab(extensionTabId: Int, pageKey: String) {
         pageTabIds.entries.filter { it.value == extensionTabId && it.key != pageKey && it.key.startsWith("extension-tab-") }
-            .forEach { entry -> pageTabIds.remove(entry.key); pageUrls.remove(entry.key); pageTitles.remove(entry.key); pageActive.remove(entry.key) }
-        if (pageWebViews.containsKey(pageKey) || pageUrls.containsKey(pageKey)) pageTabIds[pageKey] = extensionTabId
+            .forEach { entry ->
+                pageTabIds.remove(entry.key)
+                pageUrls.remove(entry.key)
+                pageTitles.remove(entry.key)
+                pageActive.remove(entry.key)
+            }
+        // Bind before Compose creates the WebView. attachWebView keeps this ID.
+        pageTabIds[pageKey] = extensionTabId
     }
 
     fun attachWebView(pageKey: String, webView: WebView, url: String) {
