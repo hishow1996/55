@@ -20,13 +20,19 @@ object VideoPlaybackSessionManager {
     fun start(video: VideoMediaInfo, source: VideoSource? = null): VideoSession {
         val resolvedSource = source ?: VideoSourceResolver.resolve(video)
         val current = session
+        val sameSourceTab = if (!video.originTabId.isNullOrBlank() && !current?.tabId.isNullOrBlank()) {
+            current?.tabId == video.originTabId
+        } else {
+            current?.tabIndex == (video.originTabIndex ?: -1)
+        }
         val sameVideo = current != null &&
+            sameSourceTab &&
             current.pageUrl == video.pageUrl &&
-            current.tabIndex == (video.originTabIndex ?: -1) &&
             current.source == resolvedSource
 
         val next = if (sameVideo) {
             current!!.copy(
+                tabId = video.originTabId ?: current.tabId,
                 title = video.title.ifBlank { current.title },
                 durationMs = if (video.duration > 0) (video.duration * 1000).toLong() else current.durationMs
             )
@@ -35,6 +41,7 @@ object VideoPlaybackSessionManager {
                 id = UUID.randomUUID().toString(),
                 pageUrl = video.pageUrl,
                 tabIndex = video.originTabIndex ?: -1,
+                tabId = video.originTabId,
                 title = video.title.ifBlank { "网页视频" },
                 source = resolvedSource,
                 positionMs = (video.currentTime * 1000).toLong().coerceAtLeast(0L),
