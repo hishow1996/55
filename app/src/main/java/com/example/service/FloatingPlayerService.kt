@@ -103,7 +103,13 @@ class FloatingPlayerService : Service() {
 
         val action = intent.action
         if (action == ACTION_STOP) {
-            stopSelf()
+            val position = try {
+                mediaPlayer?.currentPosition?.toDouble()?.div(1000.0)
+                    ?: FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
+            } catch (e: Exception) {
+                FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
+            }
+            openBrowserAndResume(position)
             return START_NOT_STICKY
         }
 
@@ -307,13 +313,7 @@ class FloatingPlayerService : Service() {
             setColorFilter(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt())
             setOnClickListener {
-                mediaPlayer?.let { mp ->
-                    try {
-                        val pos = mp.currentPosition / 1000.0
-                        FloatingVideoPlayerComponent.syncProgress(pos)
-                    } catch (e: Exception) {}
-                }
-                stopSelf()
+                returnToBrowserTab()
             }
         }
         topBar.addView(closeBtn)
@@ -659,17 +659,28 @@ class FloatingPlayerService : Service() {
     }
 
     private fun returnToBrowserTab() {
-        mediaPlayer?.let { mp ->
-            try {
-                val pos = mp.currentPosition / 1000.0
-                FloatingVideoPlayerComponent.syncProgress(pos)
-            } catch (e: Exception) {}
+        val position = try {
+            mediaPlayer?.currentPosition?.toDouble()?.div(1000.0)
+                ?: FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
+        } catch (e: Exception) {
+            FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
         }
+        openBrowserAndResume(position)
+    }
+
+    private fun openBrowserAndResume(positionSeconds: Double) {
+        FloatingVideoPlayerComponent.syncProgress(positionSeconds)
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(EXTRA_SELECT_TAB, originTabIndex)
+            putExtra(EXTRA_RESUME_WEB_VIDEO, true)
+            putExtra(EXTRA_VIDEO_POSITION_SECONDS, positionSeconds.coerceAtLeast(0.0))
         }
-        startActivity(intent)
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         stopSelf()
     }
 
@@ -718,5 +729,7 @@ class FloatingPlayerService : Service() {
         const val EXTRA_VIDEO_POSITION = "extra_video_position"
         const val EXTRA_ORIGIN_TAB_INDEX = "extra_origin_tab_index"
         const val EXTRA_SELECT_TAB = "select_tab_index"
+        const val EXTRA_RESUME_WEB_VIDEO = "resume_web_video"
+        const val EXTRA_VIDEO_POSITION_SECONDS = "video_position_seconds"
     }
 }
