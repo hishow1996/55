@@ -33,6 +33,7 @@ import com.example.MainActivity
 import com.example.R
 import com.example.player.FloatingVideoPlayerComponent
 import com.example.player.Media3VideoPlayerController
+import com.example.player.VideoPlaybackSessionManager
 import com.example.model.VideoMediaInfo
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -84,6 +85,8 @@ class FloatingPlayerService : Service() {
                         val dur = max(mp.duration, 1000)
                         currentPositionMs = cur
                         durationMs = dur
+                        VideoPlaybackSessionManager.updatePosition(cur)
+                        VideoPlaybackSessionManager.updateDuration(dur)
                         FloatingVideoPlayerComponent.syncProgress(cur / 1000.0)
                         seekBar?.max = dur
                         seekBar?.progress = cur
@@ -123,6 +126,10 @@ class FloatingPlayerService : Service() {
         initialPositionMs = intent.getLongExtra(EXTRA_VIDEO_POSITION, 0L)
         originTabIndex = intent.getIntExtra(EXTRA_ORIGIN_TAB_INDEX, 0)
         sourcePageUrl = intent.getStringExtra(EXTRA_VIDEO_PAGE_URL) ?: ""
+
+        FloatingVideoPlayerComponent.activeVideoInfo?.let { active ->
+            VideoPlaybackSessionManager.start(active)
+        }
 
         if (videoUrl.isNotBlank()) {
             showFloatingWindow()
@@ -289,6 +296,7 @@ class FloatingPlayerService : Service() {
 
                         override fun onIsPlayingChanged(playing: Boolean) {
                             this@FloatingPlayerService.isPlaying = playing
+                            VideoPlaybackSessionManager.updatePlaying(playing)
                             playPauseBtn?.setImageResource(
                                 if (playing) android.R.drawable.ic_media_pause
                                 else android.R.drawable.ic_media_play
