@@ -274,12 +274,14 @@ object Scripts {
                 window._elephantPlaybackStateHooked = true;
                 document.addEventListener('play', function(e) {
                     const v = e.target;
+                    if (window._elephantFloatingLock) return;
                     if (v && v.tagName === 'VIDEO' && window.ElephantBridge && window.ElephantBridge.onVideoPlaybackState) {
                         try { window.ElephantBridge.onVideoPlaybackState(v.currentTime || 0, true); } catch(err) {}
                     }
                 }, true);
                 document.addEventListener('pause', function(e) {
                     const v = e.target;
+                    if (window._elephantFloatingLock) return;
                     if (v && v.tagName === 'VIDEO' && window.ElephantBridge && window.ElephantBridge.onVideoPlaybackState) {
                         try { window.ElephantBridge.onVideoPlaybackState(v.currentTime || 0, false); } catch(err) {}
                     }
