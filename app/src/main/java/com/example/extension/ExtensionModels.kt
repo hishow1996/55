@@ -43,7 +43,12 @@ data class ExtensionManifest(
             o.optJSONArray("host_permissions")?.let { a -> for (i in 0 until a.length()) hosts += a.optString(i) }
             if (mv == 2) hosts += perms.filter { it.contains("://") || it == "<all_urls>" }
             val icon = o.optJSONObject("icons")?.let { icons ->
-                listOf("128","96","64","48","32","16").firstNotNullOfOrNull { icons.optString(it, "").takeIf(String::isNotBlank) }
+                var found: String? = null
+                for (size in listOf("128", "96", "64", "48", "32", "16")) {
+                    val value = icons.optString(size, "")
+                    if (value.isNotBlank()) { found = value; break }
+                }
+                found
             }
             return ExtensionManifest(
                 mv, o.optString("name", "未命名扩展"), o.optString("version", "1.0"),
