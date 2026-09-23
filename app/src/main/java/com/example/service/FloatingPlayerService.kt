@@ -383,7 +383,7 @@ class FloatingPlayerService : Service() {
                 mediaPlayer?.let { mp ->
                     try {
                         val pos = max(0, mp.currentPosition - 10000)
-                        mp.seekTo(pos)
+                        mp.seekTo(pos.toLong())
                         currentPositionMs = pos
                     } catch (e: Exception) {}
                 }
@@ -410,7 +410,7 @@ class FloatingPlayerService : Service() {
                             isPlaying = false
                             setImageResource(android.R.drawable.ic_media_play)
                         } else {
-                            mp.start()
+                            mp.play()
                             isPlaying = true
                             setImageResource(android.R.drawable.ic_media_pause)
                         }
@@ -430,7 +430,7 @@ class FloatingPlayerService : Service() {
             setOnClickListener {
                 mediaPlayer?.let { mp ->
                     try {
-                        val pos = (mp.currentPosition + 10000).coerceAtMost(mp.duration)
+                        val pos = (mp.currentPosition + 10000L).coerceAtMost(mp.duration.coerceAtLeast(0L))
                         mp.seekTo(pos)
                         currentPositionMs = pos
                     } catch (e: Exception) {}
