@@ -16,6 +16,7 @@ import com.example.model.HistoryItem
 import com.example.model.PluginItem
 import com.example.model.VideoMediaInfo
 import com.example.player.VideoSourceResolver
+import com.example.player.VideoPlaybackSessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -525,6 +526,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
 
         _detectedVideo.value = updatedVideo
+        VideoPlaybackSessionManager.start(updatedVideo)
+        VideoPlaybackSessionManager.updatePosition(
+            (updatedVideo.currentTime * 1000.0).toLong().coerceAtLeast(0L)
+        )
         _isFloatingPlayerVisible.value = true
 
         // Hand the playback over to the native player first. The WebView is
@@ -551,7 +556,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
-        val position = resumePositionSeconds ?: video?.currentTime ?: 0.0
+        val position = resumePositionSeconds
+            ?: (VideoPlaybackSessionManager.current()?.positionMs?.div(1000.0))
+            ?: video?.currentTime
+            ?: 0.0
+        VideoPlaybackSessionManager.updatePosition((position * 1000.0).toLong().coerceAtLeast(0L))
+        VideoPlaybackSessionManager.updatePlaying(true)
         activeWebView?.evaluateJavascript(
             Scripts.RESUME_WEB_VIDEO_AT(position.coerceAtLeast(0.0)),
             null
