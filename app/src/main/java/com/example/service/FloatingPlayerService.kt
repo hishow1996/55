@@ -762,8 +762,20 @@ class FloatingPlayerService : Service() {
     }
 
     private fun closeFloatingWindowOrResumeBrowser(positionSeconds: Double) {
-        FloatingVideoPlayerComponent.syncProgress(positionSeconds)
-        val shouldPlay = VideoPlaybackSessionManager.current()?.isPlaying ?: isPlaying
+        // Read the player state before releasing it so the shared session is authoritative.
+        val playerPositionSeconds = try {
+            mediaPlayer?.currentPosition?.toDouble()?.div(1000.0)
+        } catch (e: Exception) {
+            null
+        }
+        val effectivePosition = playerPositionSeconds
+            ?.takeIf { it.isFinite() && it >= 0.0 }
+            ?: positionSeconds.coerceAtLeast(0.0)
+        val playerIsPlaying = try { mediaPlayer?.isPlaying } catch (e: Exception) { null }
+        val shouldPlay = playerIsPlaying ?: VideoPlaybackSessionManager.current()?.isPlaying ?: isPlaying
+
+        FloatingVideoPlayerComponent.syncProgress(effectivePosition)
+        VideoPlaybackSessionManager.updatePosition((effectivePosition * 1000.0).toLong())
         VideoPlaybackSessionManager.updatePlaying(shouldPlay)
         val shouldResumeWeb = MainActivity.shouldResumeFloatingVideo(originTabIndex, sourcePageUrl)
         if (shouldResumeWeb) {
@@ -771,7 +783,7 @@ class FloatingPlayerService : Service() {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(EXTRA_SELECT_TAB, originTabIndex)
                 putExtra(EXTRA_RESUME_WEB_VIDEO, true)
-                putExtra(EXTRA_VIDEO_POSITION_SECONDS, positionSeconds.coerceAtLeast(0.0))
+                putExtra(EXTRA_VIDEO_POSITION_SECONDS, effectivePosition)
                 putExtra(EXTRA_VIDEO_SHOULD_PLAY, shouldPlay)
             }
             try { startActivity(intent) } catch (e: Exception) { e.printStackTrace() }
