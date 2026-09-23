@@ -314,6 +314,21 @@ object Scripts {
                 });
             };
             pauseAll();
+
+            // Lock newly-created <video> elements immediately. The timer below
+            // remains as a safety net for players that mutate themselves.
+            if (window._elephantFloatingVideoObserver) {
+                try { window._elephantFloatingVideoObserver.disconnect(); } catch(e) {}
+            }
+            if (window.MutationObserver && document.documentElement) {
+                window._elephantFloatingVideoObserver = new MutationObserver(function() {
+                    if (window._elephantFloatingLock) pauseAll();
+                });
+                window._elephantFloatingVideoObserver.observe(document.documentElement, {
+                    childList: true, subtree: true
+                });
+            }
+
             window._elephantFloatingLockTimer = setInterval(pauseAll, 250);
         })();
     """.trimIndent()
@@ -361,6 +376,10 @@ object Scripts {
             if (window._elephantFloatingLockTimer) {
                 clearInterval(window._elephantFloatingLockTimer);
                 window._elephantFloatingLockTimer = null;
+            }
+            if (window._elephantFloatingVideoObserver) {
+                try { window._elephantFloatingVideoObserver.disconnect(); } catch(e) {}
+                window._elephantFloatingVideoObserver = null;
             }
             document.querySelectorAll('video').forEach(function(v) {
                 try {
