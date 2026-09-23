@@ -639,9 +639,6 @@ class MainActivity : ComponentActivity() {
                 ?.trim()
                 ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
                 ?: ""
-                    ?.trim()
-                    ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
-                ?: ""
             else -> ""
         }
 
