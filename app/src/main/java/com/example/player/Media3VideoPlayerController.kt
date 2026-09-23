@@ -66,8 +66,6 @@ class Media3VideoPlayerController(context: Context) {
         }
 
         player.setMediaItem(itemBuilder.build())
-
-        player.setMediaItem(item)
         player.repeatMode = Player.REPEAT_MODE_OFF
         player.prepare()
         if (startPositionMs > 0L) {
