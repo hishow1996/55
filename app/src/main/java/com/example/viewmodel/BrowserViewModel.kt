@@ -628,11 +628,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         // switching videos on the same page can silently keep playing the old
         // media. Only an empty detector result may consult the current tab's
         // native stream cache.
-        val effectiveUrl = if (url.isBlank()) {
-            repository.getDetectedStreamUrlForTab(currentTab.id) ?: ""
-        } else {
-            url.trim()
-        }
+        // Do not silently fall back to the tab's previous stream when the
+        // webpage reports an empty source. Empty means the current <video> is
+        // currently Blob/MSE/unknown or has just switched media (for example
+        // advertisement -> main content). Reusing the previous URL could make
+        // the native player play the advertisement or an older video.
+        val effectiveUrl = url.trim()
         val previous = _detectedVideo.value
         val sameDetectedSource = previous != null &&
             previous.originTabId == currentTab.id &&
