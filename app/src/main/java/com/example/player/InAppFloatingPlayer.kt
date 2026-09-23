@@ -6,7 +6,6 @@ import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import android.net.Uri
-import android.os.Build
 import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup
@@ -594,9 +593,7 @@ fun InAppFloatingPlayer(
                                         val nextIndex = (speeds.indexOf(playbackSpeed) + 1) % speeds.size
                                         playbackSpeed = speeds[nextIndex]
                                         try {
-                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                                mediaPlayer?.setPlaybackSpeed(playbackSpeed)
-                                            }
+                                            mediaPlayer?.setPlaybackSpeed(playbackSpeed)
                                         } catch (e: Exception) {}
                                     })
                                 }
