@@ -1,9 +1,7 @@
 package com.example.player
 
 import android.graphics.SurfaceTexture
-import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import android.net.Uri
 import android.view.Surface
@@ -164,8 +162,9 @@ fun InAppFloatingPlayer(
     var isLocked by remember { mutableStateOf(false) }
     var showLockHint by remember { mutableStateOf(false) }
 
-    // Hardware-accelerated MediaPlayer & Texture Surface holder
+    // Hardware-accelerated Media3 player & Texture Surface holder
     var mediaPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
+    var nativeController by remember { mutableStateOf<Media3VideoPlayerController?>(null) }
     var currentSurface by remember { mutableStateOf<Surface?>(null) }
     var isVideoReady by remember { mutableStateOf(false) }
 
@@ -208,8 +207,7 @@ fun InAppFloatingPlayer(
     DisposableEffect(Unit) {
         onDispose {
             try {
-                mediaPlayer?.stop()
-                mediaPlayer?.release()
+                nativeController?.release()
                 currentSurface?.release()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -265,45 +263,26 @@ fun InAppFloatingPlayer(
                             val surface = Surface(st)
                             currentSurface = surface
 
-                            val httpFactory = DefaultHttpDataSource.Factory()
-                            val headers = mutableMapOf(
-                                "User-Agent" to android.webkit.WebSettings.getDefaultUserAgent(ctx),
-                                "Accept" to "*/*"
-                            )
-                            if (videoInfo.pageUrl.isNotBlank()) {
-                                headers["Referer"] = videoInfo.pageUrl
-                            }
-                            httpFactory.setDefaultRequestProperties(headers)
-
-                            val mp = ExoPlayer.Builder(ctx)
-                                .setMediaSourceFactory(
-                                    androidx.media3.exoplayer.source.DefaultMediaSourceFactory(httpFactory)
-                                )
-                                .build()
-                            mp.setVideoSurface(surface)
-                            mp.repeatMode = Player.REPEAT_MODE_ONE
-                            mp.addListener(object : Player.Listener {
+                            val controller = Media3VideoPlayerController(ctx)
+                            controller.setSurface(surface)
+                            controller.addListener(object : Player.Listener {
                                 override fun onPlaybackStateChanged(state: Int) {
                                     if (state == Player.STATE_READY) {
                                         isVideoReady = true
-                                        val startPos = (videoInfo.currentTime * 1000).toLong().coerceAtLeast(0L)
-                                        if (startPos > 0L) {
-                                            mp.seekTo(startPos)
-                                            currentPositionMs = startPos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                                        }
-                                        durationMs = mp.duration.coerceAtLeast(0L)
-                                            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                                            .coerceAtLeast(durationMs)
-                                        mp.setPlaybackSpeed(playbackSpeed)
-                                        mp.play()
-                                        isPlaying = true
+                                        val initial = (videoInfo.currentTime * 1000).toLong().coerceAtLeast(0L)
+                                        if (initial > 0L) controller.seekTo(initial)
+                                        durationMs = controller.durationMs().coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(durationMs)
+                                        controller.rawPlayer().setPlaybackSpeed(playbackSpeed)
+                                        if (isPlaying) controller.play()
                                     }
                                 }
-
                                 override fun onIsPlayingChanged(playing: Boolean) {
                                     isPlaying = playing
                                 }
                             })
+                            nativeController = controller
+                            controller.load(videoInfo)
+                            mediaPlayer = controller.rawPlayer()
                             mediaPlayer = mp
 
                             try {
