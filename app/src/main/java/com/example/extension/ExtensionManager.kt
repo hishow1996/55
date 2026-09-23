@@ -220,6 +220,15 @@ class ExtensionManager(private val context: Context) {
             target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});", null) }
             return JSONObject.NULL.toString()
         }
+        @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
+            val target = pageWebViews.entries.firstOrNull { it.key.hashCode() == tabId }?.value ?: return JSONObject.NULL.toString()
+            val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
+            p.optString("url").takeIf { it.isNotBlank() }?.let { url ->
+                target.post { target.loadUrl(url) }
+                pageUrls.entries.firstOrNull { it.key.hashCode() == tabId }?.let { pageUrls[it.key] = url }
+            }
+            return tabsQuery(JSONObject().apply { put("active", true) }.toString())
+        }
         @JavascriptInterface fun tabsQuery(queryJson: String): String {
             val q = try { JSONObject(queryJson) } catch (_: Exception) { JSONObject() }
             val result = JSONArray()
