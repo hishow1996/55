@@ -396,7 +396,28 @@ object Scripts {
             window._elephantLastManifestUrl = '';
             window._elephantLastDirectVideoUrl = '';
 
+            function resetMediaCache() {
+                window._elephantLastMediaUrl = '';
+                window._elephantLastManifestUrl = '';
+                window._elephantLastDirectVideoUrl = '';
+            }
+
+            function bindVideoLifecycle() {
+                document.querySelectorAll('video').forEach(function(v) {
+                    if (!v || v._elephantSnifferLifecycleBound) return;
+                    v._elephantSnifferLifecycleBound = true;
+                    ['loadstart','emptied','abort'].forEach(function(name) {
+                        v.addEventListener(name, function() {
+                            // A single page can reuse one <video> element for A -> B.
+                            // Network URLs discovered for A must never be offered to B.
+                            resetMediaCache();
+                        }, true);
+                    });
+                });
+            }
+
             function checkMedia(url) {
+                bindVideoLifecycle();
                 if (!url || typeof url !== 'string') return;
                 const lower = url.toLowerCase();
                 if (lower.startsWith('blob:') ||
@@ -439,6 +460,13 @@ object Scripts {
                         );
                     } catch(e) {}
                 }
+            }
+
+            bindVideoLifecycle();
+            if (window.MutationObserver) {
+                new MutationObserver(bindVideoLifecycle).observe(document.documentElement || document, {
+                    childList: true, subtree: true
+                });
             }
 
             const origFetch = window.fetch;
