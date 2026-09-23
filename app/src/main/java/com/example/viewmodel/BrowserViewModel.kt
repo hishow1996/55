@@ -526,10 +526,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
 
         _detectedVideo.value = updatedVideo
-        VideoPlaybackSessionManager.start(updatedVideo)
-        VideoPlaybackSessionManager.updatePosition(
-            (updatedVideo.currentTime * 1000.0).toLong().coerceAtLeast(0L)
-        )
+        VideoPlaybackSessionManager.handoffState(updatedVideo)
         _isFloatingPlayerVisible.value = true
 
         // Hand the playback over to the native player first. The WebView is
