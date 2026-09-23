@@ -129,6 +129,7 @@ class FloatingPlayerService : Service() {
         val requestedShouldPlay = intent.getBooleanExtra(EXTRA_VIDEO_SHOULD_PLAY, true)
         val requestedPlaybackRate = intent.getFloatExtra(EXTRA_VIDEO_PLAYBACK_RATE, 1.0f).coerceIn(0.25f, 4.0f)
         originTabIndex = intent.getIntExtra(EXTRA_ORIGIN_TAB_INDEX, 0)
+        originTabId = intent.getStringExtra(EXTRA_ORIGIN_TAB_ID)
         sourcePageUrl = intent.getStringExtra(EXTRA_VIDEO_PAGE_URL) ?: ""
 
         FloatingVideoPlayerComponent.activeVideoInfo?.let { active ->
@@ -796,6 +797,10 @@ class FloatingPlayerService : Service() {
                 putExtra(EXTRA_VIDEO_SHOULD_PLAY, shouldPlay)
             }
             try { startActivity(intent) } catch (e: Exception) { e.printStackTrace() }
+        } else {
+            // The user is on another tab (or the browser activity is not visible).
+            // Release only the source tab's lock; never navigate to it or autoplay it.
+            MainActivity.unlockFloatingSourceTab(originTabId)
         }
         stopSelf()
     }
@@ -843,6 +848,7 @@ class FloatingPlayerService : Service() {
         const val EXTRA_VIDEO_RATIO = "extra_video_ratio"
         const val EXTRA_VIDEO_POSITION = "extra_video_position"
         const val EXTRA_ORIGIN_TAB_INDEX = "extra_origin_tab_index"
+        const val EXTRA_ORIGIN_TAB_ID = "extra_origin_tab_id"
         const val EXTRA_SELECT_TAB = "select_tab_index"
         const val EXTRA_RESUME_WEB_VIDEO = "resume_web_video"
         const val EXTRA_VIDEO_POSITION_SECONDS = "video_position_seconds"
