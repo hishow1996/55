@@ -136,9 +136,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val cleanTitle = title.trim()
             .replace(Regex("[\\\\/:*?\"<>|\\r\\n]"), "_")
             .ifBlank { "video_${System.currentTimeMillis()}" }
-        val ext = if (effectiveUrl.contains(".m3u8")) ".m3u8" else ".mp4"
-        val fileName = if (cleanTitle.endsWith(".mp4") || cleanTitle.endsWith(".m3u8")) cleanTitle else "$cleanTitle$ext"
-        val mimeType = if (ext == ".m3u8") "application/vnd.apple.mpegurl" else "video/mp4"
+        val isHls = effectiveUrl.contains(".m3u8", ignoreCase = true) || effectiveUrl.contains("application/vnd.apple.mpegurl", ignoreCase = true)
+        val ext = if (isHls) ".ts" else ".mp4"
+        val fileName = if (cleanTitle.endsWith(".mp4", true) || cleanTitle.endsWith(".ts", true)) cleanTitle else "$cleanTitle$ext"
+        val mimeType = if (isHls) "video/mp2t" else "video/mp4"
 
         downloadManager.enqueueDownload(
             url = effectiveUrl,
