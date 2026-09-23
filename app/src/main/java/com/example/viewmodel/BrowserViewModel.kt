@@ -464,7 +464,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun onVideoFound(url: String, title: String, duration: Double, currentTime: Double, width: Int, height: Int) {
         val cleanTitle = title.ifBlank { currentTab.title }
         val effectiveUrl = if (url.isBlank() || url.startsWith("blob:") || !url.startsWith("http")) {
-            repository.getDetectedStreamUrlForTab(currentTab.id) ?: repository.lastDetectedStreamUrl ?: url
+            repository.getDetectedStreamUrlForTab(currentTab.id) ?: url
         } else {
             url
         }
@@ -501,10 +501,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 repository.getDetectedStreamUrlForTab(currentTab.id)
                     ?.trim()
                     ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
-                    ?: repository.lastDetectedStreamUrl
-                        ?.trim()
-                        ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
-                        ?: ""
+                    ?: ""
         }
 
         val updatedVideo = baseVideo.copy(
