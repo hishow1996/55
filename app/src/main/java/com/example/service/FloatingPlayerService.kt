@@ -128,7 +128,14 @@ class FloatingPlayerService : Service() {
         sourcePageUrl = intent.getStringExtra(EXTRA_VIDEO_PAGE_URL) ?: ""
 
         FloatingVideoPlayerComponent.activeVideoInfo?.let { active ->
-            VideoPlaybackSessionManager.start(active)
+            val session = VideoPlaybackSessionManager.handoffState(active)
+            initialPositionMs = session.positionMs.coerceAtLeast(0L)
+            isPlaying = session.isPlaying
+        } else {
+            VideoPlaybackSessionManager.current()?.let { session ->
+                initialPositionMs = session.positionMs.coerceAtLeast(0L)
+                isPlaying = session.isPlaying
+            }
         }
 
         if (videoUrl.isNotBlank()) {
@@ -306,7 +313,8 @@ class FloatingPlayerService : Service() {
                     })
                     try {
                         controller.load(effectiveVideo, initialPositionMs)
-                        controller.play()
+                        val shouldPlay = VideoPlaybackSessionManager.current()?.isPlaying ?: isPlaying
+                        if (shouldPlay) controller.play() else controller.pause()
                     } catch (e: Exception) {
                         android.util.Log.e(
                             "FloatingPlayerService",
