@@ -124,6 +124,8 @@ class FloatingPlayerService : Service() {
         videoTitle = intent.getStringExtra(EXTRA_VIDEO_TITLE) ?: "网页视频"
         videoRatio = intent.getFloatExtra(EXTRA_VIDEO_RATIO, 16f / 9f).coerceIn(0.5f, 3.0f)
         initialPositionMs = intent.getLongExtra(EXTRA_VIDEO_POSITION, 0L)
+        val requestedShouldPlay = intent.getBooleanExtra(EXTRA_VIDEO_SHOULD_PLAY, true)
+        val requestedPlaybackRate = intent.getFloatExtra(EXTRA_VIDEO_PLAYBACK_RATE, 1.0f).coerceIn(0.25f, 4.0f)
         originTabIndex = intent.getIntExtra(EXTRA_ORIGIN_TAB_INDEX, 0)
         sourcePageUrl = intent.getStringExtra(EXTRA_VIDEO_PAGE_URL) ?: ""
 
@@ -313,7 +315,10 @@ class FloatingPlayerService : Service() {
                     })
                     try {
                         controller.load(effectiveVideo, initialPositionMs)
-                        val shouldPlay = VideoPlaybackSessionManager.current()?.isPlaying ?: isPlaying
+                        val session = VideoPlaybackSessionManager.current()
+                        val playbackRate = session?.playbackRate ?: requestedPlaybackRate
+                        controller.rawPlayer().setPlaybackSpeed(playbackRate)
+                        val shouldPlay = session?.isPlaying ?: requestedShouldPlay
                         if (shouldPlay) controller.play() else controller.pause()
                     } catch (e: Exception) {
                         android.util.Log.e(
@@ -727,6 +732,8 @@ class FloatingPlayerService : Service() {
 
     private fun closeFloatingWindowOrResumeBrowser(positionSeconds: Double) {
         FloatingVideoPlayerComponent.syncProgress(positionSeconds)
+        val shouldPlay = VideoPlaybackSessionManager.current()?.isPlaying ?: isPlaying
+        VideoPlaybackSessionManager.updatePlaying(shouldPlay)
         val shouldResumeWeb = MainActivity.shouldResumeFloatingVideo(originTabIndex, sourcePageUrl)
         if (shouldResumeWeb) {
             val intent = Intent(this, MainActivity::class.java).apply {
@@ -734,6 +741,7 @@ class FloatingPlayerService : Service() {
                 putExtra(EXTRA_SELECT_TAB, originTabIndex)
                 putExtra(EXTRA_RESUME_WEB_VIDEO, true)
                 putExtra(EXTRA_VIDEO_POSITION_SECONDS, positionSeconds.coerceAtLeast(0.0))
+                putExtra(EXTRA_VIDEO_SHOULD_PLAY, shouldPlay)
             }
             try { startActivity(intent) } catch (e: Exception) { e.printStackTrace() }
         }
@@ -787,5 +795,7 @@ class FloatingPlayerService : Service() {
         const val EXTRA_RESUME_WEB_VIDEO = "resume_web_video"
         const val EXTRA_VIDEO_POSITION_SECONDS = "video_position_seconds"
         const val EXTRA_VIDEO_PAGE_URL = "extra_video_page_url"
+        const val EXTRA_VIDEO_SHOULD_PLAY = "extra_video_should_play"
+        const val EXTRA_VIDEO_PLAYBACK_RATE = "extra_video_playback_rate"
     }
 }
