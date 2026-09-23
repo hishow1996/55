@@ -322,11 +322,28 @@ class ExtensionManager(private val context: Context) {
             return result.toString()
         }
         @JavascriptInterface fun executeScript(extensionId: String, optionsJson: String): String {
+            if (!hasPermission(extensionId, "scripting") && !hasPermission(extensionId, "activeTab")) return "[]"
             val o = try { JSONObject(optionsJson) } catch (_: Exception) { JSONObject() }
-            val js = o.optString("code").ifBlank { o.optString("func").takeIf { it.isNotBlank() }?.let { "($it)()" } ?: "" }
+            val js = o.optString("code").ifBlank {
+                o.optString("func").takeIf { it.isNotBlank() }?.let { "($it)()" } ?: ""
+            }
             if (js.isBlank()) return "[]"
-            pageWebViews.values.distinct().forEach { it.post { it.evaluateJavascript(js, null) } }
-            return "[{}]"
+            val target = o.optJSONObject("target")
+            val tabId = target?.optInt("tabId", -1) ?: -1
+            val targets = if (tabId > 0) {
+                pageWebViews.entries.filter { pageTabIds[it.key] == tabId }
+            } else {
+                pageWebViews.entries.toList()
+            }
+            var count = 0
+            targets.forEach { entry ->
+                val pageUrl = pageUrls[entry.key] ?: return@forEach
+                val hosts = extension(extensionId)?.manifest?.hostPermissions.orEmpty()
+                if (hosts.isNotEmpty() && !matches(hosts, pageUrl) && !hasPermission(extensionId, "activeTab")) return@forEach
+                count++
+                entry.value.post { entry.value.evaluateJavascript(js, null) }
+            }
+            return if (count == 0) "[]" else "[{}]"
         }
     }
 
