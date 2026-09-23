@@ -16,7 +16,8 @@ data class ExtensionManifest(
     val popup: String? = null,
     val optionsPage: String? = null,
     val actionTitle: String? = null,
-    val iconPath: String? = null
+    val iconPath: String? = null,
+    val key: String? = null
 ) {
     companion object {
         fun parse(raw: String): ExtensionManifest {
@@ -56,7 +57,8 @@ data class ExtensionManifest(
                 scripts, bg?.optString("service_worker")?.takeIf { it.isNotBlank() },
                 action?.optString("default_popup")?.takeIf { it.isNotBlank() },
                 o.optString("options_page").takeIf { it.isNotBlank() },
-                action?.optString("default_title")?.takeIf { it.isNotBlank() }, icon
+                action?.optString("default_title")?.takeIf { it.isNotBlank() }, icon,
+                o.optString("key").takeIf { it.isNotBlank() }
             )
         }
     }
