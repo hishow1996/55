@@ -1291,28 +1291,67 @@ object Scripts {
                 });
 
                 fastTap(downloadSideBtn, () => {
+                    // Resolve the media URL for THIS video first. Never reuse a
+                    // stale manifest from another player/tab before checking the
+                    // current element and known player instances.
                     let realSrc = '';
-                    if (window._elephantLastManifestUrl) realSrc = window._elephantLastManifestUrl;
-                    if (!realSrc && window._elephantLastDirectVideoUrl) realSrc = window._elephantLastDirectVideoUrl;
-                    if (!realSrc && video.currentSrc && !video.currentSrc.startsWith('blob:')) realSrc = video.currentSrc;
-                    if (!realSrc && video.src && !video.src.startsWith('blob:')) realSrc = video.src;
+                    const currentSrc = video.currentSrc || video.src || '';
+                    if (currentSrc && !currentSrc.startsWith('blob:') &&
+                        (currentSrc.startsWith('http://') || currentSrc.startsWith('https://'))) {
+                        realSrc = currentSrc;
+                    }
+
+                    if (!realSrc) {
+                        try {
+                            if (window.dp && window.dp.video && typeof window.dp.video.url === 'string') realSrc = window.dp.video.url;
+                        } catch(e) {}
+                    }
+                    if (!realSrc) {
+                        try {
+                            if (window.art && window.art.url) realSrc = window.art.url;
+                        } catch(e) {}
+                    }
+                    if (!realSrc) {
+                        try {
+                            if (window.hls && window.hls.url) realSrc = window.hls.url;
+                        } catch(e) {}
+                    }
+                    if (!realSrc) {
+                        try {
+                            if (window.player && window.player.url) realSrc = window.player.url;
+                        } catch(e) {}
+                    }
+
+                    // Blob/MSE playback has no directly downloadable URL. In
+                    // that case use the most recently observed manifest/direct
+                    // media request for the current page.
+                    if (!realSrc && window._elephantLastManifestUrl) {
+                        realSrc = window._elephantLastManifestUrl;
+                    }
+                    if (!realSrc && window._elephantLastDirectVideoUrl) {
+                        realSrc = window._elephantLastDirectVideoUrl;
+                    }
+
                     if (!realSrc && window.performance && window.performance.getEntriesByType) {
                         const resources = window.performance.getEntriesByType('resource');
                         for (let i = resources.length - 1; i >= 0; i--) {
                             const name = resources[i].name || '';
-                            if (name.includes('.m3u8') || name.includes('.mpd') || name.includes('.mp4') || name.includes('.webm') || name.includes('.flv') || name.includes('mime=video') || name.includes('googlevideo.com')) {
+                            const lower = name.toLowerCase();
+                            if (lower.includes('.m3u8') || lower.includes('.mpd') ||
+                                lower.includes('.mp4') || lower.includes('.webm') ||
+                                lower.includes('.mov') || lower.includes('.flv') ||
+                                lower.includes('mime=video') || lower.includes('googlevideo.com')) {
                                 realSrc = name;
                                 break;
                             }
                         }
                     }
-                    if (!realSrc) {
-                        if (window.hls && window.hls.url) realSrc = window.hls.url;
-                        else if (window.dp && window.dp.video && window.dp.video.url) realSrc = window.dp.video.url;
-                        else if (window.player && window.player.url) realSrc = window.player.url;
-                    }
-                    if (!realSrc) {
-                        realSrc = video.currentSrc || video.src || window.location.href;
+
+                    if (!realSrc || realSrc === window.location.href) {
+                        if (window.ElephantBridge && window.ElephantBridge.showToast) {
+                            window.ElephantBridge.showToast('没有找到当前视频的可下载地址');
+                        }
+                        return;
                     }
 
                     if (window.ElephantBridge && window.ElephantBridge.downloadVideo) {
