@@ -273,11 +273,14 @@ fun InAppFloatingPlayer(
 
                             val controller = Media3VideoPlayerController(ctx)
                             controller.setSurface(surface)
+                            val handoffSession = VideoPlaybackSessionManager.handoffState(videoInfo)
+                            isPlaying = handoffSession.isPlaying
+                            playbackSpeed = handoffSession.playbackRate
                             controller.addListener(object : Player.Listener {
                                 override fun onPlaybackStateChanged(state: Int) {
                                     if (state == Player.STATE_READY) {
                                         isVideoReady = true
-                                        val initial = (videoInfo.currentTime * 1000).toLong().coerceAtLeast(0L)
+                                        val initial = handoffSession.positionMs.coerceAtLeast(0L)
                                         if (initial > 0L) controller.seekTo(initial)
                                         durationMs = controller.durationMs().coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(durationMs)
                                         controller.rawPlayer().setPlaybackSpeed(playbackSpeed)
