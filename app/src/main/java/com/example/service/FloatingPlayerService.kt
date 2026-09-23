@@ -66,6 +66,8 @@ class FloatingPlayerService : Service() {
     private var isPlaying = true
     private var areControlsVisible = true
     private var isLocked = false
+    // Prevent duplicate close/error callbacks from racing during teardown.
+    private var closing = false
     private var currentPositionMs = 0
     private var durationMs = 0
 
@@ -295,6 +297,9 @@ class FloatingPlayerService : Service() {
                         }
 
                         override fun onPlayerError(error: PlaybackException) {
+                            // Media3 errors are terminal for this native instance;
+                            // return ownership to WebView through the same close path.
+                            if (closing) return
                             android.util.Log.e(
                                 "FloatingPlayerService",
                                 "Media3 playback error: code=${error.errorCode} url=$streamUrl",
@@ -762,6 +767,8 @@ class FloatingPlayerService : Service() {
     }
 
     private fun closeFloatingWindowOrResumeBrowser(positionSeconds: Double) {
+        if (closing) return
+        closing = true
         // Read the player state before releasing it so the shared session is authoritative.
         val playerPositionSeconds = try {
             mediaPlayer?.currentPosition?.toDouble()?.div(1000.0)
@@ -789,7 +796,6 @@ class FloatingPlayerService : Service() {
                 putExtra(EXTRA_VIDEO_SHOULD_PLAY, shouldPlay)
             }
             try { startActivity(intent) } catch (e: Exception) { e.printStackTrace() }
-        }
         }
         stopSelf()
     }
