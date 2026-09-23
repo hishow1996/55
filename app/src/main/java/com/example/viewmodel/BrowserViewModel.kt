@@ -176,6 +176,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun unlockWebVideoForTabIndex(tabIndex: Int) {
+        val tabId = _tabs.value.getOrNull(tabIndex)?.id ?: return
+        unlockWebVideoForTab(tabId)
+    }
+
     override fun onCleared() {
         tabWebViews.clear()
         pendingWebVideoResume = null
