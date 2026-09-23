@@ -570,15 +570,14 @@ class MainActivity : ComponentActivity() {
                 FloatingPlayerService.EXTRA_VIDEO_SHOULD_PLAY,
                 com.example.player.VideoPlaybackSessionManager.current()?.isPlaying ?: true
             )
-            // selectTab() updates Compose state first; wait for the target WebView
-            // to become active before injecting the resume command.
-            val targetViewModel = viewModelRef
-            targetViewModel?.activeWebView?.postDelayed({
-                targetViewModel.activeWebView?.evaluateJavascript(
-                    com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(position, shouldPlay),
-                    null
-                )
-            }, 300L)
+            // Queue the resume against the source tab. The WebView registers
+            // itself when Compose has actually attached it, so this no longer
+            // depends on an arbitrary delay or the previously active tab.
+            viewModelRef?.let { vm ->
+                val tabIndex = intent.getIntExtra(FloatingPlayerService.EXTRA_SELECT_TAB, vm.currentTabIndex.value)
+                val pageUrl = vm.tabs.value.getOrNull(tabIndex)?.url.orEmpty()
+                vm.queueWebVideoResume(tabIndex, pageUrl, position, shouldPlay)
+            }
         }
     }
 
@@ -889,7 +888,7 @@ fun ChromiumWebViewContainer(
                     viewModel.onDownloadRequested(url, userAgent, contentDisposition, mimetype, contentLength)
                 }
 
-                viewModel.activeWebView = this
+                viewModel.registerTabWebView(tab.id, this)
 
                 if (!tab.isAtHome) {
                     loadUrl(tab.url)
@@ -897,7 +896,7 @@ fun ChromiumWebViewContainer(
             }
         },
         update = { webView ->
-            viewModel.activeWebView = webView
+            viewModel.registerTabWebView(tab.id, webView)
             val currentNight = tab.isNightMode || viewModel.repository.isNightMode.value
             webView.setBackgroundColor(if (currentNight) 0xFF111418.toInt() else android.graphics.Color.WHITE)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
