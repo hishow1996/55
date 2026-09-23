@@ -63,6 +63,17 @@ object VideoPlaybackSessionManager {
         session = session?.copy(isPlaying = isPlaying)
     }
 
+    /**
+     * Returns the authoritative state for a handoff. If the same video is
+     * already active, preserve its live position/play state/rate instead of
+     * reinitializing from a stale VideoMediaInfo snapshot.
+     */
+    @Synchronized
+    fun handoffState(video: VideoMediaInfo): VideoSession {
+        val current = start(video)
+        return current
+    }
+
     @Synchronized
     fun updatePlaybackRate(rate: Float) {
         session = session?.copy(playbackRate = rate.coerceIn(0.25f, 4.0f))
