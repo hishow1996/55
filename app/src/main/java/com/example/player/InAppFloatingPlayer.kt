@@ -194,8 +194,8 @@ fun InAppFloatingPlayer(
                     if (mp.isPlaying) {
                         val pos = mp.currentPosition
                         val dur = mp.duration
-                        if (pos >= 0) currentPositionMs = pos
-                        if (dur > 0) durationMs = max(dur, durationMs)
+                        if (pos >= 0) currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                        if (dur > 0) durationMs = max(dur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), durationMs)
                     }
                 }
             } catch (e: Exception) {
@@ -464,9 +464,9 @@ fun InAppFloatingPlayer(
                         onClick = {
                             mediaPlayer?.let { mp ->
                                 try {
-                                    val target = max(0, mp.currentPosition - 10000)
+                                    val target = max(0L, mp.currentPosition - 10000L)
                                     mp.seekTo(target)
-                                    currentPositionMs = target
+                                    currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                                 } catch (e: Exception) {}
                             }
                         },
@@ -510,9 +510,9 @@ fun InAppFloatingPlayer(
                         onClick = {
                             mediaPlayer?.let { mp ->
                                 try {
-                                    val target = (mp.currentPosition + 10000).coerceAtMost(durationMs)
+                                    val target = (mp.currentPosition + 10000L).coerceAtMost(durationMs.toLong())
                                     mp.seekTo(target)
-                                    currentPositionMs = target
+                                    currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                                 } catch (e: Exception) {}
                             }
                         },
