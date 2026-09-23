@@ -228,6 +228,7 @@ class ExtensionManager(private val context: Context) {
             if (active) setPageActive(newKey)
             pageUrls[newKey] = url
             pageActive[newKey] = active
+            pageActive.keys.filter { it != newKey }.forEach { pageActive[it] = false }
             return JSONObject().apply { put("id", newKey.hashCode()); put("url", url); put("active", active); put("status", "loading"); put("title", "") }.toString()
         }
         @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
