@@ -56,6 +56,7 @@ class FloatingPlayerService : Service() {
     private var videoRatio: Float = 16f / 9f
     private var initialPositionMs: Long = 0L
     private var originTabIndex: Int = 0
+    private var sourcePageUrl: String = ""
 
     private val handler = Handler(Looper.getMainLooper())
     private var isPlaying = true
@@ -109,7 +110,7 @@ class FloatingPlayerService : Service() {
             } catch (e: Exception) {
                 FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
             }
-            openBrowserAndResume(position)
+            closeFloatingWindowOrResumeBrowser(position)
             return START_NOT_STICKY
         }
 
@@ -118,6 +119,7 @@ class FloatingPlayerService : Service() {
         videoRatio = intent.getFloatExtra(EXTRA_VIDEO_RATIO, 16f / 9f).coerceIn(0.5f, 3.0f)
         initialPositionMs = intent.getLongExtra(EXTRA_VIDEO_POSITION, 0L)
         originTabIndex = intent.getIntExtra(EXTRA_ORIGIN_TAB_INDEX, 0)
+        sourcePageUrl = intent.getStringExtra(EXTRA_VIDEO_PAGE_URL) ?: ""
 
         if (videoUrl.isNotBlank()) {
             showFloatingWindow()
@@ -313,7 +315,8 @@ class FloatingPlayerService : Service() {
             setColorFilter(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt())
             setOnClickListener {
-                returnToBrowserTab()
+                val position = try { mediaPlayer?.currentPosition?.toDouble()?.div(1000.0) ?: FloatingVideoPlayerComponent.lastPlaybackPositionSeconds } catch (e: Exception) { FloatingVideoPlayerComponent.lastPlaybackPositionSeconds }
+                closeFloatingWindowOrResumeBrowser(position)
             }
         }
         topBar.addView(closeBtn)
@@ -658,32 +661,20 @@ class FloatingPlayerService : Service() {
         }
     }
 
-    private fun returnToBrowserTab() {
-        val position = try {
-            mediaPlayer?.currentPosition?.toDouble()?.div(1000.0)
-                ?: FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
-        } catch (e: Exception) {
-            FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
-        }
-        openBrowserAndResume(position)
-    }
-
-    private fun openBrowserAndResume(positionSeconds: Double) {
+    private fun closeFloatingWindowOrResumeBrowser(positionSeconds: Double) {
         FloatingVideoPlayerComponent.syncProgress(positionSeconds)
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(EXTRA_SELECT_TAB, originTabIndex)
-            putExtra(EXTRA_RESUME_WEB_VIDEO, true)
-            putExtra(EXTRA_VIDEO_POSITION_SECONDS, positionSeconds.coerceAtLeast(0.0))
-        }
-        try {
-            startActivity(intent)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        val shouldResumeWeb = MainActivity.shouldResumeFloatingVideo(originTabIndex, sourcePageUrl)
+        if (shouldResumeWeb) {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(EXTRA_SELECT_TAB, originTabIndex)
+                putExtra(EXTRA_RESUME_WEB_VIDEO, true)
+                putExtra(EXTRA_VIDEO_POSITION_SECONDS, positionSeconds.coerceAtLeast(0.0))
+            }
+            try { startActivity(intent) } catch (e: Exception) { e.printStackTrace() }
         }
         stopSelf()
     }
-
     private fun formatTime(ms: Int): String {
         val totalSeconds = (ms / 1000).coerceAtLeast(0)
         val minutes = totalSeconds / 60
