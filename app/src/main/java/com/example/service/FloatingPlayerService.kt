@@ -350,11 +350,30 @@ class FloatingPlayerService : Service() {
 
                 override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
                 override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+                    // Save the authoritative Media3 state before destroying the surface.
+                    // Releasing the player prevents headless playback; a recreated
+                    // surface will rebuild the player from VideoPlaybackSessionManager.
                     try {
-                        mediaPlayer?.setSurface(null)
-                        currentSurface?.release()
-                        currentSurface = null
+                        mediaPlayer?.let { player ->
+                            VideoPlaybackSessionManager.updatePosition(
+                                player.currentPosition.coerceAtLeast(0L)
+                            )
+                            VideoPlaybackSessionManager.updatePlaying(player.isPlaying)
+                            player.setVideoSurface(null)
+                        }
                     } catch (e: Exception) {}
+
+                    try {
+                        nativePlayerController?.release()
+                    } catch (e: Exception) {}
+
+                    nativePlayerController = null
+                    mediaPlayer = null
+
+                    try {
+                        currentSurface?.release()
+                    } catch (e: Exception) {}
+                    currentSurface = null
                     return true
                 }
                 override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
