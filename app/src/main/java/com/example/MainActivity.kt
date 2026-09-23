@@ -119,6 +119,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val viewModel: com.example.viewmodel.BrowserViewModel = viewModel()
             viewModelRef = viewModel
+            viewModel.repository.extensionManager.setBrowserTabCreator { url, active ->
+                runOnUiThread { viewModel.addNewTab(initialUrl = url) }
+            }
 
             LaunchedEffect(Unit) {
                 handleTabIntent(intent)
