@@ -614,9 +614,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         } else {
             url
         }
-        if (effectiveUrl.isNotBlank() && !effectiveUrl.startsWith("blob:")) {
-            repository.setDetectedStreamUrl(currentTab.id, effectiveUrl)
-        }
         val info = VideoMediaInfo(
             url = effectiveUrl,
             pageUrl = currentTab.url,
@@ -629,6 +626,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             originTabIndex = _currentTabIndex.value,
             originTabId = currentTab.id
         )
+        // Persist only a URL that the native resolver recognizes as actual media.
+        // A navigation/page URL must never become the per-tab "detected stream".
+        if (VideoSourceResolver.canUseNativePlayer(info)) {
+            repository.setDetectedStreamUrl(currentTab.id, effectiveUrl)
+        }
         // Native Media3 takeover is used only for sources the app can reliably
         // play itself. Blob/MSE pages remain on the WebView as a compatibility fallback.
         _detectedVideo.value = info
