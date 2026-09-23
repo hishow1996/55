@@ -1423,6 +1423,10 @@ object Scripts {
                     }
 
                     if (window.ElephantBridge && window.ElephantBridge.openFloatingPlayer) {
+                        // Mark the exact HTML5 video being handed off. The
+                        // native player may later return after the user has moved
+                        // around the browser, so resuming every <video> is unsafe.
+                        window._elephantLastVideoElement = video;
                         // Pause before the asynchronous Android bridge call.
                         // Permission/settings screens can otherwise give the
                         // webpage time to keep playing.
