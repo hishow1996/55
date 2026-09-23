@@ -177,8 +177,7 @@ object FloatingVideoPlayerComponent {
         originTabIndex: Int? = null
     ) {
         activeVideoInfo = video
-        VideoPlaybackSessionManager.start(video)
-        VideoPlaybackSessionManager.updatePosition((video.currentTime * 1000.0).toLong().coerceAtLeast(0L))
+        val session = VideoPlaybackSessionManager.handoffState(video)
         pendingGlobalVideo = video
         if (!hasOverlayPermission(context)) {
             requestOverlayPermission(context)
@@ -189,9 +188,11 @@ object FloatingVideoPlayerComponent {
             putExtra(FloatingPlayerService.EXTRA_VIDEO_URL, video.url)
             putExtra(FloatingPlayerService.EXTRA_VIDEO_TITLE, video.title)
             putExtra(FloatingPlayerService.EXTRA_VIDEO_RATIO, video.aspectRatio)
-            putExtra(FloatingPlayerService.EXTRA_VIDEO_POSITION, (video.currentTime * 1000).toLong())
+            putExtra(FloatingPlayerService.EXTRA_VIDEO_POSITION, session.positionMs.coerceAtLeast(0L))
             putExtra(FloatingPlayerService.EXTRA_VIDEO_PAGE_URL, video.pageUrl)
             putExtra(FloatingPlayerService.EXTRA_ORIGIN_TAB_INDEX, originTabIndex ?: video.originTabIndex ?: 0)
+            putExtra(FloatingPlayerService.EXTRA_VIDEO_SHOULD_PLAY, session.isPlaying)
+            putExtra(FloatingPlayerService.EXTRA_VIDEO_PLAYBACK_RATE, session.playbackRate)
         }
 
         try {
