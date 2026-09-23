@@ -27,8 +27,17 @@ class ExtensionManager(private val context: Context) {
     private val pageTabIds = ConcurrentHashMap<String, Int>()
     private var nextTabId = 1
     private var browserTabCreator: ((String, Boolean) -> Unit)? = null
+    private var browserTabController: ((Int, String, Boolean) -> Unit)? = null
+    private var browserTabUpdater: ((Int, String?) -> Unit)? = null
+    private var browserTabSelector: ((Int) -> Unit)? = null
 
     fun setBrowserTabCreator(creator: ((String, Boolean) -> Unit)?) { browserTabCreator = creator }
+
+    fun setBrowserTabController(creator: ((Int, String, Boolean) -> Unit)?, updater: ((Int, String?) -> Unit)?, selector: ((Int) -> Unit)?) {
+        browserTabController = creator
+        browserTabUpdater = updater
+        browserTabSelector = selector
+    }
 
     init { load() }
 
@@ -244,7 +253,14 @@ class ExtensionManager(private val context: Context) {
             return JSONObject.NULL.toString()
         }
         @JavascriptInterface fun tabsSendMessage(extensionId: String, tabId: Int, message: String): String {
-            val target = pageWebViews.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value ?: return JSONObject.NULL.toString()
+            val target = pageWebViews.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value
+            if (target == null) {
+                val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
+                val newUrl = p.optString("url").takeIf { it.isNotBlank() }
+                browserTabUpdater?.invoke(tabId, newUrl)
+                if (p.optBoolean("active", false)) browserTabSelector?.invoke(tabId)
+                return tabsQuery(JSONObject().apply { put("active", true) }.toString())
+            }
             val payload = JSONObject.quote(message)
             val idJson = JSONObject.quote(extensionId)
             target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});", null) }
@@ -261,7 +277,7 @@ class ExtensionManager(private val context: Context) {
             pageTitles[newKey] = ""
             pageActive[newKey] = active
             if (active) pageActive.keys.filter { it != newKey }.forEach { pageActive[it] = false }
-            browserTabCreator?.invoke(url, active)
+            browserTabController?.invoke(id, url, active) ?: browserTabCreator?.invoke(url, active)
             return JSONObject().apply { put("id", id); put("url", url); put("active", active); put("status", "loading"); put("title", "") }.toString()
         }
         @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
