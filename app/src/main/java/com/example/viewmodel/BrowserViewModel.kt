@@ -415,7 +415,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun addNewTab(isIncognito: Boolean = repository.isIncognito.value, initialUrl: String = "") {
         val oldIndex = _currentTabIndex.value
         val video = _detectedVideo.value
-        if (video != null && video.isPlaying && (video.originTabIndex == oldIndex || video.originTabIndex == null)) {
+        if (video != null && (video.originTabId == null || video.originTabId == oldTab.id)) {
             _detectedVideo.value = video.copy(originTabIndex = oldIndex)
             _isFloatingPlayerVisible.value = true
         }
@@ -440,7 +440,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun selectTab(index: Int) {
         if (index in _tabs.value.indices) {
             val oldIndex = _currentTabIndex.value
-            if (oldIndex != index) {
+            val oldTab = _tabs.value.getOrNull(oldIndex)
+            if (oldIndex != index && oldTab != null) {
                 val video = _detectedVideo.value
                 if (video != null && video.isPlaying && (video.originTabIndex == oldIndex || video.originTabIndex == null)) {
                     _detectedVideo.value = video.copy(originTabIndex = oldIndex)
@@ -459,8 +460,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
         val closingTab = currentList[index]
         val closedVideo = _detectedVideo.value
-        val closingOwnsVideo = closedVideo != null &&
-            (closedVideo.originTabIndex == index || closedVideo.pageUrl == closingTab.url)
+        val session = VideoPlaybackSessionManager.current()
+        val closingOwnsVideo = (closedVideo?.originTabId == closingTab.id) ||
+            (closedVideo != null && closedVideo.originTabId == null &&
+                closedVideo.originTabIndex == index) ||
+            (session?.tabId == closingTab.id)
 
         // A closed source tab can no longer be a valid WebView resume target.
         // Drop its WebView reference and any detected stream owned by that tab.
@@ -470,8 +474,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         if (closingOwnsVideo) {
             _isFloatingPlayerVisible.value = false
             _detectedVideo.value = null
-            val session = VideoPlaybackSessionManager.current()
-            if (session != null && (session.tabIndex == index || session.pageUrl == closingTab.url)) {
+            if (session != null && (session.tabId == closingTab.id || session.tabIndex == index)) {
                 VideoPlaybackSessionManager.clear()
             }
             pendingWebVideoResume = null
