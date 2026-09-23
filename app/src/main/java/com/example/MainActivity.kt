@@ -605,7 +605,8 @@ class MainActivity : ComponentActivity() {
             title = tab.title.ifBlank { "网页视频" },
             videoWidth = 16,
             videoHeight = 9,
-            originTabIndex = viewModel.currentTabIndex.value
+            originTabIndex = viewModel.currentTabIndex.value,
+            originTabId = tab.id
         )
     }
 
