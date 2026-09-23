@@ -647,12 +647,10 @@ class MainActivity : ComponentActivity() {
         val effectiveVideo = video.copy(
             url = candidateUrl,
             currentTime = video.currentTime.coerceAtLeast(0.0),
-            originTabIndex = video.originTabIndex ?: vm?.currentTabIndex?.value
+            originTabIndex = video.originTabIndex ?: vm?.currentTabIndex?.value,
+            originTabId = video.originTabId ?: vm?.currentTab?.id
         )
 
-        // Do not open system floating mode for a Blob/MSE/unknown source. Those
-        // sources belong to the WebView compatibility path until a real stream
-        // URL has been discovered.
         if (!VideoSourceResolver.canUseNativePlayer(effectiveVideo)) {
             FloatingVideoPlayerComponent.pendingGlobalVideo = null
             vm?.activeWebView?.evaluateJavascript(
@@ -670,14 +668,26 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // Lock the WebView before permission/settings navigation. We intentionally
-        // do not call closeFloatingPlayer() here because that method resumes HTML5
-        // playback and would reintroduce a race with Media3.
+        // The JavaScript callback is important here: LOCK_WEB_VIDEOS first
+        // reports the exact HTML5 position/play state, then pauses the WebView.
+        // Only after that callback do we start Media3. This removes the race
+        // where the native player could start from an older 250 ms monitor sample.
         FloatingVideoPlayerComponent.pendingGlobalVideo = effectiveVideo
-        vm?.activeWebView?.evaluateJavascript(
-            com.example.engine.Scripts.LOCK_WEB_VIDEOS,
-            null
-        )
+        val webView = vm?.activeWebView
+        if (webView != null) {
+            webView.evaluateJavascript(
+                com.example.engine.Scripts.LOCK_WEB_VIDEOS
+            ) { _ ->
+                continueGlobalFloatingHandoff(effectiveVideo)
+            }
+        } else {
+            continueGlobalFloatingHandoff(effectiveVideo)
+        }
+    }
+
+    private fun continueGlobalFloatingHandoff(effectiveVideo: VideoMediaInfo) {
+        val vm = viewModelRef
+        if (!VideoSourceResolver.canUseNativePlayer(effectiveVideo)) return
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !FloatingVideoPlayerComponent.hasPipPermission(this)
@@ -701,7 +711,6 @@ class MainActivity : ComponentActivity() {
             originTabIndex = effectiveVideo.originTabIndex
         )
     }
-
 
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
