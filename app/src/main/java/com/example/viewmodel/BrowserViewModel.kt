@@ -727,12 +727,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
 
         _detectedVideo.value = updatedVideo
+
+        // Freeze WebView playback before exposing the native player. This closes
+        // the small handoff window in which the HTML5 player could continue
+        // advancing after the native session snapshot was taken.
+        activeWebView?.evaluateJavascript(Scripts.LOCK_WEB_VIDEOS, null)
+
+        // The JS state monitor is the source of the latest WebView position.
+        // Reuse that authoritative snapshot, then create the native session.
         VideoPlaybackSessionManager.handoffState(updatedVideo)
         _isFloatingPlayerVisible.value = true
-
-        // Hand the playback over to the native player first. The WebView is
-        // locked before the native surface starts so both players never race.
-        activeWebView?.evaluateJavascript(Scripts.LOCK_WEB_VIDEOS, null)
     }
 
     /**
