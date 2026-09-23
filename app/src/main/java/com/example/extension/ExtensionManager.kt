@@ -328,7 +328,7 @@ class ExtensionManager(private val context: Context) {
         pageWebViews.values.distinct().forEach { wv ->
             wv.post {
                 wv.evaluateJavascript(
-                    "window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse($payload)}));",
+                    "window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse($payload)}));if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$id},function(){});",
                     null
                 )
             }
