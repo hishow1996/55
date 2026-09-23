@@ -790,11 +790,6 @@ class FloatingPlayerService : Service() {
             }
             try { startActivity(intent) } catch (e: Exception) { e.printStackTrace() }
         }
-        } else {
-            // Playback is no longer returning to the source WebView. Explicitly
-            // clear the floating lock on that source when it is still represented
-            // by the active WebView; this avoids leaving a page permanently paused.
-            // Do not navigate or resume another tab here.
         }
         stopSelf()
     }
