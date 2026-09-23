@@ -4,6 +4,7 @@ import android.webkit.JavascriptInterface
 
 class ElephantWebBridge(
     private val onVideoFound: (url: String, title: String, duration: Double, currentTime: Double, width: Int, height: Int) -> Unit,
+    private val onVideoPlaybackState: ((currentTime: Double, isPlaying: Boolean) -> Unit)? = null,
     private val onTranslationFinished: (success: Boolean, count: Int) -> Unit,
     private val onTextSelected: (text: String) -> Unit = {},
     private val onAdjustBrightness: ((delta: Float) -> Float)? = null,
@@ -21,10 +22,7 @@ class ElephantWebBridge(
     /** Reports the live HTML5 video state without replacing the detected source. */
     @JavascriptInterface
     fun onVideoPlaybackState(currentTime: Double, isPlaying: Boolean) {
-        // Intentionally forwarded through the existing detection callback so the
-        // ViewModel can refresh the authoritative WebView snapshot. An empty URL
-        // never replaces a known native source unless the caller explicitly does so.
-        onVideoFound("", "", 0.0, currentTime, 0, 0)
+        onVideoPlaybackState?.invoke(currentTime, isPlaying)
     }
 
     @JavascriptInterface
