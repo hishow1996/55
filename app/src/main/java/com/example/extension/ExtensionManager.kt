@@ -85,6 +85,15 @@ class ExtensionManager(private val context: Context) {
         persist(updated)
     }
 
+    fun isPinned(id: String): Boolean =
+        prefs.getStringSet("pinned_extensions", emptySet())?.contains(id) == true
+
+    fun setPinned(id: String, pinned: Boolean) {
+        val set = prefs.getStringSet("pinned_extensions", emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (pinned) set.add(id) else set.remove(id)
+        prefs.edit().putStringSet("pinned_extensions", set).apply()
+    }
+
     fun setEnabled(id: String, enabled: Boolean) {
         val updated = _extensions.value.map { if (it.id == id) it.copy(enabled = enabled) else it }
         _extensions.value = updated
