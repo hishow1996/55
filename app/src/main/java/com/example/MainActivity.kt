@@ -781,9 +781,15 @@ class MainActivity : ComponentActivity() {
             val activity = activeInstance ?: return false
             val vm = activity.viewModelRef ?: return false
             val current = vm.currentTab
-            return (originTabId.isNullOrBlank().not() && current.id == originTabId) ||
+            // A stable tab ID is authoritative. Do not fall back to the old
+            // numeric index when an ID is present: tab close/reorder can shift
+            // indexes and would otherwise resume the wrong WebView.
+            return if (!originTabId.isNullOrBlank()) {
+                current.id == originTabId
+            } else {
                 vm.currentTabIndex.value == originTabIndex ||
-                (sourcePageUrl.isNotBlank() && current.url == sourcePageUrl)
+                    (sourcePageUrl.isNotBlank() && current.url == sourcePageUrl)
+            }
         }
 
         @JvmStatic
