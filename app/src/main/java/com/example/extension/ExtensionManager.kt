@@ -251,8 +251,11 @@ class ExtensionManager(private val context: Context) {
     }
 
     private inner class BackgroundBridge(private val id: String) {
+        @JavascriptInterface fun getManifest(extensionId: String): String = getManifestJson(extensionId)
         @JavascriptInterface fun storageGet(extensionId: String, key: String?): String = storageGetJson(extensionId, key)
         @JavascriptInterface fun storageSet(extensionId: String, valuesJson: String) { storageSetJson(extensionId, valuesJson) }
+        @JavascriptInterface fun storageRemove(extensionId: String, key: String) { storageRemoveJson(extensionId, key) }
+        @JavascriptInterface fun storageClear(extensionId: String) { storageClearJson(extensionId) }
         @JavascriptInterface fun sendMessage(extensionId: String, message: String): String {
             deliverToPages(extensionId, message)
             return JSONObject.NULL.toString()
