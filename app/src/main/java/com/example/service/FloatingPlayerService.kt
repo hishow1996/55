@@ -253,10 +253,11 @@ class FloatingPlayerService : Service() {
                     currentSurface = surface
 
                     val activeInfo = FloatingVideoPlayerComponent.activeVideoInfo
-                    var streamUrl = videoUrl.trim()
-                    if (streamUrl.isBlank() || streamUrl.startsWith("blob:") || !streamUrl.startsWith("http")) {
-                        streamUrl = activeInfo?.url?.trim() ?: ""
-                    }
+                    // The service intent is the authoritative handoff payload. Never
+                    // silently replace it with a stale global activeVideoInfo URL.
+                    // This prevents video B from falling back to video A after a
+                    // rapid source switch.
+                    val streamUrl = videoUrl.trim()
 
                     if (streamUrl.isBlank() || streamUrl.startsWith("blob:")) {
                         handler.post {
@@ -269,19 +270,15 @@ class FloatingPlayerService : Service() {
                         return
                     }
 
-                    val effectiveVideo = (activeInfo ?: VideoMediaInfo(
+                    val effectiveVideo = VideoMediaInfo(
                         url = streamUrl,
                         pageUrl = sourcePageUrl,
-                        title = videoTitle,
+                        title = videoTitle.ifBlank { activeInfo?.title ?: "网页视频" },
                         currentTime = initialPositionMs / 1000.0,
                         videoWidth = (videoRatio * 1000).toInt().coerceAtLeast(1),
                         videoHeight = 1000,
                         originTabIndex = originTabIndex,
                         originTabId = originTabId
-                    )).copy(
-                        url = streamUrl,
-                        pageUrl = if (sourcePageUrl.isNotBlank()) sourcePageUrl else activeInfo?.pageUrl.orEmpty(),
-                        currentTime = initialPositionMs / 1000.0
                     )
 
                     val controller = Media3VideoPlayerController(this@FloatingPlayerService)
