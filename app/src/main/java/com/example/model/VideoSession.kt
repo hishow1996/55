@@ -11,6 +11,7 @@ data class VideoSession(
     val id: String,
     val pageUrl: String,
     val tabIndex: Int,
+    val tabId: String? = null,
     val title: String,
     val source: VideoSource,
     val positionMs: Long = 0L,
