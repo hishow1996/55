@@ -21,6 +21,7 @@ class ExtensionManager(private val context: Context) {
     private val backgroundHosts = mutableMapOf<String, WebView>()
     private val pageWebViews = ConcurrentHashMap<String, WebView>()
     private val pageUrls = ConcurrentHashMap<String, String>()
+    private val pageActive = ConcurrentHashMap<String, Boolean>()
 
     init { load() }
 
@@ -102,21 +103,28 @@ class ExtensionManager(private val context: Context) {
         File(extension(id)!!.rootPath, it).takeIf(File::exists)?.let { f -> "file://" + f.absolutePath }
     }
 
+    fun updatePageState(pageKey: String, url: String, active: Boolean = true) {
+        pageUrls[pageKey] = url
+        pageActive[pageKey] = active
+    }
+
     fun attachWebView(pageKey: String, webView: WebView, url: String) {
         pageWebViews[pageKey] = webView
         pageUrls[pageKey] = url
+        pageActive[pageKey] = true
         webView.addJavascriptInterface(PageBridge(pageKey), "ElephantExtensionBridge")
     }
 
     fun detachWebView(pageKey: String) {
         pageWebViews.remove(pageKey)
         pageUrls.remove(pageKey)
+        pageActive.remove(pageKey)
     }
 
     fun injectForPage(webView: WebView, url: String, runAt: String) {
         val pageKey = webView.hashCode().toString()
         if (pageWebViews[pageKey] !== webView) attachWebView(pageKey, webView, url)
-        else pageUrls[pageKey] = url
+        else updatePageState(pageKey, url)
         _extensions.value.filter { it.enabled }.forEach { ext ->
             ext.manifest.contentScripts
                 .filter { it.runAt == runAt && matches(it.matches + ext.manifest.hostPermissions, url) }
@@ -138,7 +146,7 @@ class ExtensionManager(private val context: Context) {
         val root = JSONObject.quote("file://" + ext.rootPath + "/")
         return "(function(){if(window['$key'])return;window['$key']=1;window.chrome=window.chrome||{};" +
             "chrome.runtime=chrome.runtime||{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){try{var r=window.ElephantExtensionBridge&&window.ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)}catch(e){}}};" +
-            "chrome.storage=chrome.storage||{};chrome.storage.local=chrome.storage.local||{get:function(k,c){try{var r=window.ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})}catch(e){if(c)c({})}},set:function(v,c){try{window.ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()}catch(e){if(c)c()}}};" +
+            "chrome.storage=chrome.storage||{};chrome.storage.local=chrome.storage.local||{get:function(k,c){try{var r=window.ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})}catch(e){if(c)c({})}},set:function(v,c){try{window.ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()}catch(e){if(c)c()}},remove:function(k,c){try{window.ElephantExtensionBridge.storageRemove($id,k);if(c)c()}catch(e){if(c)c()}},clear:function(c){try{window.ElephantExtensionBridge.storageClear($id);if(c)c()}catch(e){if(c)c()}}};" +
             "(0,eval)($code);})()"
     }
 
@@ -154,7 +162,7 @@ class ExtensionManager(private val context: Context) {
         wv.addJavascriptInterface(BackgroundBridge(ext.id), "ElephantExtensionBridge")
         val id = JSONObject.quote(ext.id)
         val root = JSONObject.quote("file://" + ext.rootPath + "/")
-        val polyfill = "(function(){window.chrome={runtime:{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){var r=ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},onMessage:{addListener:function(fn){window.__elephantOnMessage=fn}}},storage:{local:{get:function(k,c){var r=ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})},set:function(v,c){ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()}}},tabs:{query:function(q,c){var r=ElephantExtensionBridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])}},scripting:{executeScript:function(o,c){var r=ElephantExtensionBridge.executeScript($id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}}};})();"
+        val polyfill = "(function(){window.chrome={runtime:{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){var r=ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},onMessage:{addListener:function(fn){window.__elephantOnMessage=fn}}},storage:{local:{get:function(k,c){var r=ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})},set:function(v,c){ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()},remove:function(k,c){ElephantExtensionBridge.storageRemove($id,k);if(c)c()},clear:function(c){ElephantExtensionBridge.storageClear($id);if(c)c()}}},tabs:{query:function(q,c){var r=ElephantExtensionBridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])}},scripting:{executeScript:function(o,c){var r=ElephantExtensionBridge.executeScript($id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}}};})();"
         wv.loadDataWithBaseURL("file://" + ext.rootPath + "/", "<html><script>" + polyfill + file.readText() + "</script></html>", "text/html", "UTF-8", null)
         backgroundHosts[ext.id] = wv
     }
@@ -162,6 +170,8 @@ class ExtensionManager(private val context: Context) {
     private inner class PageBridge(private val pageKey: String) {
         @JavascriptInterface fun storageGet(extensionId: String, key: String?): String = storageGetJson(extensionId, key)
         @JavascriptInterface fun storageSet(extensionId: String, valuesJson: String) { storageSetJson(extensionId, valuesJson) }
+        @JavascriptInterface fun storageRemove(extensionId: String, key: String) { storageRemoveJson(extensionId, key) }
+        @JavascriptInterface fun storageClear(extensionId: String) { storageClearJson(extensionId) }
         @JavascriptInterface fun sendMessage(extensionId: String, message: String): String {
             deliverToBackground(extensionId, message)
             return JSONObject.NULL.toString()
@@ -182,10 +192,12 @@ class ExtensionManager(private val context: Context) {
                 val obj = JSONObject().apply {
                     put("id", key.hashCode())
                     put("url", url)
-                    put("active", true)
+                    put("active", pageActive[key] ?: true)
                     put("status", "complete")
+                    put("title", "")
                 }
-                if (!q.has("active") || q.optBoolean("active") == obj.optBoolean("active")) result.put(obj)
+                val urlMatch = q.optString("url", "").let { it.isBlank() || matches(listOf(it), url) }
+                if ((!q.has("active") || q.optBoolean("active") == obj.optBoolean("active")) && urlMatch) result.put(obj)
             }
             return result.toString()
         }
@@ -228,6 +240,16 @@ class ExtensionManager(private val context: Context) {
         val out = JSONObject()
         if (all.has(key)) out.put(key, all.opt(key))
         return out.toString()
+    }
+
+    private fun storageRemoveJson(extensionId: String, key: String) {
+        val all = try { JSONObject(prefs.getString("storage_" + extensionId, "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
+        all.remove(key)
+        prefs.edit().putString("storage_" + extensionId, all.toString()).apply()
+    }
+
+    private fun storageClearJson(extensionId: String) {
+        prefs.edit().putString("storage_" + extensionId, "{}").apply()
     }
 
     private fun storageSetJson(extensionId: String, valuesJson: String) {
