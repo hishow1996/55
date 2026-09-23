@@ -162,7 +162,7 @@ fun InAppFloatingPlayer(
     var isPlaying by remember { mutableStateOf(true) }
     var currentPositionMs by remember { mutableIntStateOf((videoInfo.currentTime * 1000).toInt()) }
     var durationMs by remember { mutableIntStateOf((videoInfo.duration * 1000).toInt().coerceAtLeast(1000)) }
-    var playbackSpeed by remember { mutableFloatStateOf(1.0f) }
+    var playbackSpeed by remember { mutableFloatStateOf(VideoPlaybackSessionManager.current()?.playbackRate ?: 1.0f) }
     var showControls by remember { mutableStateOf(true) }
     var isLocked by remember { mutableStateOf(false) }
     var showLockHint by remember { mutableStateOf(false) }
@@ -281,6 +281,7 @@ fun InAppFloatingPlayer(
                                         if (initial > 0L) controller.seekTo(initial)
                                         durationMs = controller.durationMs().coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(durationMs)
                                         controller.rawPlayer().setPlaybackSpeed(playbackSpeed)
+                                        VideoPlaybackSessionManager.updatePlaybackRate(playbackSpeed)
                                         if (isPlaying) controller.play()
                                     }
                                 }
@@ -420,7 +421,10 @@ fun InAppFloatingPlayer(
                 ) {
                     // Close button (passes back current progress to sync with webpage video)
                     IconButton(
-                        onClick = { onClose(currentPositionMs / 1000.0) },
+                        onClick = {
+                            val position = VideoPlaybackSessionManager.positionMsOr(currentPositionMs.toLong()) / 1000.0
+                            onClose(position)
+                        },
                         modifier = Modifier.size(34.dp)
                     ) {
                         Icon(
@@ -576,6 +580,7 @@ fun InAppFloatingPlayer(
                                         playbackSpeed = speeds[nextIndex]
                                         try {
                                             mediaPlayer?.setPlaybackSpeed(playbackSpeed)
+                                            VideoPlaybackSessionManager.updatePlaybackRate(playbackSpeed)
                                         } catch (e: Exception) {}
                                     })
                                 }
@@ -594,6 +599,7 @@ fun InAppFloatingPlayer(
                             currentPositionMs = target
                             try {
                                 mediaPlayer?.seekTo(target)
+                                VideoPlaybackSessionManager.updatePosition(target.toLong())
                             } catch (e: Exception) {}
                         },
                         colors = SliderDefaults.colors(
