@@ -155,6 +155,15 @@ object Scripts {
                 }
                 const src = v.currentSrc || v.src;
                 if (src && !src.startsWith('blob:')) {
+                    // A page can reuse one WebView for multiple videos. When the
+                    // actual media source changes, discard the previous manifest/
+                    // direct URL cache so the next native handoff cannot reuse it.
+                    if (window._elephantLastBoundVideoSrc !== src) {
+                        window._elephantLastBoundVideoSrc = src;
+                        window._elephantLastMediaUrl = '';
+                        window._elephantLastManifestUrl = '';
+                        window._elephantLastDirectVideoUrl = '';
+                    }
                     if (window.ElephantBridge) {
                         window.ElephantBridge.onVideoDetected(
                             src,
@@ -199,10 +208,11 @@ object Scripts {
     val LOCK_WEB_VIDEOS = """
         (function() {
             window._elephantFloatingLock = true;
-            if (!window._elephantLastVideoElement) {
-                const candidates = Array.from(document.querySelectorAll('video'));
-                window._elephantLastVideoElement = candidates.find(v => !v.paused) || candidates[0] || null;
-            }
+            // Re-evaluate the active element on every handoff. Sites often
+            // reuse the same page and replace/switch the <video> element.
+            const candidates = Array.from(document.querySelectorAll('video'));
+            const playingVideo = candidates.find(v => !v.paused && !v.ended);
+            window._elephantLastVideoElement = playingVideo || candidates[0] || window._elephantLastVideoElement || null;
             if (window._elephantFloatingLockTimer) clearInterval(window._elephantFloatingLockTimer);
             if (!window._elephantFloatingPlayHandler) {
                 window._elephantFloatingPlayHandler = function() {
