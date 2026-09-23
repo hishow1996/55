@@ -177,6 +177,8 @@ object FloatingVideoPlayerComponent {
         originTabIndex: Int? = null
     ) {
         activeVideoInfo = video
+        VideoPlaybackSessionManager.start(video)
+        VideoPlaybackSessionManager.updatePosition((video.currentTime * 1000.0).toLong().coerceAtLeast(0L))
         pendingGlobalVideo = video
         if (!hasOverlayPermission(context)) {
             requestOverlayPermission(context)
