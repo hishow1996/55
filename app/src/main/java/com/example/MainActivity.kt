@@ -566,8 +566,12 @@ class MainActivity : ComponentActivity() {
 
         if (intent.getBooleanExtra(FloatingPlayerService.EXTRA_RESUME_WEB_VIDEO, false)) {
             val position = intent.getDoubleExtra(FloatingPlayerService.EXTRA_VIDEO_POSITION_SECONDS, 0.0)
+            val shouldPlay = intent.getBooleanExtra(
+                FloatingPlayerService.EXTRA_VIDEO_SHOULD_PLAY,
+                com.example.player.VideoPlaybackSessionManager.current()?.isPlaying ?: true
+            )
             viewModelRef?.activeWebView?.evaluateJavascript(
-                com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(position),
+                com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(position, shouldPlay),
                 null
             )
         }
