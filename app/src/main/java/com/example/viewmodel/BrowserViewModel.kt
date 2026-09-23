@@ -130,10 +130,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun startVideoDownload(url: String, title: String) {
+        // Downloads follow the same per-tab isolation rule as playback.
+        // Never use the repository-wide lastDetectedStreamUrl or the page URL
+        // as a video fallback.
         val effectiveUrl = if (url.isBlank() || url.startsWith("blob:") || !url.startsWith("http")) {
-            repository.getDetectedStreamUrlForTab(currentTab.id) ?: repository.lastDetectedStreamUrl ?: currentTab.url
+            repository.getDetectedStreamUrlForTab(currentTab.id)
+                ?.trim()
+                ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+                ?: ""
         } else {
-            url
+            url.trim()
         }
         val cleanTitle = title.trim()
             .replace(Regex("[\\\\/:*?\"<>|\\r\\n]"), "_")
