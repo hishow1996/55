@@ -57,7 +57,8 @@ data class VideoMediaInfo(
     val videoHeight: Int = 9,
     val isPlaying: Boolean = true,
     val playbackRate: Float = 1.0f,
-    val originTabIndex: Int? = null
+    val originTabIndex: Int? = null,
+    val originTabId: String? = null
 ) {
     val aspectRatio: Float
         get() = if (videoHeight > 0 && videoWidth > 0) {
