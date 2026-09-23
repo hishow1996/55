@@ -626,7 +626,7 @@ class MainActivity : ComponentActivity() {
         val candidateUrl = when {
             video.url.startsWith("http://", true) || video.url.startsWith("https://", true) ->
                 video.url.trim()
-            vm != null -> vm.repository.getDetectedStreamUrl(vm.currentTab.id)
+            vm != null -> vm.repository.getDetectedStreamUrlForTab(vm.currentTab.id)
                 ?.trim()
                 ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
                 ?: vm.repository.lastDetectedStreamUrl
