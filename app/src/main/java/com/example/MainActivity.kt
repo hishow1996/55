@@ -793,9 +793,12 @@ class MainActivity : ComponentActivity() {
         }
 
         @JvmStatic
-        fun unlockFloatingSourceTab(originTabId: String?) {
+        fun unlockFloatingSourceTab(originTabId: String?, originTabIndex: Int = -1) {
             val activity = activeInstance ?: return
-            activity.viewModelRef?.unlockWebVideoForTab(originTabId)
+            activity.viewModelRef?.let { vm ->
+                if (!originTabId.isNullOrBlank()) vm.unlockWebVideoForTab(originTabId)
+                else if (originTabIndex >= 0) vm.unlockWebVideoForTabIndex(originTabIndex)
+            }
         }
     }
 }
