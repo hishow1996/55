@@ -395,8 +395,10 @@ object Scripts {
             window._elephantLastMediaUrl = '';
             window._elephantLastManifestUrl = '';
             window._elephantLastDirectVideoUrl = '';
+            window._elephantMediaGeneration = 0;
 
             function resetMediaCache() {
+                window._elephantMediaGeneration++;
                 window._elephantLastMediaUrl = '';
                 window._elephantLastManifestUrl = '';
                 window._elephantLastDirectVideoUrl = '';
@@ -442,6 +444,7 @@ object Scripts {
                 if (isSegment && !isManifest && !isDirectVideo) return;
                 if (!isManifest && !isDirectVideo) return;
 
+                const generationAtCheck = window._elephantMediaGeneration;
                 if (isManifest) {
                     window._elephantLastManifestUrl = url;
                     window._elephantLastMediaUrl = url;
@@ -452,6 +455,10 @@ object Scripts {
                     }
                 }
 
+                // A lifecycle event can occur while a queued fetch/XHR callback is
+                // being processed. Never publish a stream captured before the latest
+                // video generation.
+                if (generationAtCheck !== window._elephantMediaGeneration) return;
                 if (window.ElephantBridge && window.ElephantBridge.onVideoDetected) {
                     try {
                         window.ElephantBridge.onVideoDetected(
