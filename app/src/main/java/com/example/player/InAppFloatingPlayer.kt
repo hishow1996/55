@@ -1,8 +1,10 @@
 package com.example.player
 
 import android.graphics.SurfaceTexture
-import android.media.MediaPlayer
-import android.media.PlaybackParams
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
 import android.net.Uri
 import android.os.Build
 import android.view.Surface
@@ -164,7 +166,7 @@ fun InAppFloatingPlayer(
     var showLockHint by remember { mutableStateOf(false) }
 
     // Hardware-accelerated MediaPlayer & Texture Surface holder
-    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var mediaPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
     var currentSurface by remember { mutableStateOf<Surface?>(null) }
     var isVideoReady by remember { mutableStateOf(false) }
 
@@ -208,7 +210,6 @@ fun InAppFloatingPlayer(
         onDispose {
             try {
                 mediaPlayer?.stop()
-                mediaPlayer?.reset()
                 mediaPlayer?.release()
                 currentSurface?.release()
             } catch (e: Exception) {
@@ -265,45 +266,56 @@ fun InAppFloatingPlayer(
                             val surface = Surface(st)
                             currentSurface = surface
 
-                            val mp = MediaPlayer().apply {
-                                setSurface(surface)
-                                isLooping = true
-                                setOnErrorListener { _, _, _ ->
-                                    true // Graceful error suppression
-                                }
-                                setOnPreparedListener { player ->
-                                    isVideoReady = true
-                                    val startPos = (videoInfo.currentTime * 1000).toInt()
-                                    if (startPos > 0) {
-                                        player.seekTo(startPos)
-                                        currentPositionMs = startPos
-                                    }
-                                    if (player.duration > 0) {
-                                        durationMs = max(player.duration, durationMs)
-                                    }
-                                    try {
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                            player.playbackParams = PlaybackParams().setSpeed(playbackSpeed)
-                                        }
-                                    } catch (e: Exception) {}
-                                    player.start()
-                                    isPlaying = true
-                                }
+                            val httpFactory = DefaultHttpDataSource.Factory()
+                            val headers = mutableMapOf(
+                                "User-Agent" to android.webkit.WebSettings.getDefaultUserAgent(ctx),
+                                "Accept" to "*/*"
+                            )
+                            if (videoInfo.pageUrl.isNotBlank()) {
+                                headers["Referer"] = videoInfo.pageUrl
                             }
+                            httpFactory.setDefaultRequestProperties(headers)
+
+                            val mp = ExoPlayer.Builder(ctx)
+                                .setMediaSourceFactory(
+                                    androidx.media3.exoplayer.source.DefaultMediaSourceFactory(httpFactory)
+                                )
+                                .build()
+                            mp.setVideoSurface(surface)
+                            mp.repeatMode = Player.REPEAT_MODE_ONE
+                            mp.addListener(object : Player.Listener {
+                                override fun onPlaybackStateChanged(state: Int) {
+                                    if (state == Player.STATE_READY) {
+                                        isVideoReady = true
+                                        val startPos = (videoInfo.currentTime * 1000).toLong().coerceAtLeast(0L)
+                                        if (startPos > 0L) {
+                                            mp.seekTo(startPos)
+                                            currentPositionMs = startPos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                        }
+                                        durationMs = mp.duration.coerceAtLeast(0L)
+                                            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                            .coerceAtLeast(durationMs)
+                                        mp.setPlaybackSpeed(playbackSpeed)
+                                        mp.play()
+                                        isPlaying = true
+                                    }
+                                }
+
+                                override fun onIsPlayingChanged(playing: Boolean) {
+                                    isPlaying = playing
+                                }
+                            })
                             mediaPlayer = mp
 
-                            // Prepare playback with HTTP anti-hotlinking headers (Referer & UserAgent)
                             try {
                                 val urlStr = videoInfo.url.trim()
                                 if (urlStr.isNotBlank() && !urlStr.startsWith("blob:")) {
-                                    val headers = mutableMapOf<String, String>()
-                                    if (videoInfo.pageUrl.isNotBlank()) {
-                                        headers["Referer"] = videoInfo.pageUrl
-                                    }
-                                    headers["User-Agent"] = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-
-                                    mp.setDataSource(ctx, Uri.parse(urlStr), headers)
-                                    mp.prepareAsync()
+                                    val item = MediaItem.Builder()
+                                        .setUri(urlStr)
+                                        .setMediaId(videoInfo.pageUrl.ifBlank { urlStr })
+                                        .build()
+                                    mp.setMediaItem(item)
+                                    mp.prepare()
                                 }
                             } catch (e: Exception) {
                                 e.printStackTrace()
@@ -477,7 +489,7 @@ fun InAppFloatingPlayer(
                                         mp.pause()
                                         isPlaying = false
                                     } else {
-                                        mp.start()
+                                        mp.play()
                                         isPlaying = true
                                     }
                                 } catch (e: Exception) {}
@@ -583,7 +595,7 @@ fun InAppFloatingPlayer(
                                         playbackSpeed = speeds[nextIndex]
                                         try {
                                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                                mediaPlayer?.playbackParams = PlaybackParams().setSpeed(playbackSpeed)
+                                                mediaPlayer?.setPlaybackSpeed(playbackSpeed)
                                             }
                                         } catch (e: Exception) {}
                                     })
