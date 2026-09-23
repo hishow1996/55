@@ -178,7 +178,7 @@ class ExtensionManager(private val context: Context) {
         fun matches(patterns: List<String>, url: String): Boolean {
             if (patterns.any { it == "<all_urls>" || it == "*" }) return true
             return patterns.any { p ->
-                Regex("^" + Regex.escape(p).replace("\\*", ".*") + "$").matches(url)
+                Regex("^" + p.split("*").joinToString(".*") { Regex.escape(it) } + "$").matches(url)
             }
         }
     }
