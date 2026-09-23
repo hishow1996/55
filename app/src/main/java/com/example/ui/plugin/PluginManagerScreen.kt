@@ -22,7 +22,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,12 +32,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import com.example.data.BrowserRepository
 import kotlinx.coroutines.launch
@@ -50,6 +55,8 @@ fun PluginManagerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val extensions by repository.extensionManager.extensions.collectAsState()
+    var popupExtensionId by remember { mutableStateOf<String?>(null) }
+    var optionsExtensionId by remember { mutableStateOf<String?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
@@ -124,6 +131,12 @@ fun PluginManagerScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                ext.manifest.popup?.let {
+                                    TextButton(onClick = { popupExtensionId = ext.id }) { Text("打开弹窗") }
+                                }
+                                ext.manifest.optionsPage?.let {
+                                    TextButton(onClick = { optionsExtensionId = ext.id }) { Text("设置") }
+                                }
                                 IconButton(onClick = {
                                     repository.extensionManager.uninstall(ext.id)
                                     Toast.makeText(context, "扩展已卸载", Toast.LENGTH_SHORT).show()
@@ -134,6 +147,54 @@ fun PluginManagerScreen(
                         }
                     }
                 }
+            }
+        }
+
+        popupExtensionId?.let { id ->
+            val url = repository.extensionManager.popupUrl(id)
+            if (url != null) {
+                AlertDialog(
+                    onDismissRequest = { popupExtensionId = null },
+                    title = { Text(repository.extensionManager.extension(id)?.name ?: "扩展") },
+                    text = {
+                        AndroidView(
+                            factory = { ctx ->
+                                android.webkit.WebView(ctx).apply {
+                                    settings.javaScriptEnabled = true
+                                    settings.domStorageEnabled = true
+                                    webViewClient = android.webkit.WebViewClient()
+                                    loadUrl(url)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().size(420.dp)
+                        )
+                    },
+                    confirmButton = { TextButton(onClick = { popupExtensionId = null }) { Text("关闭") } }
+                )
+            }
+        }
+
+        optionsExtensionId?.let { id ->
+            val url = repository.extensionManager.optionsUrl(id)
+            if (url != null) {
+                AlertDialog(
+                    onDismissRequest = { optionsExtensionId = null },
+                    title = { Text((repository.extensionManager.extension(id)?.name ?: "扩展") + " 设置") },
+                    text = {
+                        AndroidView(
+                            factory = { ctx ->
+                                android.webkit.WebView(ctx).apply {
+                                    settings.javaScriptEnabled = true
+                                    settings.domStorageEnabled = true
+                                    webViewClient = android.webkit.WebViewClient()
+                                    loadUrl(url)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().size(420.dp)
+                        )
+                    },
+                    confirmButton = { TextButton(onClick = { optionsExtensionId = null }) { Text("关闭") } }
+                )
             }
         }
     }
