@@ -569,6 +569,16 @@ class MainActivity : ComponentActivity() {
     }
 
     fun triggerGlobalFloatingOrPiP(video: VideoMediaInfo) {
+        // Pause the webpage immediately, before any permission/settings flow.
+        // This prevents the webpage player from continuing while the global
+        // floating player is being prepared.
+        val vm = viewModelRef
+        FloatingVideoPlayerComponent.pendingGlobalVideo = video
+        vm?.activeWebView?.evaluateJavascript(
+            com.example.engine.Scripts.PAUSE_WEB_VIDEOS,
+            null
+        )
+
         // UC-style global floating playback uses the WindowManager overlay service.
         // PiP permission is checked first to preserve the requested settings flow;
         // the actual cross-app window additionally requires overlay permission.
@@ -584,7 +594,6 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val vm = viewModelRef
         val streamUrl = if (
             video.url.isBlank() ||
             video.url.startsWith("blob:") ||
@@ -603,13 +612,10 @@ class MainActivity : ComponentActivity() {
             originTabIndex = video.originTabIndex ?: vm?.currentTabIndex?.value
         )
 
-        // Keep the real stream URL and playback position before pausing the
-        // page video, so playback continues after leaving the video page.
+        // Keep the real stream URL and playback position before launching
+        // the overlay player.
         FloatingVideoPlayerComponent.activeVideoInfo = effectiveVideo
-        vm?.activeWebView?.evaluateJavascript(
-            com.example.engine.Scripts.PAUSE_WEB_VIDEOS,
-            null
-        )
+        FloatingVideoPlayerComponent.pendingGlobalVideo = null
         vm?.closeFloatingPlayer()
 
         FloatingVideoPlayerComponent.startSystemFloatingPlayer(
