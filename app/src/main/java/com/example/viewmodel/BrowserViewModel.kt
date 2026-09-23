@@ -161,6 +161,18 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Release the floating-player lock on a background/source tab without
+     * seeking or autoplaying its HTML5 video. This is used when the user closes
+     * the global overlay while viewing a different browser tab.
+     */
+    fun unlockWebVideoForTab(tabId: String?) {
+        if (tabId.isNullOrBlank()) return
+        tabWebViews[tabId]?.post {
+            it.evaluateJavascript(Scripts.UNLOCK_WEB_VIDEO_LOCK, null)
+        }
+    }
+
     override fun onCleared() {
         tabWebViews.clear()
         pendingWebVideoResume = null
