@@ -214,6 +214,15 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             .ifBlank { "video_${System.currentTimeMillis()}" }
         val isHls = effectiveUrl.contains(".m3u8", ignoreCase = true) || effectiveUrl.contains("application/vnd.apple.mpegurl", ignoreCase = true)
         val ext = if (isHls) ".ts" else ".mp4"
+        if (effectiveUrl.isBlank()) {
+            android.widget.Toast.makeText(
+                getApplication<Application>(),
+                "没有找到当前视频的可下载地址",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
         val fileName = if (cleanTitle.endsWith(".mp4", true) || cleanTitle.endsWith(".ts", true)) cleanTitle else "$cleanTitle$ext"
         val mimeType = if (isHls) "video/mp2t" else "video/mp4"
 
