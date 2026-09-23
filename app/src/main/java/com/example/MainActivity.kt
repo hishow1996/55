@@ -761,6 +761,24 @@ class MainActivity : ComponentActivity() {
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
         return newVol.toFloat() / maxVol.toFloat().coerceAtLeast(1f)
     }
+    companion object {
+        private var activeInstance: MainActivity? = null
+
+        @JvmStatic
+        fun shouldResumeFloatingVideo(originTabIndex: Int, sourcePageUrl: String): Boolean {
+            val activity = activeInstance ?: return false
+            val vm = activity.viewModelRef ?: return false
+            val current = vm.currentTab
+            return vm.currentTabIndex.value == originTabIndex ||
+                (sourcePageUrl.isNotBlank() && current.url == sourcePageUrl)
+        }
+
+        @JvmStatic
+        fun unlockFloatingSourceTab(originTabId: String?) {
+            val activity = activeInstance ?: return
+            activity.viewModelRef?.unlockWebVideoForTab(originTabId)
+        }
+    }
 }
 
 @Composable
