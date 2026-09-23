@@ -3,6 +3,7 @@ package com.example.player
 import android.content.Context
 import android.view.Surface
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -47,10 +48,24 @@ class Media3VideoPlayerController(context: Context) {
             throw IllegalArgumentException("当前视频没有可供原生播放器使用的媒体地址")
         }
 
-        val item = MediaItem.Builder()
+        val lower = url.lowercase()
+        val mimeType = when {
+            lower.contains(".m3u8") || lower.contains("application/vnd.apple.mpegurl") ->
+                MimeTypes.APPLICATION_M3U8
+            lower.contains(".mpd") || lower.contains("application/dash+xml") ->
+                MimeTypes.APPLICATION_MPD
+            else -> null
+        }
+
+        val itemBuilder = MediaItem.Builder()
             .setUri(url)
             .setMediaId(video.pageUrl.ifBlank { url })
-            .build()
+
+        if (mimeType != null) {
+            itemBuilder.setMimeType(mimeType)
+        }
+
+        player.setMediaItem(itemBuilder.build())
 
         player.setMediaItem(item)
         player.repeatMode = Player.REPEAT_MODE_OFF
