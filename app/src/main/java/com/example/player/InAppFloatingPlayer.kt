@@ -1,6 +1,7 @@
 package com.example.player
 
 import android.graphics.SurfaceTexture
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import android.net.Uri
@@ -276,6 +277,15 @@ fun InAppFloatingPlayer(
                                         if (isPlaying) controller.play()
                                     }
                                 }
+                                override fun onPlayerError(error: PlaybackException) {
+                                    isVideoReady = false
+                                    Toast.makeText(
+                                        ctx,
+                                        "原生播放器无法播放该视频，已保留网页播放器作为兼容方案",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+
                                 override fun onIsPlayingChanged(playing: Boolean) {
                                     isPlaying = playing
                                 }
