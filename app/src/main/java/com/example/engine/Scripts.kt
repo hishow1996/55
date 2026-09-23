@@ -1735,6 +1735,15 @@ object Scripts {
                 });
 
                 video.addEventListener('timeupdate', () => {
+                    // Keep the native playback session close to the live WebView position.
+                    // Throttle bridge traffic because timeupdate can fire several times per second.
+                    const now = Date.now();
+                    if (!window._elephantLastNativeTimeReport || now - window._elephantLastNativeTimeReport >= 500) {
+                        window._elephantLastNativeTimeReport = now;
+                        if (window.ElephantBridge && window.ElephantBridge.onVideoPlaybackState) {
+                            try { window.ElephantBridge.onVideoPlaybackState(video.currentTime || 0, !video.paused && !video.ended); } catch(err) {}
+                        }
+                    }
                     timeLabel.textContent = formatTime(video.currentTime) + ' / ' + formatTime(video.duration);
                     if (!isSeekingProgress && video.duration > 0) {
                         const pct = (video.currentTime / video.duration) * 100;
