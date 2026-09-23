@@ -93,8 +93,7 @@ class ExtensionManager(private val context: Context) {
         persist(updated)
     }
 
-    fun extension(id: String): BrowserExtension? = _extensions.value.firstOrNull { it.id == id }
-
+    fun extension(id: String): BrowserExtension? = _extensions.value.firstOrNull { it.id == id }\n\n    fun iconFile(id: String): File? {\n        val ext = extension(id) ?: return null\n        val path = ext.manifest.iconPath ?: return null\n        return safeChild(ext.rootPath, path)?.takeIf { it.exists() && it.isFile }\n    }\n
     fun popupUrl(id: String): String? = extension(id)?.manifest?.popup?.let {
         File(extension(id)!!.rootPath, it).takeIf(File::exists)?.let { f -> "file://" + f.absolutePath }
     }
