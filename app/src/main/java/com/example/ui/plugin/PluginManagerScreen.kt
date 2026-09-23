@@ -1,5 +1,6 @@
 package com.example.ui.plugin
 
+import android.graphics.BitmapFactory
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -56,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.viewinterop.AndroidView
@@ -181,6 +184,7 @@ fun PluginManagerScreen(
                 items(extensions, key = { it.id }) { ext ->
                     ExtensionCard(
                         name = ext.name,
+                        iconPath = repository.extensionManager.iconFile(ext.id)?.absolutePath,
                         version = ext.version,
                         description = ext.manifest.description,
                         manifestVersion = ext.manifest.manifestVersion,
@@ -250,6 +254,7 @@ fun PluginManagerScreen(
 @Composable
 private fun ExtensionCard(
     name: String,
+    iconPath: String?,
     version: String,
     description: String,
     manifestVersion: Int,
@@ -274,8 +279,24 @@ private fun ExtensionCard(
                     shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Extension, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    val bitmap = remember(iconPath) {
+                        iconPath?.let { BitmapFactory.decodeFile(it) }
+                    }
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = name,
+                            modifier = Modifier.fillMaxSize().padding(5.dp)
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Extension,
+                                null,
+                                Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.width(12.dp))
