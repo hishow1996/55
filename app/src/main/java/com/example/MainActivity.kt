@@ -234,7 +234,8 @@ class MainActivity : ComponentActivity() {
                                 onToggleTranslation = { viewModel.toggleTranslation() },
                                 onDismissTranslation = { viewModel.dismissTranslationBanner() },
                                 onOpenFloatingPlayer = { triggerGlobalFloatingOrPiP(viewModel.detectedVideo.value ?: createFallbackVideoForCurrentTab(viewModel)) },
-                                onToggleDesktopMode = { viewModel.toggleDesktopMode() }
+                                onToggleDesktopMode = { viewModel.toggleDesktopMode() },
+                                repository = viewModel.repository
                             )
                         }
 
