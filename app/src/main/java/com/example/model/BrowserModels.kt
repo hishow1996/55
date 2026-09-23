@@ -34,19 +34,6 @@ data class HistoryItem(
     val visitTime: Long = System.currentTimeMillis()
 )
 
-data class PluginItem(
-    val id: String = UUID.randomUUID().toString(),
-    val name: String,
-    val description: String,
-    val author: String = "大象开发者",
-    val version: String = "1.0",
-    var isEnabled: Boolean = true,
-    val matchPattern: String = "*", // * or URL domain
-    val runAt: String = "document_end", // "document_start" or "document_end"
-    val scriptCode: String,
-    val isBuiltIn: Boolean = false
-)
-
 data class VideoMediaInfo(
     val url: String,
     val pageUrl: String = "",
