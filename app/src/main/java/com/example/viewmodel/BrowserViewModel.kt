@@ -443,7 +443,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             val oldTab = _tabs.value.getOrNull(oldIndex)
             if (oldIndex != index && oldTab != null) {
                 val video = _detectedVideo.value
-                if (video != null && video.isPlaying && (video.originTabIndex == oldIndex || video.originTabIndex == null)) {
+                if (video != null && (video.originTabId == null || video.originTabId == oldTab.id)) {
                     _detectedVideo.value = video.copy(originTabIndex = oldIndex)
                     _isFloatingPlayerVisible.value = true
                 }
