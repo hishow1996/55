@@ -424,11 +424,30 @@ class ExtensionManager(private val context: Context) {
     companion object {
         fun matches(patterns: List<String>, url: String): Boolean {
             if (patterns.isEmpty()) return false
-            if (patterns.any { it == "<all_urls>" || it == "*" }) return true
-            return patterns.any { p ->
-                try { Regex("^" + p.split("*").joinToString(".*") { Regex.escape(it) } + "$").matches(url) }
-                catch (_: Exception) { false }
+            val uri = try { Uri.parse(url) } catch (_: Exception) { return false }
+            val scheme = uri.scheme?.lowercase() ?: return false
+            val host = uri.host?.lowercase() ?: ""
+            val path = uri.path ?: "/"
+            return patterns.any { raw ->
+                val p = raw.trim()
+                if (p == "<all_urls>") return@any scheme == "http" || scheme == "https" || scheme == "file"
+                if (p == "*") return@any scheme == "http" || scheme == "https"
+                val parts = p.split("://", limit = 2)
+                if (parts.size != 2) return@any false
+                val ps = parts[0].lowercase()
+                val rest = parts[1]
+                val slash = rest.indexOf('/')
+                val ph = if (slash >= 0) rest.substring(0, slash).lowercase() else rest.lowercase()
+                val pp = if (slash >= 0) rest.substring(slash) else "/*"
+                if (ps != "*" && ps != scheme) return@any false
+                val hostOk = if (scheme == "file") true else when {
+                    ph == "*" -> true
+                    ph.startsWith("*.") -> host == ph.substring(2) || host.endsWith("." + ph.substring(2))
+                    else -> host == ph
+                }
+                if (!hostOk) return@any false
+                val regexPath = "^" + Regex.escape(pp).replace("*", ".*") + "$"
+                Regex(regexPath).matches(path)
             }
         }
     }
-}
