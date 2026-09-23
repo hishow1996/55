@@ -97,8 +97,76 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _translationBannerText = MutableStateFlow<String?>(null)
     val translationBannerText: StateFlow<String?> = _translationBannerText.asStateFlow()
 
-    // Active WebView reference for executing actions
+    // Active WebView reference for executing actions.
+    // Keep a per-tab reference as well so a floating video can be restored to
+    // its original page even after the user switched tabs.
     var activeWebView: WebView? = null
+    private val tabWebViews = mutableMapOf<String, WebView>()
+
+    private data class PendingWebVideoResume(
+        val tabIndex: Int,
+        val pageUrl: String,
+        val positionSeconds: Double,
+        val shouldPlay: Boolean
+    )
+
+    private var pendingWebVideoResume: PendingWebVideoResume? = null
+
+    fun registerTabWebView(tabId: String, webView: WebView) {
+        tabWebViews[tabId] = webView
+        if (currentTab.id == tabId) {
+            activeWebView = webView
+        }
+        val pending = pendingWebVideoResume
+        if (pending != null && pending.tabIndex == _currentTabIndex.value &&
+            (pending.pageUrl.isBlank() || pending.pageUrl == currentTab.url)) {
+            pendingWebVideoResume = null
+            webView.postDelayed({
+                webView.evaluateJavascript(
+                    Scripts.RESUME_WEB_VIDEO_AT(
+                        pending.positionSeconds.coerceAtLeast(0.0),
+                        pending.shouldPlay
+                    ),
+                    null
+                )
+            }, 50L)
+        }
+    }
+
+    fun queueWebVideoResume(
+        tabIndex: Int,
+        pageUrl: String,
+        positionSeconds: Double,
+        shouldPlay: Boolean
+    ) {
+        pendingWebVideoResume = PendingWebVideoResume(
+            tabIndex = tabIndex,
+            pageUrl = pageUrl,
+            positionSeconds = positionSeconds,
+            shouldPlay = shouldPlay
+        )
+        if (tabIndex == _currentTabIndex.value) {
+            tabWebViews[_tabs.value.getOrNull(tabIndex)?.id]?.let { webView ->
+                pendingWebVideoResume = null
+                webView.post {
+                    webView.evaluateJavascript(
+                        Scripts.RESUME_WEB_VIDEO_AT(
+                            positionSeconds.coerceAtLeast(0.0),
+                            shouldPlay
+                        ),
+                        null
+                    )
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        tabWebViews.clear()
+        pendingWebVideoResume = null
+        activeWebView = null
+        super.onCleared()
+    }
 
     fun setSearchOverlayVisible(visible: Boolean) {
         _isSearchOverlayVisible.value = visible
