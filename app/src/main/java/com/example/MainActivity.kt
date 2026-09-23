@@ -553,6 +553,11 @@ class MainActivity : ComponentActivity() {
     }
     }
 
+    override fun onPause() {
+        if (activeInstance === this) activeInstance = null
+        super.onPause()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -590,6 +595,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        activeInstance = this
 
         // The floating button may have opened Android's PiP/overlay settings.
         // When the user returns, continue the original request automatically
