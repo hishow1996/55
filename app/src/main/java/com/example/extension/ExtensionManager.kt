@@ -22,6 +22,12 @@ class ExtensionManager(private val context: Context) {
     private val pageWebViews = ConcurrentHashMap<String, WebView>()
     private val pageUrls = ConcurrentHashMap<String, String>()
     private val pageActive = ConcurrentHashMap<String, Boolean>()
+    private val pageTitles = ConcurrentHashMap<String, String>()
+    private val pageTabIds = ConcurrentHashMap<String, Int>()
+    private var nextTabId = 1
+    private var browserTabCreator: ((String, Boolean) -> Unit)? = null
+
+    fun setBrowserTabCreator(creator: ((String, Boolean) -> Unit)?) { browserTabCreator = creator }
 
     init { load() }
 
@@ -130,7 +136,10 @@ class ExtensionManager(private val context: Context) {
     fun updatePageState(pageKey: String, url: String, active: Boolean = true) {
         pageUrls[pageKey] = url
         pageActive[pageKey] = active
+        if (active) setPageActive(pageKey)
     }
+
+    fun updatePageTitle(pageKey: String, title: String) { pageTitles[pageKey] = title }
 
     fun setPageActive(pageKey: String) {
         pageActive.keys.forEach { pageActive[it] = it == pageKey }
@@ -140,6 +149,8 @@ class ExtensionManager(private val context: Context) {
         pageWebViews[pageKey] = webView
         pageUrls[pageKey] = url
         pageActive[pageKey] = true
+        pageTitles.putIfAbsent(pageKey, "")
+        pageTabIds.putIfAbsent(pageKey, nextTabId++)
         webView.addJavascriptInterface(PageBridge(pageKey), "ElephantExtensionBridge")
     }
 
@@ -147,6 +158,8 @@ class ExtensionManager(private val context: Context) {
         pageWebViews.remove(pageKey)
         pageUrls.remove(pageKey)
         pageActive.remove(pageKey)
+        pageTitles.remove(pageKey)
+        pageTabIds.remove(pageKey)
     }
 
     fun injectForPage(webView: WebView, url: String, runAt: String) {
@@ -214,7 +227,7 @@ class ExtensionManager(private val context: Context) {
             return JSONObject.NULL.toString()
         }
         @JavascriptInterface fun tabsSendMessage(extensionId: String, tabId: Int, message: String): String {
-            val target = pageWebViews.entries.firstOrNull { it.key.hashCode() == tabId }?.value ?: return JSONObject.NULL.toString()
+            val target = pageWebViews.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value ?: return JSONObject.NULL.toString()
             val payload = JSONObject.quote(message)
             val idJson = JSONObject.quote(extensionId)
             target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});", null) }
@@ -225,18 +238,21 @@ class ExtensionManager(private val context: Context) {
             val url = p.optString("url", "about:blank")
             val active = p.optBoolean("active", true)
             val newKey = "extension-tab-" + System.nanoTime()
-            if (active) setPageActive(newKey)
+            val id = nextTabId++
+            pageTabIds[newKey] = id
             pageUrls[newKey] = url
+            pageTitles[newKey] = ""
             pageActive[newKey] = active
-            pageActive.keys.filter { it != newKey }.forEach { pageActive[it] = false }
-            return JSONObject().apply { put("id", newKey.hashCode()); put("url", url); put("active", active); put("status", "loading"); put("title", "") }.toString()
+            if (active) pageActive.keys.filter { it != newKey }.forEach { pageActive[it] = false }
+            browserTabCreator?.invoke(url, active)
+            return JSONObject().apply { put("id", id); put("url", url); put("active", active); put("status", "loading"); put("title", "") }.toString()
         }
         @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
             val target = pageWebViews.entries.firstOrNull { it.key.hashCode() == tabId }?.value ?: return JSONObject.NULL.toString()
             val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
             p.optString("url").takeIf { it.isNotBlank() }?.let { url ->
                 target.post { target.loadUrl(url) }
-                pageUrls.entries.firstOrNull { it.key.hashCode() == tabId }?.let { pageUrls[it.key] = url }
+                pageUrls.entries.firstOrNull { pageTabIds[it.key] == tabId }?.let { pageUrls[it.key] = url }
             }
             return tabsQuery(JSONObject().apply { put("active", true) }.toString())
         }
@@ -245,11 +261,11 @@ class ExtensionManager(private val context: Context) {
             val result = JSONArray()
             pageUrls.forEach { (key, url) ->
                 val obj = JSONObject().apply {
-                    put("id", key.hashCode())
+                    put("id", pageTabIds[key] ?: 0)
                     put("url", url)
                     put("active", pageActive[key] ?: true)
                     put("status", "complete")
-                    put("title", "")
+                    put("title", pageTitles[key] ?: "")
                 }
                 val urlMatch = q.optString("url", "").let { it.isBlank() || matches(listOf(it), url) }
                 if ((!q.has("active") || q.optBoolean("active") == obj.optBoolean("active")) && urlMatch) result.put(obj)
