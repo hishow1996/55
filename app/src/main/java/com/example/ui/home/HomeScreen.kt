@@ -1,6 +1,7 @@
 package com.example.ui.home
 
 import androidx.compose.foundation.Image
+import coil.compose.AsyncImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -419,7 +420,7 @@ fun SiteOfficialIcon(
     site: QuickSite,
     modifier: Modifier = Modifier
 ) {
-    val iconRes = when (site.iconName.lowercase()) {
+    val fallbackIconRes = when (site.iconName.lowercase()) {
         "github" -> R.drawable.ic_site_github
         "tiktok" -> R.drawable.ic_site_tiktok
         "youtube" -> R.drawable.ic_site_youtube
@@ -429,20 +430,30 @@ fun SiteOfficialIcon(
         "baidu" -> R.drawable.ic_engine_baidu
         "bilibili" -> R.drawable.ic_engine_bilibili
         "more" -> R.drawable.ic_site_more
-        else -> when {
-            site.url.contains("github.com", ignoreCase = true) || site.title.contains("github", ignoreCase = true) -> R.drawable.ic_site_github
-            site.url.contains("tiktok.com", ignoreCase = true) || site.title.contains("tiktok", ignoreCase = true) -> R.drawable.ic_site_tiktok
-            site.url.contains("youtube.com", ignoreCase = true) || site.title.contains("youtube", ignoreCase = true) -> R.drawable.ic_site_youtube
-            site.url.contains("instagram.com", ignoreCase = true) || site.title.contains("instagram", ignoreCase = true) -> R.drawable.ic_site_instagram
-            site.url.contains("yfsp.tv", ignoreCase = true) || site.title.contains("壹帆", ignoreCase = true) || site.iconName.contains("yfsp", ignoreCase = true) -> R.drawable.ic_site_yfsp
-            site.url.contains("google.com", ignoreCase = true) || site.title.contains("google", ignoreCase = true) -> R.drawable.ic_engine_google
-            site.url.contains("bilibili.com", ignoreCase = true) || site.title.contains("哔哩", ignoreCase = true) -> R.drawable.ic_engine_bilibili
-            site.url.contains("baidu.com", ignoreCase = true) || site.title.contains("百度", ignoreCase = true) -> R.drawable.ic_engine_baidu
-            site.url == "action://more" || site.title == "更多" -> R.drawable.ic_site_more
-            else -> null
-        }
+        else -> null
     }
 
+    val faviconUrl = remember(site.url) {
+        if (site.url.startsWith("http://") || site.url.startsWith("https://")) {
+            site.url.trimEnd('/') + "/favicon.ico"
+        } else null
+    }
+    var faviconFailed by remember(site.url) { mutableStateOf(false) }
+
+    if (faviconUrl != null && !faviconFailed) {
+        AsyncImage(
+            model = faviconUrl,
+            contentDescription = site.title,
+            modifier = modifier.clip(CircleShape),
+            onError = { faviconFailed = true }
+        )
+    } else if (fallbackIconRes != null) {
+        Image(
+            painter = painterResource(id = fallbackIconRes),
+            contentDescription = site.title,
+            modifier = modifier
+        )
+    } else {
     if (iconRes != null) {
         Image(
             painter = painterResource(id = iconRes),
