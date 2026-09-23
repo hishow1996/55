@@ -207,8 +207,19 @@ class FloatingPlayerService : Service() {
                     val mp = MediaPlayer().apply {
                         setSurface(surface)
                         isLooping = true
-                        setOnErrorListener { _, _, _ ->
-                            true // Handle gracefully
+                        setOnErrorListener { _, what, extra ->
+                            android.util.Log.e(
+                                "FloatingPlayerService",
+                                "MediaPlayer error: what=$what extra=$extra url=$videoUrl"
+                            )
+                            handler.post {
+                                Toast.makeText(
+                                    this@FloatingPlayerService,
+                                    "悬浮视频流无法播放，请重新点击悬浮按钮",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            false
                         }
                         setOnPreparedListener { player ->
                             if (initialPositionMs > 0) {
@@ -234,7 +245,10 @@ class FloatingPlayerService : Service() {
 
                         if (streamUrl.isNotBlank() && !streamUrl.startsWith("blob:")) {
                             val headers = mutableMapOf<String, String>()
-                            headers["User-Agent"] = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                            // Match the WebView's current Android browser UA instead of a
+                            // hard-coded Chrome version; some CDNs reject the latter.
+                            headers["User-Agent"] = android.webkit.WebSettings.getDefaultUserAgent(this@FloatingPlayerService)
+                            headers["Accept"] = "*/*"
                             val pageUrl = activeInfo?.pageUrl ?: ""
                             if (pageUrl.isNotBlank()) {
                                 headers["Referer"] = pageUrl
