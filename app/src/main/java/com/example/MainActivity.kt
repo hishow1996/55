@@ -549,6 +549,25 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        // The floating button may have opened Android's PiP/overlay settings.
+        // When the user returns, continue the original request automatically
+        // instead of forcing another tap on the video player's floating button.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            FloatingVideoPlayerComponent.hasPipPermission(this)
+        ) {
+            FloatingVideoPlayerComponent.pendingGlobalVideo?.let { pending ->
+                if (FloatingVideoPlayerComponent.hasOverlayPermission(this)) {
+                    triggerGlobalFloatingOrPiP(pending)
+                } else {
+                    FloatingVideoPlayerComponent.requestOverlayPermission(this)
+                }
+            }
+        }
+    }
+
     fun triggerGlobalFloatingOrPiP(video: VideoMediaInfo) {
         // UC-style global floating playback uses the WindowManager overlay service.
         // PiP permission is checked first to preserve the requested settings flow;
