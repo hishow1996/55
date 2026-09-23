@@ -622,6 +622,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         } else {
             url.trim()
         }
+        val previous = _detectedVideo.value
+        val sameDetectedSource = previous != null &&
+            previous.originTabId == currentTab.id &&
+            previous.pageUrl == currentTab.url &&
+            previous.url == effectiveUrl
+        val session = VideoPlaybackSessionManager.current()
         val info = VideoMediaInfo(
             url = effectiveUrl,
             pageUrl = currentTab.url,
@@ -630,7 +636,26 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             currentTime = currentTime,
             videoWidth = if (width > 0) width else 16,
             videoHeight = if (height > 0) height else 9,
-            isPlaying = true,
+            // Detection must not turn a genuinely paused video into "playing".
+            isPlaying = if (sameDetectedSource) previous!!.isPlaying
+                else if (session?.tabId == currentTab.id &&
+                    session.pageUrl == currentTab.url &&
+                    session.source == VideoSourceResolver.resolve(
+                        VideoMediaInfo(
+                            url = effectiveUrl,
+                            pageUrl = currentTab.url,
+                            title = cleanTitle,
+                            duration = duration,
+                            currentTime = currentTime,
+                            videoWidth = width,
+                            videoHeight = height,
+                            isPlaying = true,
+                            originTabIndex = _currentTabIndex.value,
+                            originTabId = currentTab.id
+                        )
+                    )
+                ) session.isPlaying
+                else true,
             originTabIndex = _currentTabIndex.value,
             originTabId = currentTab.id
         )
@@ -679,7 +704,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
         val updatedVideo = baseVideo.copy(
             url = candidateUrl,
-            originTabIndex = baseVideo.originTabIndex ?: _currentTabIndex.value
+            originTabIndex = baseVideo.originTabIndex ?: _currentTabIndex.value,
+            originTabId = baseVideo.originTabId ?: currentTab.id
         )
 
         // Never manufacture the current page URL as a media URL. A webpage URL
