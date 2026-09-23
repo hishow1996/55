@@ -101,6 +101,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     // its original page even after the user switched tabs.
     var activeWebView: WebView? = null
     private val tabWebViews = mutableMapOf<String, WebView>()
+    private val extensionTabMap = mutableMapOf<Int, String>()
 
     private data class PendingWebVideoResume(
         val tabIndex: Int,
@@ -182,6 +183,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         tabWebViews.clear()
+        extensionTabMap.clear()
         pendingWebVideoResume = null
         activeWebView = null
         super.onCleared()
@@ -428,6 +430,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         )
         val updated = _tabs.value + newTab
         _tabs.value = updated
+        extensionTabMap[extensionTabId] = newTab.id
         if (active) {
             _currentTabIndex.value = updated.lastIndex
             _urlInput.value = url
@@ -442,7 +445,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun selectExtensionTab(extensionTabId: Int) {
-        val index = _tabs.value.indexOfFirst { it.id == extensionTabId.toString() }
+        val targetId = extensionTabMap[extensionTabId]
+        val index = _tabs.value.indexOfFirst { it.id == targetId }
         if (index >= 0) selectTab(index)
     }
 
