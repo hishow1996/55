@@ -644,6 +644,22 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _detectedVideo.value = info
     }
 
+    fun onWebVideoPlaybackState(currentTime: Double, isPlaying: Boolean) {
+        val video = _detectedVideo.value ?: return
+        if (video.originTabId != null && video.originTabId != currentTab.id) return
+        val updated = video.copy(
+            currentTime = currentTime.coerceAtLeast(0.0),
+            isPlaying = isPlaying
+        )
+        _detectedVideo.value = updated
+        VideoPlaybackSessionManager.current()?.let { session ->
+            if (session.tabId == null || session.tabId == currentTab.id) {
+                VideoPlaybackSessionManager.updatePosition((currentTime * 1000.0).toLong().coerceAtLeast(0L))
+                VideoPlaybackSessionManager.updatePlaying(isPlaying)
+            }
+        }
+    }
+
     fun startFloatingPlayer(customVideo: VideoMediaInfo? = null) {
         val baseVideo = customVideo ?: _detectedVideo.value
         if (baseVideo == null) {
