@@ -207,6 +207,22 @@ object Scripts {
 
     val LOCK_WEB_VIDEOS = """
         (function() {
+            // Keep native Session state aligned with the actual HTML5 element.
+            if (!window._elephantPlaybackStateHooked) {
+                window._elephantPlaybackStateHooked = true;
+                document.addEventListener('play', function(e) {
+                    const v = e.target;
+                    if (v && v.tagName === 'VIDEO' && window.ElephantBridge && window.ElephantBridge.onVideoPlaybackState) {
+                        try { window.ElephantBridge.onVideoPlaybackState(v.currentTime || 0, true); } catch(err) {}
+                    }
+                }, true);
+                document.addEventListener('pause', function(e) {
+                    const v = e.target;
+                    if (v && v.tagName === 'VIDEO' && window.ElephantBridge && window.ElephantBridge.onVideoPlaybackState) {
+                        try { window.ElephantBridge.onVideoPlaybackState(v.currentTime || 0, false); } catch(err) {}
+                    }
+                }, true);
+            }
             window._elephantFloatingLock = true;
             // Re-evaluate the active element on every handoff. Sites often
             // reuse the same page and replace/switch the <video> element.
