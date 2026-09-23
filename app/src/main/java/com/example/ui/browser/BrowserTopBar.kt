@@ -1,5 +1,6 @@
 package com.example.ui.browser
 
+import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -50,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -304,7 +306,7 @@ fun BrowserTopBar(
                     }
                     DropdownMenu(expanded = extensionMenu, onDismissRequest = { extensionMenu = false }) {
                         Text("扩展", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), fontWeight = FontWeight.SemiBold)
-                        val enabled = extensions.filter { it.enabled }
+                        val enabled = extensions.filter { it.enabled }.sortedWith(compareByDescending<com.example.extension.BrowserExtension> { repo.extensionManager.isPinned(it.id) }.thenBy { it.name.lowercase() })
                         if (enabled.isEmpty()) {
                             Text("暂无已启用扩展", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = subTextColor)
                         } else {
