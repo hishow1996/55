@@ -68,6 +68,7 @@ import com.example.engine.ElephantWebBridge
 import com.example.engine.ElephantWebChromeClient
 import com.example.engine.ElephantWebViewClient
 import com.example.model.VideoMediaInfo
+import com.example.player.VideoSourceResolver
 import com.example.player.FloatingVideoPlayerComponent
 import com.example.player.InAppFloatingPlayer
 import com.example.service.FloatingPlayerService
@@ -583,8 +584,15 @@ class MainActivity : ComponentActivity() {
         viewModel: com.example.viewmodel.BrowserViewModel
     ): VideoMediaInfo {
         val tab = viewModel.currentTab
+        val detectedUrl = viewModel.repository.getDetectedStreamUrl(tab.id)
+            ?.trim()
+            ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+            ?: viewModel.repository.lastDetectedStreamUrl
+                ?.trim()
+                ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+                ?: ""
         return VideoMediaInfo(
-            url = tab.url,
+            url = detectedUrl,
             pageUrl = tab.url,
             title = tab.title.ifBlank { "网页视频" },
             videoWidth = 16,
@@ -614,19 +622,54 @@ class MainActivity : ComponentActivity() {
     }
 
     fun triggerGlobalFloatingOrPiP(video: VideoMediaInfo) {
-        // Pause the webpage immediately, before any permission/settings flow.
-        // This prevents the webpage player from continuing while the global
-        // floating player is being prepared.
         val vm = viewModelRef
-        FloatingVideoPlayerComponent.pendingGlobalVideo = video
+        val candidateUrl = when {
+            video.url.startsWith("http://", true) || video.url.startsWith("https://", true) ->
+                video.url.trim()
+            vm != null -> vm.repository.getDetectedStreamUrl(vm.currentTab.id)
+                ?.trim()
+                ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+                ?: vm.repository.lastDetectedStreamUrl
+                    ?.trim()
+                    ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+                ?: ""
+            else -> ""
+        }
+
+        val effectiveVideo = video.copy(
+            url = candidateUrl,
+            currentTime = video.currentTime.coerceAtLeast(0.0),
+            originTabIndex = video.originTabIndex ?: vm?.currentTabIndex?.value
+        )
+
+        // Do not open system floating mode for a Blob/MSE/unknown source. Those
+        // sources belong to the WebView compatibility path until a real stream
+        // URL has been discovered.
+        if (!VideoSourceResolver.canUseNativePlayer(effectiveVideo)) {
+            FloatingVideoPlayerComponent.pendingGlobalVideo = null
+            vm?.activeWebView?.evaluateJavascript(
+                com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(
+                    video.currentTime.coerceAtLeast(0.0)
+                ),
+                null
+            )
+            Toast.makeText(
+                this,
+                "当前视频没有可用的原生播放地址，继续使用网页播放器",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        // Lock the WebView before permission/settings navigation. We intentionally
+        // do not call closeFloatingPlayer() here because that method resumes HTML5
+        // playback and would reintroduce a race with Media3.
+        FloatingVideoPlayerComponent.pendingGlobalVideo = effectiveVideo
         vm?.activeWebView?.evaluateJavascript(
             com.example.engine.Scripts.LOCK_WEB_VIDEOS,
             null
         )
 
-        // UC-style global floating playback uses the WindowManager overlay service.
-        // PiP permission is checked first to preserve the requested settings flow;
-        // the actual cross-app window additionally requires overlay permission.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !FloatingVideoPlayerComponent.hasPipPermission(this)
         ) {
@@ -639,29 +682,9 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val streamUrl = if (
-            video.url.isBlank() ||
-            video.url.startsWith("blob:") ||
-            !video.url.startsWith("http")
-        ) {
-            vm?.repository?.getDetectedStreamUrl(vm.currentTab.id)
-                ?: vm?.repository?.lastDetectedStreamUrl
-                ?: video.url
-        } else {
-            video.url
-        }
-
-        val effectiveVideo = video.copy(
-            url = streamUrl,
-            currentTime = video.currentTime.coerceAtLeast(0.0),
-            originTabIndex = video.originTabIndex ?: vm?.currentTabIndex?.value
-        )
-
-        // Keep the real stream URL and playback position before launching
-        // the overlay player.
         FloatingVideoPlayerComponent.activeVideoInfo = effectiveVideo
         FloatingVideoPlayerComponent.pendingGlobalVideo = null
-        vm?.closeFloatingPlayer()
+        vm?.hideFloatingPlayerForExternalPlayback()
 
         FloatingVideoPlayerComponent.startSystemFloatingPlayer(
             context = this,
@@ -669,6 +692,7 @@ class MainActivity : ComponentActivity() {
             originTabIndex = effectiveVideo.originTabIndex
         )
     }
+
 
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
