@@ -446,7 +446,7 @@ class ExtensionManager(private val context: Context) {
                     else -> host == ph
                 }
                 if (!hostOk) return@any false
-                val regexPath = "^" + Regex.escape(pp).replace("*", ".*") + "$"
+                val regexPath = "^" + pp.split("*").joinToString(".*") { Regex.escape(it) } + "$"
                 Regex(regexPath).matches(path)
             }
         }
