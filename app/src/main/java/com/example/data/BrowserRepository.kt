@@ -53,10 +53,6 @@ class BrowserRepository(private val context: Context) {
     private val _history = MutableStateFlow<List<HistoryItem>>(emptyList())
     val history: StateFlow<List<HistoryItem>> = _history.asStateFlow()
 
-    // Plugins list
-    private val _plugins = MutableStateFlow<List<PluginItem>>(emptyList())
-    val plugins: StateFlow<List<PluginItem>> = _plugins.asStateFlow()
-
     // Search History list (Figure 2 search history)
     private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
     val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
@@ -91,7 +87,6 @@ class BrowserRepository(private val context: Context) {
         loadBookmarks()
         loadHistory()
         loadSearchHistory()
-        loadPlugins()
         loadQuickSites()
     }
 
@@ -542,7 +537,6 @@ class BrowserRepository(private val context: Context) {
         private const val KEY_BOOKMARKS = "pref_bookmarks"
         private const val KEY_HISTORY = "pref_history"
         private const val KEY_SEARCH_HISTORY = "pref_search_history"
-        private const val KEY_PLUGINS = "pref_plugins"
         private const val KEY_QUICK_SITES = "pref_quick_sites"
 
         // Desktop User Agents
