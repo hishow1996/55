@@ -6,6 +6,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
@@ -110,6 +111,20 @@ class ExtensionManager(private val context: Context) {
 
     fun extension(id: String): BrowserExtension? = _extensions.value.firstOrNull { it.id == id }
 
+    fun hasPermission(id: String, permission: String): Boolean {
+        val e = extension(id) ?: return false
+        return permission in e.manifest.permissions || permission in e.manifest.hostPermissions || (permission == "activeTab" && e.enabled)
+    }
+
+    fun getManifestJson(id: String): String {
+        val e = extension(id) ?: return "{}"
+        return JSONObject().apply {
+            put("manifest_version", e.manifest.manifestVersion); put("name", e.name); put("version", e.version)
+            put("description", e.manifest.description); put("permissions", JSONArray(e.manifest.permissions))
+            put("host_permissions", JSONArray(e.manifest.hostPermissions))
+        }.toString()
+    }
+
     fun iconFile(id: String): File? {
         val ext = extension(id) ?: return null
         val path = ext.manifest.iconPath ?: return null
@@ -203,16 +218,18 @@ class ExtensionManager(private val context: Context) {
         wv.addJavascriptInterface(BackgroundBridge(ext.id), "ElephantExtensionBridge")
         val id = JSONObject.quote(ext.id)
         val root = JSONObject.quote("file://" + ext.rootPath + "/")
-        val polyfill = "(function(){window.chrome={runtime:{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){var r=ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},onMessage:{addListener:function(fn){window.__elephantOnMessage=fn}}},storage:{local:{get:function(k,c){var r=ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})},set:function(v,c){ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()},remove:function(k,c){ElephantExtensionBridge.storageRemove($id,k);if(c)c()},clear:function(c){ElephantExtensionBridge.storageClear($id);if(c)c()}}},tabs:{query:function(q,c){var r=ElephantExtensionBridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])},sendMessage:function(tabId,m,c){var r=ElephantExtensionBridge.tabsSendMessage($id,tabId,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},update:function(tabId,p,c){var r=ElephantExtensionBridge.tabsUpdate($id,tabId,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):null)},create:function(p,c){var r=ElephantExtensionBridge.tabsCreate($id,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):null)}},scripting:{executeScript:function(o,c){var r=ElephantExtensionBridge.executeScript($id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}}};})();"
+        val polyfill = "(function(){window.chrome={runtime:{id:$id,getURL:function(p){return $root+p;},getManifest:function(){return JSON.parse(ElephantExtensionBridge.getManifest($id));},sendMessage:function(m,c){var r=ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},onMessage:{addListener:function(fn){window.__elephantOnMessage=fn}}},storage:{local:{get:function(k,c){var r=ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})},set:function(v,c){ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()},remove:function(k,c){ElephantExtensionBridge.storageRemove($id,k);if(c)c()},clear:function(c){ElephantExtensionBridge.storageClear($id);if(c)c()}}},tabs:{query:function(q,c){var r=ElephantExtensionBridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])},sendMessage:function(tabId,m,c){var r=ElephantExtensionBridge.tabsSendMessage($id,tabId,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},update:function(tabId,p,c){var r=ElephantExtensionBridge.tabsUpdate($id,tabId,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):null)},create:function(p,c){var r=ElephantExtensionBridge.tabsCreate($id,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):null)}},scripting:{executeScript:function(o,c){var r=ElephantExtensionBridge.executeScript($id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}}};})();"
         wv.loadDataWithBaseURL("file://" + ext.rootPath + "/", "<html><script>" + polyfill + file.readText() + "</script></html>", "text/html", "UTF-8", null)
         backgroundHosts[ext.id] = wv
     }
 
     private inner class PageBridge(private val pageKey: String) {
+        @JavascriptInterface fun getManifest(extensionId: String): String = getManifestJson(extensionId)
         @JavascriptInterface fun storageGet(extensionId: String, key: String?): String = storageGetJson(extensionId, key)
         @JavascriptInterface fun storageSet(extensionId: String, valuesJson: String) { storageSetJson(extensionId, valuesJson) }
         @JavascriptInterface fun storageRemove(extensionId: String, key: String) { storageRemoveJson(extensionId, key) }
         @JavascriptInterface fun storageClear(extensionId: String) { storageClearJson(extensionId) }
+        @JavascriptInterface fun getManifest(extensionId: String): String = getManifestJson(extensionId)
         @JavascriptInterface fun sendMessage(extensionId: String, message: String): String {
             deliverToBackground(extensionId, message)
             return JSONObject.NULL.toString()
@@ -248,7 +265,7 @@ class ExtensionManager(private val context: Context) {
             return JSONObject().apply { put("id", id); put("url", url); put("active", active); put("status", "loading"); put("title", "") }.toString()
         }
         @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
-            val target = pageWebViews.entries.firstOrNull { it.key.hashCode() == tabId }?.value ?: return JSONObject.NULL.toString()
+            val target = pageWebViews.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value ?: return JSONObject.NULL.toString()
             val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
             p.optString("url").takeIf { it.isNotBlank() }?.let { url ->
                 target.post { target.loadUrl(url) }
