@@ -105,6 +105,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     private data class PendingWebVideoResume(
         val tabIndex: Int,
+        val tabId: String?,
         val pageUrl: String,
         val positionSeconds: Double,
         val shouldPlay: Boolean
@@ -118,7 +119,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             activeWebView = webView
         }
         val pending = pendingWebVideoResume
-        if (pending != null && pending.tabIndex == _currentTabIndex.value &&
+        if (pending != null && (pending.tabId.isNullOrBlank() || pending.tabId == currentTab.id) &&
             (pending.pageUrl.isBlank() || pending.pageUrl == currentTab.url)) {
             pendingWebVideoResume = null
             webView.postDelayed({
@@ -135,18 +136,20 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun queueWebVideoResume(
         tabIndex: Int,
+        tabId: String?,
         pageUrl: String,
         positionSeconds: Double,
         shouldPlay: Boolean
     ) {
         pendingWebVideoResume = PendingWebVideoResume(
             tabIndex = tabIndex,
+            tabId = tabId,
             pageUrl = pageUrl,
             positionSeconds = positionSeconds,
             shouldPlay = shouldPlay
         )
-        if (tabIndex == _currentTabIndex.value) {
-            tabWebViews[_tabs.value.getOrNull(tabIndex)?.id]?.let { webView ->
+        if ((tabId.isNullOrBlank() || tabId == currentTab.id) && tabIndex == _currentTabIndex.value) {
+            tabWebViews[tabId ?: _tabs.value.getOrNull(tabIndex)?.id]?.let { webView ->
                 pendingWebVideoResume = null
                 webView.post {
                     webView.evaluateJavascript(
