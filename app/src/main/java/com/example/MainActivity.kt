@@ -593,13 +593,13 @@ class MainActivity : ComponentActivity() {
         viewModel: com.example.viewmodel.BrowserViewModel
     ): VideoMediaInfo {
         val tab = viewModel.currentTab
+        // A fallback video must only use the stream discovered for this tab.
+        // Never fall back to the repository-wide lastDetectedStreamUrl, which
+        // can belong to another tab and cause cross-tab playback leakage.
         val detectedUrl = viewModel.repository.getDetectedStreamUrlForTab(tab.id)
             ?.trim()
             ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
-            ?: viewModel.repository.lastDetectedStreamUrl
-                ?.trim()
-                ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
-                ?: ""
+            ?: ""
         return VideoMediaInfo(
             url = detectedUrl,
             pageUrl = tab.url,
@@ -658,7 +658,8 @@ class MainActivity : ComponentActivity() {
             FloatingVideoPlayerComponent.pendingGlobalVideo = null
             vm?.activeWebView?.evaluateJavascript(
                 com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(
-                    video.currentTime.coerceAtLeast(0.0)
+                    video.currentTime.coerceAtLeast(0.0),
+                    video.isPlaying
                 ),
                 null
             )
