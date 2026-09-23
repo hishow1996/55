@@ -287,6 +287,23 @@ object Scripts {
                     }
                 }, true);
             }
+            // Snapshot the real HTML5 position/play state before locking it.
+            // The periodic monitor can be behind the actual playback position.
+            const snapshotVideo = Array.from(document.querySelectorAll('video'))
+                .find(v => !v.paused && !v.ended) ||
+                window._elephantLastVideoElement ||
+                Array.from(document.querySelectorAll('video'))[0] ||
+                null;
+            if (snapshotVideo && window.ElephantBridge && window.ElephantBridge.onVideoPlaybackState) {
+                try {
+                    window._elephantLastVideoElement = snapshotVideo;
+                    window.ElephantBridge.onVideoPlaybackState(
+                        Number(snapshotVideo.currentTime || 0),
+                        !snapshotVideo.paused && !snapshotVideo.ended
+                    );
+                } catch(e) {}
+            }
+
             window._elephantFloatingLock = true;
             // Re-evaluate the active element on every handoff. Sites often
             // reuse the same page and replace/switch the <video> element.
