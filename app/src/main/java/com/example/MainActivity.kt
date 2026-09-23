@@ -122,6 +122,17 @@ class MainActivity : ComponentActivity() {
             viewModel.repository.extensionManager.setBrowserTabCreator { url, active ->
                 runOnUiThread { viewModel.addNewTab(initialUrl = url) }
             }
+            viewModel.repository.extensionManager.setBrowserTabController(
+                creator = { extensionTabId, url, active ->
+                    runOnUiThread { viewModel.addNewTabForExtension(extensionTabId, url, active) }
+                },
+                updater = { extensionTabId, url ->
+                    runOnUiThread { viewModel.updateExtensionTab(extensionTabId, url) }
+                },
+                selector = { extensionTabId ->
+                    runOnUiThread { viewModel.selectExtensionTab(extensionTabId) }
+                }
+            )
 
             LaunchedEffect(Unit) {
                 handleTabIntent(intent)
