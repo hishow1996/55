@@ -11,6 +11,12 @@ object VideoSourceResolver {
             return VideoSource.WebFallback(url.ifBlank { null })
         }
 
+        // Navigation URL always wins over media-looking query parameters.
+        // This prevents a page such as /watch?src=.m3u8 from being handed to Media3.
+        if (video.pageUrl.isNotBlank() && urlsEquivalent(url, video.pageUrl)) {
+            return VideoSource.WebFallback(url)
+        }
+
         val lower = url.lowercase()
         return when {
             lower.contains(".m3u8") || lower.contains("application/vnd.apple.mpegurl") ->
