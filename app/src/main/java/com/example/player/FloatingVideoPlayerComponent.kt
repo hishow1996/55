@@ -28,6 +28,10 @@ object FloatingVideoPlayerComponent {
     @Volatile
     var activeVideoInfo: VideoMediaInfo? = null
 
+    /** Video request waiting for the user to return from a system permission page. */
+    @Volatile
+    var pendingGlobalVideo: VideoMediaInfo? = null
+
     var onProgressSyncListener: ((seconds: Double) -> Unit)? = null
 
     fun syncProgress(seconds: Double) {
@@ -172,7 +176,8 @@ object FloatingVideoPlayerComponent {
         originTabIndex: Int? = null
     ) {
         activeVideoInfo = video
-        if (!hasOverlayPermission(context)) {
+        pendingGlobalVideo = video
+        if (!hasOverlayPermission(context) {
             requestOverlayPermission(context)
             return
         }
@@ -191,6 +196,7 @@ object FloatingVideoPlayerComponent {
             } else {
                 context.startService(intent)
             }
+            pendingGlobalVideo = null
             Toast.makeText(context, "已开启桌面悬浮窗播放", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             e.printStackTrace()
