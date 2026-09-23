@@ -12,6 +12,7 @@ import android.provider.Settings
 import android.util.Rational
 import android.widget.Toast
 import com.example.model.VideoMediaInfo
+import com.example.player.VideoPlaybackSessionManager
 import com.example.service.FloatingPlayerService
 
 /**
