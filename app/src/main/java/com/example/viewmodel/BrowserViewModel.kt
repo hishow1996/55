@@ -417,8 +417,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     // Tab Management
     fun addNewTab(isIncognito: Boolean = repository.isIncognito.value, initialUrl: String = "") {
         val oldIndex = _currentTabIndex.value
+        val oldTab = _tabs.value.getOrNull(oldIndex)
         val video = _detectedVideo.value
-        if (video != null && (video.originTabId == null || video.originTabId == oldTab.id)) {
+        if (oldTab != null && video != null &&
+            (video.originTabId == null || video.originTabId == oldTab.id)
+        ) {
             _detectedVideo.value = video.copy(originTabIndex = oldIndex)
             _isFloatingPlayerVisible.value = true
         }
@@ -681,8 +684,19 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         )
         _detectedVideo.value = updated
         VideoPlaybackSessionManager.current()?.let { session ->
-            if (session.tabId == null || session.tabId == currentTab.id) {
-                VideoPlaybackSessionManager.updatePosition((currentTime * 1000.0).toLong().coerceAtLeast(0L))
+            // Ignore late WebView events from an older video. A/B switches can
+            // briefly deliver A's timeupdate after B has already been detected;
+            // updating the global session here would otherwise corrupt B's
+            // position/play state.
+            val currentSource = VideoSourceResolver.resolve(updated)
+            val sameSessionSource =
+                session.pageUrl == updated.pageUrl &&
+                    session.source == currentSource &&
+                    (session.tabId == null || session.tabId == updated.originTabId)
+            if (sameSessionSource) {
+                VideoPlaybackSessionManager.updatePosition(
+                    (currentTime * 1000.0).toLong().coerceAtLeast(0L)
+                )
                 VideoPlaybackSessionManager.updatePlaying(isPlaying)
             }
         }
