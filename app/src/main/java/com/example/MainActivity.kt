@@ -766,11 +766,12 @@ class MainActivity : ComponentActivity() {
         private var activeInstance: MainActivity? = null
 
         @JvmStatic
-        fun shouldResumeFloatingVideo(originTabIndex: Int, sourcePageUrl: String): Boolean {
+        fun shouldResumeFloatingVideo(originTabIndex: Int, originTabId: String?, sourcePageUrl: String): Boolean {
             val activity = activeInstance ?: return false
             val vm = activity.viewModelRef ?: return false
             val current = vm.currentTab
-            return vm.currentTabIndex.value == originTabIndex ||
+            return (originTabId.isNullOrBlank().not() && current.id == originTabId) ||
+                vm.currentTabIndex.value == originTabIndex ||
                 (sourcePageUrl.isNotBlank() && current.url == sourcePageUrl)
         }
 
