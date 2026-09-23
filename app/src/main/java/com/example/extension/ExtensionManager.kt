@@ -214,7 +214,7 @@ class ExtensionManager(private val context: Context) {
         val id = JSONObject.quote(ext.id)
         val root = JSONObject.quote("file://" + ext.rootPath + "/")
         return "(function(){if(window['$key'])return;window['$key']=1;window.chrome=window.chrome||{};" +
-            "chrome.runtime=chrome.runtime||{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){try{var r=window.ElephantExtensionBridge&&window.ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)}catch(e){}}};" +
+            "chrome.runtime=chrome.runtime||{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){try{var r=window.ElephantExtensionBridge&&window.ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)}catch(e){}},onMessage:{addListener:function(fn){window.__elephantRuntimeOnMessage=fn}}};" +
             "chrome.storage=chrome.storage||{};chrome.storage.local=chrome.storage.local||{get:function(k,c){try{var r=window.ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})}catch(e){if(c)c({})}},set:function(v,c){try{window.ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()}catch(e){if(c)c()}},remove:function(k,c){try{window.ElephantExtensionBridge.storageRemove($id,k);if(c)c()}catch(e){if(c)c()}},clear:function(c){try{window.ElephantExtensionBridge.storageClear($id);if(c)c()}catch(e){if(c)c()}}};" +
             "(0,eval)($code);})()"
     }
