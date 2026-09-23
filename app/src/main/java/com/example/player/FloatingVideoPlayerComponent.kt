@@ -187,6 +187,7 @@ object FloatingVideoPlayerComponent {
             putExtra(FloatingPlayerService.EXTRA_VIDEO_TITLE, video.title)
             putExtra(FloatingPlayerService.EXTRA_VIDEO_RATIO, video.aspectRatio)
             putExtra(FloatingPlayerService.EXTRA_VIDEO_POSITION, (video.currentTime * 1000).toLong())
+            putExtra(FloatingPlayerService.EXTRA_VIDEO_PAGE_URL, video.pageUrl)
             putExtra(FloatingPlayerService.EXTRA_ORIGIN_TAB_INDEX, originTabIndex ?: video.originTabIndex ?: 0)
         }
 
