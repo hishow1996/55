@@ -815,6 +815,10 @@ class FloatingPlayerService : Service() {
             // Release only the source tab's lock; never navigate to it or autoplay it.
             MainActivity.unlockFloatingSourceTab(originTabId)
         }
+
+        // Do not leave the old VideoMediaInfo around: a later video handoff must
+        // never rebuild Media3 from a previous tab's stream metadata.
+        FloatingVideoPlayerComponent.clearActiveVideo()
         stopSelf()
     }
     private fun formatTime(ms: Int): String {
