@@ -443,24 +443,86 @@ object Scripts {
             window._elephantLastDirectVideoUrl = '';
             window._elephantMediaGeneration = 0;
 
-            function resetMediaCache() {
+            function resetMediaCache(video) {
                 window._elephantMediaGeneration++;
                 window._elephantLastMediaUrl = '';
                 window._elephantLastManifestUrl = '';
                 window._elephantLastDirectVideoUrl = '';
+                if (video) {
+                    window._elephantLastBoundVideoElement = video;
+                    window._elephantLastBoundVideoSrc = '';
+                }
+            }
+
+            function currentVideoSource(video) {
+                if (!video) return '';
+                return video.currentSrc || video.src || '';
+            }
+
+            function publishCurrentVideo(video, force) {
+                if (!video || window._elephantFloatingLock) return;
+                const src = currentVideoSource(video);
+                const sourceKey = src || ('blob:' + String(video));
+                if (window._elephantLastBoundVideoElement !== video ||
+                    window._elephantLastBoundVideoSrc !== sourceKey) {
+                    resetMediaCache(video);
+                    window._elephantLastBoundVideoElement = video;
+                    window._elephantLastBoundVideoSrc = sourceKey;
+                    // Direct HTTP(S) video sources can be handed to the native layer
+                    // immediately. Blob/MSE is intentionally left to WebView until a
+                    // real network manifest/direct URL is discovered.
+                    if (src && !src.startsWith('blob:')) {
+                        if (window.ElephantBridge && window.ElephantBridge.onVideoDetected) {
+                            try {
+                                window.ElephantBridge.onVideoDetected(
+                                    src,
+                                    document.title || '网页视频',
+                                    Number(video.duration || 0),
+                                    Number(video.currentTime || 0),
+                                    video.videoWidth || 16,
+                                    video.videoHeight || 9
+                                );
+                            } catch(e) {}
+                        }
+                    } else if (force && window.ElephantBridge && window.ElephantBridge.onVideoDetected) {
+                        // Explicitly clear the previous native candidate when the page
+                        // switches to a Blob/MSE source. This prevents an ad/source A
+                        // URL from leaking into video B.
+                        try {
+                            window.ElephantBridge.onVideoDetected(
+                                '', document.title || '网页视频',
+                                Number(video.duration || 0),
+                                Number(video.currentTime || 0),
+                                video.videoWidth || 16,
+                                video.videoHeight || 9
+                            );
+                        } catch(e) {}
+                    }
+                }
             }
 
             function bindVideoLifecycle() {
                 document.querySelectorAll('video').forEach(function(v) {
                     if (!v || v._elephantSnifferLifecycleBound) return;
                     v._elephantSnifferLifecycleBound = true;
-                    ['loadstart','emptied','abort'].forEach(function(name) {
+                    [
+                        'loadstart','emptied','abort','loadedmetadata','durationchange',
+                        'canplay','playing'
+                    ].forEach(function(name) {
                         v.addEventListener(name, function() {
-                            // A single page can reuse one <video> element for A -> B.
-                            // Network URLs discovered for A must never be offered to B.
-                            resetMediaCache();
+                            const before = window._elephantLastBoundVideoSrc;
+                            const now = currentVideoSource(v);
+                            if (name === 'loadstart' || name === 'emptied' || name === 'abort' ||
+                                before !== now) {
+                                // A single page can reuse one <video> element for A -> B
+                                // (for example advertisement -> main content). Network
+                                // URLs discovered for A must never be offered to B.
+                                resetMediaCache(v);
+                            }
+                            publishCurrentVideo(v, true);
                         }, true);
                     });
+                    publishCurrentVideo(v, false);
                 });
             }
 
@@ -520,6 +582,16 @@ object Scripts {
                 new MutationObserver(bindVideoLifecycle).observe(document.documentElement || document, {
                     childList: true, subtree: true
                 });
+            }
+            // Some players change currentSrc/src without emitting a reliable media
+            // event. Poll only the lightweight source identity so advertisement ->
+            // main-video transitions are still detected.
+            if (!window._elephantSnifferSourcePoll) {
+                window._elephantSnifferSourcePoll = setInterval(function() {
+                    document.querySelectorAll('video').forEach(function(v) {
+                        publishCurrentVideo(v, true);
+                    });
+                }, 400);
             }
 
             const origFetch = window.fetch;
