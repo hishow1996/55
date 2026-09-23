@@ -526,6 +526,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleTabIntent(intent)
+
+        if (intent.getBooleanExtra(FloatingPlayerService.EXTRA_RESUME_WEB_VIDEO, false)) {
+            val position = intent.getDoubleExtra(FloatingPlayerService.EXTRA_VIDEO_POSITION_SECONDS, 0.0)
+            viewModelRef?.activeWebView?.evaluateJavascript(
+                com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(position),
+                null
+            )
+        }
     }
 
     private fun handleTabIntent(intent: Intent?) {
@@ -575,7 +583,7 @@ class MainActivity : ComponentActivity() {
         val vm = viewModelRef
         FloatingVideoPlayerComponent.pendingGlobalVideo = video
         vm?.activeWebView?.evaluateJavascript(
-            com.example.engine.Scripts.PAUSE_WEB_VIDEOS,
+            com.example.engine.Scripts.LOCK_WEB_VIDEOS,
             null
         )
 
