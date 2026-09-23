@@ -771,9 +771,15 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val video = _detectedVideo.value
         _isFloatingPlayerVisible.value = false
 
-        val sameOriginTab = video?.originTabIndex == null || video.originTabIndex == _currentTabIndex.value
+        val sameOriginTab = when {
+            video == null -> false
+            !video.originTabId.isNullOrBlank() -> video.originTabId == currentTab.id
+            else -> video.originTabIndex == null || video.originTabIndex == _currentTabIndex.value
+        }
         val sameSourcePage = video?.pageUrl.isNullOrBlank() || video?.pageUrl == currentTab.url
         if (!sameOriginTab || !sameSourcePage) {
+            // The user has moved away from the source tab/page. Closing the
+            // in-app floating player must not navigate or resume another page.
             return
         }
 
