@@ -436,10 +436,24 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val currentList = _tabs.value.toMutableList()
         if (index !in currentList.indices) return
 
+        val closingTab = currentList[index]
         val closedVideo = _detectedVideo.value
-        if (closedVideo != null && closedVideo.originTabIndex == index) {
+        val closingOwnsVideo = closedVideo != null &&
+            (closedVideo.originTabIndex == index || closedVideo.pageUrl == closingTab.url)
+
+        // A closed source tab can no longer be a valid WebView resume target.
+        // Drop its WebView reference and any detected stream owned by that tab.
+        tabWebViews.remove(closingTab.id)
+        repository.clearDetectedStreamUrl(closingTab.id)
+
+        if (closingOwnsVideo) {
             _isFloatingPlayerVisible.value = false
             _detectedVideo.value = null
+            val session = VideoPlaybackSessionManager.current()
+            if (session != null && (session.tabIndex == index || session.pageUrl == closingTab.url)) {
+                VideoPlaybackSessionManager.clear()
+            }
+            pendingWebVideoResume = null
         }
 
         if (currentList.size <= 1) {
@@ -448,15 +462,51 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             _tabs.value = currentList
             _currentTabIndex.value = 0
             _urlInput.value = ""
+            activeWebView = null
             goHome()
             return
         }
 
         currentList.removeAt(index)
         _tabs.value = currentList
-        val newIndex = _currentTabIndex.value.coerceAtMost(currentList.lastIndex)
+
+        // Removing a tab shifts later indexes. Rebind the session/detected-video
+        // origin index so playback ownership remains attached to the same tab.
+        fun remapIndex(old: Int): Int? = when {
+            old < index -> old
+            old > index -> old - 1
+            else -> null
+        }
+
+        _detectedVideo.value?.let { video ->
+            val mapped = video.originTabIndex?.let(::remapIndex)
+            if (video.originTabIndex != null && mapped == null) {
+                _detectedVideo.value = null
+                _isFloatingPlayerVisible.value = false
+            } else if (mapped != null) {
+                _detectedVideo.value = video.copy(originTabIndex = mapped)
+            }
+        }
+
+        VideoPlaybackSessionManager.current()?.let { session ->
+            val mapped = remapIndex(session.tabIndex)
+            if (mapped == null) {
+                VideoPlaybackSessionManager.clear()
+            } else if (mapped != session.tabIndex) {
+                VideoPlaybackSessionManager.rebindTab(mapped)
+            }
+        }
+
+        val newIndex = _currentTabIndex.value.let { current ->
+            when {
+                current > index -> current - 1
+                current == index -> current.coerceAtMost(currentList.lastIndex)
+                else -> current
+            }
+        }
         _currentTabIndex.value = newIndex
         _urlInput.value = currentList[newIndex].url
+        activeWebView = tabWebViews[currentList[newIndex].id]
     }
 
     fun closeTab(tab: BrowserTab) {
