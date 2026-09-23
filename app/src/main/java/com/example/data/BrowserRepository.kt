@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.example.model.BookmarkItem
 import com.example.model.HistoryItem
 import com.example.model.PluginItem
+import com.example.extension.ExtensionManager
 import com.example.model.QuickSite
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class BrowserRepository(private val context: Context) {
+    /** New Chromium-style extension runtime. The legacy script plugin list is no longer used by the browser runtime. */
+    val extensionManager: ExtensionManager = ExtensionManager(context)
     private val prefs: SharedPreferences = context.getSharedPreferences("elephant_browser_prefs", Context.MODE_PRIVATE)
 
     // Flow for Night Mode (Default FALSE = Day Mode)
