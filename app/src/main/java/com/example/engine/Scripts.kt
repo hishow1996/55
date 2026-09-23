@@ -255,6 +255,24 @@ object Scripts {
         })();
     """.trimIndent()
 
+    val UNLOCK_WEB_VIDEO_LOCK = """
+        (function() {
+            window._elephantFloatingLock = false;
+            if (window._elephantFloatingLockTimer) {
+                clearInterval(window._elephantFloatingLockTimer);
+                window._elephantFloatingLockTimer = null;
+            }
+            document.querySelectorAll('video').forEach(function(v) {
+                try {
+                    if (v._elephantFloatingPlayBound && window._elephantFloatingPlayHandler) {
+                        v.removeEventListener('play', window._elephantFloatingPlayHandler);
+                        v._elephantFloatingPlayBound = false;
+                    }
+                } catch(e) {}
+            });
+        })();
+    """.trimIndent()
+
     val RESUME_WEB_VIDEOS = """
         (function() {
             document.querySelectorAll('video').forEach(v => {
