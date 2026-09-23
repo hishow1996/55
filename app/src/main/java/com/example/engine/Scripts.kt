@@ -190,6 +190,54 @@ object Scripts {
         })();
     """.trimIndent()
 
+    val LOCK_WEB_VIDEOS = """
+        (function() {
+            window._elephantFloatingLock = true;
+            if (window._elephantFloatingLockTimer) clearInterval(window._elephantFloatingLockTimer);
+            if (!window._elephantFloatingPlayHandler) {
+                window._elephantFloatingPlayHandler = function() {
+                    if (window._elephantFloatingLock) {
+                        try { this.pause(); } catch(e) {}
+                    }
+                };
+            }
+            const pauseAll = function() {
+                if (!window._elephantFloatingLock) return;
+                document.querySelectorAll('video').forEach(function(v) {
+                    try { v.pause(); } catch(e) {}
+                    try {
+                        if (!v._elephantFloatingPlayBound) {
+                            v.addEventListener('play', window._elephantFloatingPlayHandler);
+                            v._elephantFloatingPlayBound = true;
+                        }
+                    } catch(e) {}
+                });
+            };
+            pauseAll();
+            window._elephantFloatingLockTimer = setInterval(pauseAll, 250);
+        })();
+    """.trimIndent()
+
+    fun RESUME_WEB_VIDEO_AT(seconds: Double): String = """
+        (function() {
+            window._elephantFloatingLock = false;
+            if (window._elephantFloatingLockTimer) {
+                clearInterval(window._elephantFloatingLockTimer);
+                window._elephantFloatingLockTimer = null;
+            }
+            document.querySelectorAll('video').forEach(function(v) {
+                try {
+                    if (v._elephantFloatingPlayBound && window._elephantFloatingPlayHandler) {
+                        v.removeEventListener('play', window._elephantFloatingPlayHandler);
+                        v._elephantFloatingPlayBound = false;
+                    }
+                    if (${seconds} >= 0) v.currentTime = ${seconds};
+                    v.play();
+                } catch(e) {}
+            });
+        })();
+    """.trimIndent()
+
     val RESUME_WEB_VIDEOS = """
         (function() {
             document.querySelectorAll('video').forEach(v => {
