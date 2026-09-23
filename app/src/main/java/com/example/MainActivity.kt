@@ -633,7 +633,7 @@ class MainActivity : ComponentActivity() {
             vm != null -> vm.repository.getDetectedStreamUrlForTab(vm.currentTab.id)
                 ?.trim()
                 ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
-                ?: vm.repository.lastDetectedStreamUrl
+                ?: ""
                     ?.trim()
                     ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
                 ?: ""
