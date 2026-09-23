@@ -30,6 +30,11 @@ object VideoPlaybackSessionManager {
             current.pageUrl == video.pageUrl &&
             current.source == resolvedSource
 
+        // A new native source on the same page is a new media identity. Never
+        // carry A's position/rate/playback state into B merely because the tab
+        // and page are unchanged. The source URL is part of VideoSource, so this
+        // comparison remains strict for signed/CDN URLs as well.
+
         val next = if (sameVideo) {
             current!!.copy(
                 tabId = video.originTabId ?: current.tabId,
