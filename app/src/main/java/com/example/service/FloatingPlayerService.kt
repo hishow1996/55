@@ -399,6 +399,7 @@ class FloatingPlayerService : Service() {
                         val pos = max(0, mp.currentPosition - 10000)
                         mp.seekTo(pos.toLong())
                         currentPositionMs = pos
+                        VideoPlaybackSessionManager.updatePosition(pos.toLong())
                     } catch (e: Exception) {}
                 }
                 resetHideTimer()
@@ -486,6 +487,7 @@ class FloatingPlayerService : Service() {
                     sb?.progress?.let { pos ->
                         mediaPlayer?.seekTo(pos)
                         currentPositionMs = pos
+                        VideoPlaybackSessionManager.updatePosition(pos)
                     }
                     resetHideTimer()
                 }
