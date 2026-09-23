@@ -28,6 +28,7 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import android.webkit.CookieManager
 import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
 
@@ -152,6 +153,10 @@ class ElephantDownloadManager(private val context: Context) {
      */
     private fun startDownloadJob(item: DownloadItem) {
         activeJobs[item.id]?.cancel()
+        if (isHlsUrl(item.url)) {
+            startHlsDownloadJob(item)
+            return
+        }
 
         val job = scope.launch {
             updateItemStatus(item.id, DownloadStatus.DOWNLOADING, speed = 0L)
@@ -173,6 +178,9 @@ class ElephantDownloadManager(private val context: Context) {
                         instanceFollowRedirects = true
                         setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36 Elephant/2.0")
                         setRequestProperty("Accept-Encoding", "identity")
+                        CookieManager.getInstance().getCookie(currentUrl)?.let { setRequestProperty("Cookie", it) }
+                        setRequestProperty("Referer", currentUrl)
+                        setRequestProperty("Accept", "*/*")
                         if (existingBytes > 0) {
                             setRequestProperty("Range", "bytes=$existingBytes-")
                         }
@@ -266,6 +274,140 @@ class ElephantDownloadManager(private val context: Context) {
             }
         }
         activeJobs[item.id] = job
+    }
+
+    private fun isHlsUrl(url: String): Boolean {
+        val lower = url.lowercase()
+        return lower.contains(".m3u8") || lower.contains("application/vnd.apple.mpegurl")
+    }
+
+    private fun startHlsDownloadJob(item: DownloadItem) {
+        val job = scope.launch {
+            updateItemStatus(item.id, DownloadStatus.DOWNLOADING, speed = 0L)
+            try {
+                val playlistUrl = resolveFinalUrl(item.url)
+                val playlist = fetchText(playlistUrl)
+                val mediaUrl = chooseHlsMediaPlaylist(playlistUrl, playlist)
+                val mediaPlaylist = if (mediaUrl == playlistUrl) playlist else fetchText(mediaUrl)
+                val segmentUrls = parseHlsSegments(mediaUrl, mediaPlaylist)
+                if (segmentUrls.isEmpty()) throw Exception("HLS 播放列表没有可下载的视频分片")
+
+                val output = File(item.filePath)
+                output.parentFile?.mkdirs()
+                if (output.exists()) output.delete()
+
+                var downloaded = 0L
+                updateItemProgress(item.id, 0L, 0L, 0L)
+                FileOutputStream(output, false).use { out ->
+                    segmentUrls.forEach { segmentUrl ->
+                        if (!isActive) throw CancellationException("Download cancelled or paused")
+                        val data = fetchBytes(segmentUrl)
+                        if (data.isEmpty()) throw Exception("HLS 分片下载为空")
+                        out.write(data)
+                        downloaded += data.size
+                        updateItemProgress(item.id, downloaded, 0L, 0L)
+                    }
+                    out.flush()
+                }
+                updateItemCompleted(item.id, downloaded)
+                saveDownloads()
+            } catch (e: CancellationException) {
+                updateItemStatus(item.id, DownloadStatus.PAUSED, speed = 0L)
+                saveDownloads()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                updateItemFailed(item.id, e.message ?: "HLS 视频下载失败")
+                saveDownloads()
+            } finally {
+                activeJobs.remove(item.id)
+            }
+        }
+        activeJobs[item.id] = job
+    }
+
+    private fun resolveFinalUrl(startUrl: String): String {
+        var current = startUrl
+        repeat(5) {
+            val conn = (URL(current).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15000
+                readTimeout = 20000
+                instanceFollowRedirects = false
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36 Elephant/2.0")
+                setRequestProperty("Accept", "*/*")
+                CookieManager.getInstance().getCookie(current)?.let { setRequestProperty("Cookie", it) }
+                setRequestProperty("Referer", current)
+            }
+            try {
+                val code = conn.responseCode
+                if (code in 300..399) {
+                    val location = conn.getHeaderField("Location") ?: return current
+                    current = URL(URL(current), location).toString()
+                } else return current
+            } finally { conn.disconnect() }
+        }
+        return current
+    }
+
+    private fun fetchText(url: String): String {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15000
+            readTimeout = 20000
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36 Elephant/2.0")
+            setRequestProperty("Accept", "application/vnd.apple.mpegurl, application/x-mpegURL, */*")
+            CookieManager.getInstance().getCookie(url)?.let { setRequestProperty("Cookie", it) }
+            setRequestProperty("Referer", url)
+        }
+        return try {
+            if (conn.responseCode !in 200..299) throw Exception("HLS 播放列表 HTTP " + conn.responseCode)
+            conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        } finally { conn.disconnect() }
+    }
+
+    private fun fetchBytes(url: String): ByteArray {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15000
+            readTimeout = 30000
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36 Elephant/2.0")
+            setRequestProperty("Accept", "*/*")
+            CookieManager.getInstance().getCookie(url)?.let { setRequestProperty("Cookie", it) }
+            setRequestProperty("Referer", url)
+        }
+        return try {
+            if (conn.responseCode !in 200..299) throw Exception("视频分片 HTTP " + conn.responseCode)
+            conn.inputStream.use { it.readBytes() }
+        } finally { conn.disconnect() }
+    }
+
+    private fun chooseHlsMediaPlaylist(baseUrl: String, playlist: String): String {
+        val lines = playlist.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+        if (!lines.any { it.startsWith("#EXT-X-STREAM-INF", true) }) return baseUrl
+        var bestUrl: String? = null
+        var bestBandwidth = -1L
+        for (i in lines.indices) {
+            if (!lines[i].startsWith("#EXT-X-STREAM-INF", true)) continue
+            val bandwidth = Regex("""(?:AVERAGE-BANDWIDTH|BANDWIDTH)=(\d+)""", RegexOption.IGNORE_CASE)
+                .find(lines[i])?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
+            val next = lines.drop(i + 1).firstOrNull { !it.startsWith("#") } ?: continue
+            if (bandwidth >= bestBandwidth) {
+                bestBandwidth = bandwidth
+                bestUrl = URL(URL(baseUrl), next).toString()
+            }
+        }
+        return bestUrl ?: baseUrl
+    }
+
+    private fun parseHlsSegments(baseUrl: String, playlist: String): List<String> {
+        if (playlist.contains("#EXT-X-KEY", true) &&
+            !Regex("""METHOD=NONE""", RegexOption.IGNORE_CASE).containsMatchIn(playlist)) {
+            throw Exception("当前 HLS 视频使用加密分片，暂不支持解密下载")
+        }
+        return playlist.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+            .map { URL(URL(baseUrl), it).toString() }
+            .toList()
     }
 
     fun pauseDownload(id: String) {
