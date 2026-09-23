@@ -802,6 +802,7 @@ class FloatingPlayerService : Service() {
             val intent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(EXTRA_SELECT_TAB, originTabIndex)
+                putExtra(EXTRA_ORIGIN_TAB_ID, originTabId)
                 putExtra(EXTRA_RESUME_WEB_VIDEO, true)
                 putExtra(EXTRA_VIDEO_POSITION_SECONDS, effectivePosition)
                 putExtra(EXTRA_VIDEO_SHOULD_PLAY, shouldPlay)
