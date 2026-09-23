@@ -605,7 +605,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             videoWidth = if (width > 0) width else 16,
             videoHeight = if (height > 0) height else 9,
             isPlaying = true,
-            originTabIndex = _currentTabIndex.value
+            originTabIndex = _currentTabIndex.value,
+            originTabId = currentTab.id
         )
         // Native Media3 takeover is used only for sources the app can reliably
         // play itself. Blob/MSE pages remain on the WebView as a compatibility fallback.
