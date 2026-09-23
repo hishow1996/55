@@ -816,10 +816,10 @@ fun InAppFloatingPlayer(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_resize_corner),
                     contentDescription = "调整窗口大小",
-                    tint = Color.White.copy(alpha = if (isActivelyResizing || showControls) 0.9f else 0.45f),
+                    tint = Color.White.copy(alpha = if (isActivelyResizing || showControls) 0.85f else 0.4f),
                     modifier = Modifier
-                        .padding(end = 4.dp, bottom = 4.dp)
-                        .size(15.dp)
+                        .padding(end = 3.dp, bottom = 3.dp)
+                        .size(10.dp)
                 )
             }
         }

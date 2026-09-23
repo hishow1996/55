@@ -507,13 +507,13 @@ class FloatingPlayerService : Service() {
 
             val iconIv = ImageView(this@FloatingPlayerService).apply {
                 setImageResource(R.drawable.ic_resize_corner)
-                setColorFilter(0xCCFFFFFF.toInt())
-                val p = (7 * density).toInt()
-                setPadding(p, p, p, p)
-                layoutParams = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT
-                )
+                setColorFilter(0xB3FFFFFF.toInt())
+                val iconSize = (10 * density).toInt()
+                val m = (3 * density).toInt()
+                layoutParams = FrameLayout.LayoutParams(iconSize, iconSize).apply {
+                    gravity = Gravity.BOTTOM or Gravity.END
+                    setMargins(0, 0, m, m)
+                }
             }
             addView(iconIv)
         }
