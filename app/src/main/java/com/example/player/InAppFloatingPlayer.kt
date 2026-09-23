@@ -283,21 +283,6 @@ fun InAppFloatingPlayer(
                             nativeController = controller
                             controller.load(videoInfo)
                             mediaPlayer = controller.rawPlayer()
-                            mediaPlayer = mp
-
-                            try {
-                                val urlStr = videoInfo.url.trim()
-                                if (urlStr.isNotBlank() && !urlStr.startsWith("blob:")) {
-                                    val item = MediaItem.Builder()
-                                        .setUri(urlStr)
-                                        .setMediaId(videoInfo.pageUrl.ifBlank { urlStr })
-                                        .build()
-                                    mp.setMediaItem(item)
-                                    mp.prepare()
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
                         }
 
                         override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
