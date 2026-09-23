@@ -341,6 +341,7 @@ class ExtensionManager(private val context: Context) {
 
     private fun deliverToPages(extensionId: String, message: String) {
         val payload = JSONObject.quote(message)
+        val id = JSONObject.quote(extensionId)
         pageWebViews.values.distinct().forEach { wv ->
             wv.post {
                 wv.evaluateJavascript(
