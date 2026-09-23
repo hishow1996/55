@@ -273,6 +273,8 @@ fun InAppFloatingPlayer(
 
                             val controller = Media3VideoPlayerController(ctx)
                             controller.setSurface(surface)
+                            // Snapshot the authoritative handoff state once. Do not let
+                            // a second detection callback reinitialize position/state.
                             val handoffSession = VideoPlaybackSessionManager.handoffState(videoInfo)
                             isPlaying = handoffSession.isPlaying
                             playbackSpeed = handoffSession.playbackRate
@@ -281,7 +283,9 @@ fun InAppFloatingPlayer(
                                     if (state == Player.STATE_READY) {
                                         isVideoReady = true
                                         val initial = handoffSession.positionMs.coerceAtLeast(0L)
-                                        if (initial > 0L) controller.seekTo(initial)
+                                        // Seek before starting playback so the first rendered
+                                        // frame is already at the exact handoff position.
+                                        controller.seekTo(initial.coerceAtLeast(0L))
                                         durationMs = controller.durationMs().coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(durationMs)
                                         controller.rawPlayer().setPlaybackSpeed(playbackSpeed)
                                         VideoPlaybackSessionManager.updatePlaybackRate(playbackSpeed)
