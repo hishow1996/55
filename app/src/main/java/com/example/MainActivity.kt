@@ -570,10 +570,15 @@ class MainActivity : ComponentActivity() {
                 FloatingPlayerService.EXTRA_VIDEO_SHOULD_PLAY,
                 com.example.player.VideoPlaybackSessionManager.current()?.isPlaying ?: true
             )
-            viewModelRef?.activeWebView?.evaluateJavascript(
-                com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(position, shouldPlay),
-                null
-            )
+            // selectTab() updates Compose state first; wait for the target WebView
+            // to become active before injecting the resume command.
+            val targetViewModel = viewModelRef
+            targetViewModel?.activeWebView?.postDelayed({
+                targetViewModel.activeWebView?.evaluateJavascript(
+                    com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(position, shouldPlay),
+                    null
+                )
+            }, 300L)
         }
     }
 
