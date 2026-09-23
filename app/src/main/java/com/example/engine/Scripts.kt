@@ -1326,6 +1326,10 @@ object Scripts {
                     }
 
                     if (window.ElephantBridge && window.ElephantBridge.openFloatingPlayer) {
+                        // Pause before the asynchronous Android bridge call.
+                        // Permission/settings screens can otherwise give the
+                        // webpage time to keep playing.
+                        video.pause();
                         window.ElephantBridge.openFloatingPlayer(
                             realSrc,
                             document.title || '网页视频',
@@ -1334,7 +1338,6 @@ object Scripts {
                             video.videoWidth || 16,
                             video.videoHeight || 9
                         );
-                        video.pause();
                     }
                 });
 
