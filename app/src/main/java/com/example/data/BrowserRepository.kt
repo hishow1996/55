@@ -78,6 +78,13 @@ class BrowserRepository(private val context: Context) {
 
     fun getDetectedStreamUrl(tabId: String): String? = detectedStreamUrls[tabId] ?: lastDetectedStreamUrl
 
+    /** Returns only the stream discovered for this exact tab, never another tab's last URL. */
+    fun getDetectedStreamUrlForTab(tabId: String): String? = detectedStreamUrls[tabId]
+
+    fun clearDetectedStreamUrl(tabId: String) {
+        detectedStreamUrls.remove(tabId)
+    }
+
     init {
         loadBookmarks()
         loadHistory()
