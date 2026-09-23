@@ -331,7 +331,9 @@ fun BrowserTopBar(
                                                 settings.javaScriptEnabled = true
                                                 settings.domStorageEnabled = true
                                                 settings.allowFileAccess = true
+                                                settings.allowContentAccess = true
                                                 webViewClient = android.webkit.WebViewClient()
+                                                repo.extensionManager.prepareExtensionPage(this, id, "popup")
                                                 loadUrl(url)
                                             }
                                         },
