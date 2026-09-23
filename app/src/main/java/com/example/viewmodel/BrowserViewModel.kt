@@ -130,7 +130,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun startVideoDownload(url: String, title: String) {
         val effectiveUrl = if (url.isBlank() || url.startsWith("blob:") || !url.startsWith("http")) {
-            repository.getDetectedStreamUrl(currentTab.id) ?: repository.lastDetectedStreamUrl ?: currentTab.url
+            repository.getDetectedStreamUrlForTab(currentTab.id) ?: repository.lastDetectedStreamUrl ?: currentTab.url
         } else {
             url
         }
@@ -464,7 +464,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun onVideoFound(url: String, title: String, duration: Double, currentTime: Double, width: Int, height: Int) {
         val cleanTitle = title.ifBlank { currentTab.title }
         val effectiveUrl = if (url.isBlank() || url.startsWith("blob:") || !url.startsWith("http")) {
-            repository.getDetectedStreamUrl(currentTab.id) ?: repository.lastDetectedStreamUrl ?: url
+            repository.getDetectedStreamUrlForTab(currentTab.id) ?: repository.lastDetectedStreamUrl ?: url
         } else {
             url
         }
@@ -498,7 +498,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             baseVideo.url.startsWith("http://", true) || baseVideo.url.startsWith("https://", true) ->
                 baseVideo.url.trim()
             else ->
-                repository.getDetectedStreamUrl(currentTab.id)
+                repository.getDetectedStreamUrlForTab(currentTab.id)
                     ?.trim()
                     ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
                     ?: repository.lastDetectedStreamUrl
