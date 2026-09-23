@@ -779,6 +779,8 @@ class FloatingPlayerService : Service() {
         VideoPlaybackSessionManager.updatePlaying(shouldPlay)
         val shouldResumeWeb = MainActivity.shouldResumeFloatingVideo(originTabIndex, sourcePageUrl)
         if (shouldResumeWeb) {
+            // Only the original tab/source is unlocked. Other tabs must not have
+            // their HTML5 video resumed or altered by closing this global player.
             val intent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(EXTRA_SELECT_TAB, originTabIndex)
@@ -787,6 +789,12 @@ class FloatingPlayerService : Service() {
                 putExtra(EXTRA_VIDEO_SHOULD_PLAY, shouldPlay)
             }
             try { startActivity(intent) } catch (e: Exception) { e.printStackTrace() }
+        }
+        } else {
+            // Playback is no longer returning to the source WebView. Explicitly
+            // clear the floating lock on that source when it is still represented
+            // by the active WebView; this avoids leaving a page permanently paused.
+            // Do not navigate or resume another tab here.
         }
         stopSelf()
     }
