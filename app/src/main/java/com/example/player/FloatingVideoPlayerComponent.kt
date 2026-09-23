@@ -41,6 +41,23 @@ object FloatingVideoPlayerComponent {
     }
 
     /**
+     * Clears only the global-player discovery state. The playback session itself
+     * is kept until the caller has completed any WebView resume handoff.
+     */
+    fun clearActiveVideo(video: VideoMediaInfo? = null) {
+        val active = activeVideoInfo
+        if (video == null || active == null ||
+            (active.originTabId == video.originTabId &&
+                active.pageUrl == video.pageUrl &&
+                active.url == video.url)
+        ) {
+            activeVideoInfo = null
+            pendingGlobalVideo = null
+            lastPlaybackPositionSeconds = 0.0
+        }
+    }
+
+    /**
      * Checks if the app has Picture-in-Picture (PiP) permission.
      */
     fun hasPipPermission(context: Context): Boolean {
