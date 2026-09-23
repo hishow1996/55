@@ -105,6 +105,10 @@ fun InAppFloatingPlayer(
     val density = LocalDensity.current
     val context = LocalContext.current
 
+    LaunchedEffect(videoInfo.url, videoInfo.pageUrl, videoInfo.originTabIndex) {
+        VideoPlaybackSessionManager.start(videoInfo)
+    }
+
     // Video aspect ratio calculation
     val baseRatio = remember(videoInfo.videoWidth, videoInfo.videoHeight) {
         if (videoInfo.videoHeight > 0 && videoInfo.videoWidth > 0) {
@@ -193,7 +197,10 @@ fun InAppFloatingPlayer(
                     if (mp.isPlaying) {
                         val pos = mp.currentPosition
                         val dur = mp.duration
-                        if (pos >= 0) currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                        if (pos >= 0) {
+                            currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                            VideoPlaybackSessionManager.updatePosition(pos)
+                        }
                         if (dur > 0) durationMs = max(dur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), durationMs)
                     }
                 }
@@ -288,6 +295,7 @@ fun InAppFloatingPlayer(
 
                                 override fun onIsPlayingChanged(playing: Boolean) {
                                     isPlaying = playing
+                                    VideoPlaybackSessionManager.updatePlaying(playing)
                                 }
                             })
                             nativeController = controller
