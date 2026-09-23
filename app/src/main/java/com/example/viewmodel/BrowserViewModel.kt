@@ -556,14 +556,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
+        val session = VideoPlaybackSessionManager.current()
         val position = resumePositionSeconds
-            ?: (VideoPlaybackSessionManager.current()?.positionMs?.div(1000.0))
+            ?: (session?.positionMs?.div(1000.0))
             ?: video?.currentTime
             ?: 0.0
+        val shouldPlay = session?.isPlaying ?: true
         VideoPlaybackSessionManager.updatePosition((position * 1000.0).toLong().coerceAtLeast(0L))
-        VideoPlaybackSessionManager.updatePlaying(true)
+        VideoPlaybackSessionManager.updatePlaying(shouldPlay)
         activeWebView?.evaluateJavascript(
-            Scripts.RESUME_WEB_VIDEO_AT(position.coerceAtLeast(0.0)),
+            Scripts.RESUME_WEB_VIDEO_AT(position.coerceAtLeast(0.0), shouldPlay),
             null
         )
     }
