@@ -310,7 +310,13 @@ fun InAppFloatingPlayer(
                         override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
                         override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
                             try {
-                                mediaPlayer?.setSurface(null)
+                                mediaPlayer?.let { player ->
+                                    VideoPlaybackSessionManager.updatePosition(
+                                        player.currentPosition.coerceAtLeast(0L)
+                                    )
+                                    VideoPlaybackSessionManager.updatePlaying(player.isPlaying)
+                                    player.setVideoSurface(null)
+                                }
                                 currentSurface?.release()
                                 currentSurface = null
                             } catch (e: Exception) {}
