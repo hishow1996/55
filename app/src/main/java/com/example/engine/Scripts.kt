@@ -216,19 +216,55 @@ object Scripts {
         (function() {
             if (window._elephantSnifferHooked) return;
             window._elephantSnifferHooked = true;
+            // Keep only playable stream URLs. HLS/DASH segment requests must never
+            // overwrite the manifest URL, otherwise the floating MediaPlayer may be
+            // given one .ts/.m4s segment and show a blank window.
             window._elephantLastMediaUrl = '';
+            window._elephantLastManifestUrl = '';
+            window._elephantLastDirectVideoUrl = '';
 
             function checkMedia(url) {
                 if (!url || typeof url !== 'string') return;
                 const lower = url.toLowerCase();
-                if (lower.endsWith('.js') || lower.endsWith('.css') || lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.svg')) return;
-                if (lower.includes('.m3u8') || lower.includes('.mp4') || lower.includes('.flv') || lower.includes('/video/') || lower.includes('mime=video') || lower.includes('googlevideo.com') || lower.includes('.ts')) {
+                if (lower.startsWith('blob:') ||
+                    lower.endsWith('.js') || lower.endsWith('.css') ||
+                    lower.endsWith('.png') || lower.endsWith('.jpg') ||
+                    lower.endsWith('.jpeg') || lower.endsWith('.gif') ||
+                    lower.endsWith('.svg') || lower.endsWith('.woff') ||
+                    lower.endsWith('.woff2')) return;
+
+                const isManifest = lower.includes('.m3u8') ||
+                    lower.includes('.mpd') ||
+                    lower.includes('application/vnd.apple.mpegurl');
+
+                const isDirectVideo = lower.includes('.mp4') ||
+                    lower.includes('.webm') || lower.includes('.mkv') ||
+                    lower.includes('.mov') || lower.includes('.flv') ||
+                    lower.includes('mime=video') || lower.includes('googlevideo.com');
+
+                const isSegment = lower.includes('.ts') || lower.includes('.m4s') ||
+                    lower.includes('/segment/') || lower.includes('/seg-');
+
+                if (isSegment && !isManifest && !isDirectVideo) return;
+                if (!isManifest && !isDirectVideo) return;
+
+                if (isManifest) {
+                    window._elephantLastManifestUrl = url;
                     window._elephantLastMediaUrl = url;
-                    if (window.ElephantBridge && window.ElephantBridge.onVideoDetected) {
-                        try {
-                            window.ElephantBridge.onVideoDetected(url, document.title || '网页视频', 0, 0, 16, 9);
-                        } catch(e) {}
+                } else {
+                    window._elephantLastDirectVideoUrl = url;
+                    if (!window._elephantLastManifestUrl) {
+                        window._elephantLastMediaUrl = url;
                     }
+                }
+
+                if (window.ElephantBridge && window.ElephantBridge.onVideoDetected) {
+                    try {
+                        window.ElephantBridge.onVideoDetected(
+                            window._elephantLastMediaUrl,
+                            document.title || '网页视频', 0, 0, 16, 9
+                        );
+                    } catch(e) {}
                 }
             }
 
@@ -1208,14 +1244,15 @@ object Scripts {
 
                 fastTap(downloadSideBtn, () => {
                     let realSrc = '';
-                    if (window._elephantLastMediaUrl) realSrc = window._elephantLastMediaUrl;
+                    if (window._elephantLastManifestUrl) realSrc = window._elephantLastManifestUrl;
+                    if (!realSrc && window._elephantLastDirectVideoUrl) realSrc = window._elephantLastDirectVideoUrl;
                     if (!realSrc && video.currentSrc && !video.currentSrc.startsWith('blob:')) realSrc = video.currentSrc;
                     if (!realSrc && video.src && !video.src.startsWith('blob:')) realSrc = video.src;
                     if (!realSrc && window.performance && window.performance.getEntriesByType) {
                         const resources = window.performance.getEntriesByType('resource');
                         for (let i = resources.length - 1; i >= 0; i--) {
                             const name = resources[i].name || '';
-                            if (name.includes('.m3u8') || name.includes('.mp4') || name.includes('.flv') || name.includes('mime=video') || name.includes('/video/')) {
+                            if (name.includes('.m3u8') || name.includes('.mpd') || name.includes('.mp4') || name.includes('.webm') || name.includes('.flv') || name.includes('mime=video') || name.includes('googlevideo.com')) {
                                 realSrc = name;
                                 break;
                             }
@@ -1265,14 +1302,15 @@ object Scripts {
 
                 fastTap(pipBtn, () => {
                     let realSrc = '';
-                    if (window._elephantLastMediaUrl) realSrc = window._elephantLastMediaUrl;
+                    if (window._elephantLastManifestUrl) realSrc = window._elephantLastManifestUrl;
+                    if (!realSrc && window._elephantLastDirectVideoUrl) realSrc = window._elephantLastDirectVideoUrl;
                     if (!realSrc && video.currentSrc && !video.currentSrc.startsWith('blob:')) realSrc = video.currentSrc;
                     if (!realSrc && video.src && !video.src.startsWith('blob:')) realSrc = video.src;
                     if (!realSrc && window.performance && window.performance.getEntriesByType) {
                         const resources = window.performance.getEntriesByType('resource');
                         for (let i = resources.length - 1; i >= 0; i--) {
                             const name = resources[i].name || '';
-                            if (name.includes('.m3u8') || name.includes('.mp4') || name.includes('.flv') || name.includes('mime=video') || name.includes('/video/')) {
+                            if (name.includes('.m3u8') || name.includes('.mpd') || name.includes('.mp4') || name.includes('.webm') || name.includes('.flv') || name.includes('mime=video') || name.includes('googlevideo.com')) {
                                 realSrc = name;
                                 break;
                             }
