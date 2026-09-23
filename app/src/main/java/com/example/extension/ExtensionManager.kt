@@ -93,7 +93,18 @@ class ExtensionManager(private val context: Context) {
         persist(updated)
     }
 
-    fun extension(id: String): BrowserExtension? = _extensions.value.firstOrNull { it.id == id }\n\n    fun iconFile(id: String): File? {\n        val ext = extension(id) ?: return null\n        val path = ext.manifest.iconPath ?: return null\n        return safeChild(ext.rootPath, path)?.takeIf { it.exists() && it.isFile }\n    }\n
+    fun extension(id: String): BrowserExtension? = _extensions.value.firstOrNull { it.id == id }
+
+    fun iconFile(id: String): File? {\n        val ext = extension(id) ?: return null\n        val path = ext.manifest.iconPath ?: return null\n        return safeChild(ext.rootPath, path)?.takeIf { it.exists() && it.isFile }\n    }\n
+    fun prepareExtensionPage(webView: WebView, extensionId: String, pageKey: String = "extension-page"): Boolean {
+        val ext = extension(extensionId) ?: return false
+        if (!ext.enabled) return false
+        attachWebView("$pageKey:$extensionId", webView, "extension://$extensionId")
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        return true
+    }
+
     fun popupUrl(id: String): String? = extension(id)?.manifest?.popup?.let {
         File(extension(id)!!.rootPath, it).takeIf(File::exists)?.let { f -> "file://" + f.absolutePath }
     }
