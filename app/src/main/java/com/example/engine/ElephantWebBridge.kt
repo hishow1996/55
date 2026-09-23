@@ -17,6 +17,16 @@ class ElephantWebBridge(
         onVideoFound(url, title, duration, currentTime, width, height)
     }
 
+
+    /** Reports the live HTML5 video state without replacing the detected source. */
+    @JavascriptInterface
+    fun onVideoPlaybackState(currentTime: Double, isPlaying: Boolean) {
+        // Intentionally forwarded through the existing detection callback so the
+        // ViewModel can refresh the authoritative WebView snapshot. An empty URL
+        // never replaces a known native source unless the caller explicitly does so.
+        onVideoFound("", "", 0.0, currentTime, 0, 0)
+    }
+
     @JavascriptInterface
     fun onTranslationResult(success: Boolean, count: Int) {
         onTranslationFinished(success, count)
