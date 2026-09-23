@@ -584,7 +584,7 @@ class MainActivity : ComponentActivity() {
         viewModel: com.example.viewmodel.BrowserViewModel
     ): VideoMediaInfo {
         val tab = viewModel.currentTab
-        val detectedUrl = viewModel.repository.getDetectedStreamUrl(tab.id)
+        val detectedUrl = viewModel.repository.getDetectedStreamUrlForTab(tab.id)
             ?.trim()
             ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
             ?: viewModel.repository.lastDetectedStreamUrl
