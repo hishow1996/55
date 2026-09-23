@@ -104,7 +104,12 @@ class ExtensionManager(private val context: Context) {
 
     fun extension(id: String): BrowserExtension? = _extensions.value.firstOrNull { it.id == id }
 
-    fun iconFile(id: String): File? {\n        val ext = extension(id) ?: return null\n        val path = ext.manifest.iconPath ?: return null\n        return safeChild(ext.rootPath, path)?.takeIf { it.exists() && it.isFile }\n    }\n
+    fun iconFile(id: String): File? {
+        val ext = extension(id) ?: return null
+        val path = ext.manifest.iconPath ?: return null
+        return safeChild(ext.rootPath, path)?.takeIf { it.exists() && it.isFile }
+    }
+
     fun prepareExtensionPage(webView: WebView, extensionId: String, pageKey: String = "extension-page"): Boolean {
         val ext = extension(extensionId) ?: return false
         if (!ext.enabled) return false
@@ -125,6 +130,10 @@ class ExtensionManager(private val context: Context) {
     fun updatePageState(pageKey: String, url: String, active: Boolean = true) {
         pageUrls[pageKey] = url
         pageActive[pageKey] = active
+    }
+
+    fun setPageActive(pageKey: String) {
+        pageActive.keys.forEach { pageActive[it] = it == pageKey }
     }
 
     fun attachWebView(pageKey: String, webView: WebView, url: String) {
@@ -181,7 +190,7 @@ class ExtensionManager(private val context: Context) {
         wv.addJavascriptInterface(BackgroundBridge(ext.id), "ElephantExtensionBridge")
         val id = JSONObject.quote(ext.id)
         val root = JSONObject.quote("file://" + ext.rootPath + "/")
-        val polyfill = "(function(){window.chrome={runtime:{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){var r=ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},onMessage:{addListener:function(fn){window.__elephantOnMessage=fn}}},storage:{local:{get:function(k,c){var r=ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})},set:function(v,c){ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()},remove:function(k,c){ElephantExtensionBridge.storageRemove($id,k);if(c)c()},clear:function(c){ElephantExtensionBridge.storageClear($id);if(c)c()}}},tabs:{query:function(q,c){var r=ElephantExtensionBridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])}},scripting:{executeScript:function(o,c){var r=ElephantExtensionBridge.executeScript($id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}}};})();"
+        val polyfill = "(function(){window.chrome={runtime:{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){var r=ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},onMessage:{addListener:function(fn){window.__elephantOnMessage=fn}}},storage:{local:{get:function(k,c){var r=ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})},set:function(v,c){ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()},remove:function(k,c){ElephantExtensionBridge.storageRemove($id,k);if(c)c()},clear:function(c){ElephantExtensionBridge.storageClear($id);if(c)c()}}},tabs:{query:function(q,c){var r=ElephantExtensionBridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])},sendMessage:function(tabId,m,c){var r=ElephantExtensionBridge.tabsSendMessage($id,tabId,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)}},scripting:{executeScript:function(o,c){var r=ElephantExtensionBridge.executeScript($id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}}};})();"
         wv.loadDataWithBaseURL("file://" + ext.rootPath + "/", "<html><script>" + polyfill + file.readText() + "</script></html>", "text/html", "UTF-8", null)
         backgroundHosts[ext.id] = wv
     }
@@ -202,6 +211,13 @@ class ExtensionManager(private val context: Context) {
         @JavascriptInterface fun storageSet(extensionId: String, valuesJson: String) { storageSetJson(extensionId, valuesJson) }
         @JavascriptInterface fun sendMessage(extensionId: String, message: String): String {
             deliverToPages(extensionId, message)
+            return JSONObject.NULL.toString()
+        }
+        @JavascriptInterface fun tabsSendMessage(extensionId: String, tabId: Int, message: String): String {
+            val target = pageWebViews.entries.firstOrNull { it.key.hashCode() == tabId }?.value ?: return JSONObject.NULL.toString()
+            val payload = JSONObject.quote(message)
+            val idJson = JSONObject.quote(extensionId)
+            target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});", null) }
             return JSONObject.NULL.toString()
         }
         @JavascriptInterface fun tabsQuery(queryJson: String): String {
