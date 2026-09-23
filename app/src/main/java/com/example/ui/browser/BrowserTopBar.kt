@@ -29,12 +29,17 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.BrowserTab
+import com.example.data.BrowserRepository
 import com.example.model.VideoMediaInfo
 
 @Composable
@@ -73,6 +79,7 @@ fun BrowserTopBar(
     onDismissTranslation: () -> Unit,
     onOpenFloatingPlayer: () -> Unit,
     onToggleDesktopMode: () -> Unit = {},
+    repository: BrowserRepository? = null,
     modifier: Modifier = Modifier
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -281,6 +288,57 @@ fun BrowserTopBar(
                                 contentDescription = if (tab.isLoading) "停止" else "刷新",
                                 tint = subTextColor,
                                 modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            repository?.let { repo ->
+                val extensions by repo.extensionManager.extensions.collectAsState()
+                var extensionMenu by remember { mutableStateOf(false) }
+                var popupId by remember { mutableStateOf<String?>(null) }
+                Box {
+                    IconButton(onClick = { extensionMenu = true }) {
+                        Icon(Icons.Default.Extension, contentDescription = "扩展", tint = textColor)
+                    }
+                    DropdownMenu(expanded = extensionMenu, onDismissRequest = { extensionMenu = false }) {
+                        Text("扩展", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), fontWeight = FontWeight.SemiBold)
+                        val enabled = extensions.filter { it.enabled }
+                        if (enabled.isEmpty()) {
+                            Text("暂无已启用扩展", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = subTextColor)
+                        } else {
+                            enabled.forEach { ext ->
+                                DropdownMenuItem(
+                                    text = { Text(ext.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    leadingIcon = { Icon(Icons.Default.Extension, null) },
+                                    onClick = { extensionMenu = false; if (ext.manifest.popup != null) popupId = ext.id }
+                                )
+                            }
+                        }
+                    }
+                    popupId?.let { id ->
+                        val url = repo.extensionManager.popupUrl(id)
+                        val ext = repo.extensionManager.extension(id)
+                        if (url != null && ext != null) {
+                            AlertDialog(
+                                onDismissRequest = { popupId = null },
+                                title = { Text(ext.name) },
+                                text = {
+                                    androidx.compose.ui.viewinterop.AndroidView(
+                                        factory = { ctx ->
+                                            android.webkit.WebView(ctx).apply {
+                                                settings.javaScriptEnabled = true
+                                                settings.domStorageEnabled = true
+                                                settings.allowFileAccess = true
+                                                webViewClient = android.webkit.WebViewClient()
+                                                loadUrl(url)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(430.dp)
+                                    )
+                                },
+                                confirmButton = { androidx.compose.material3.TextButton(onClick = { popupId = null }) { Text("关闭") } }
                             )
                         }
                     }
