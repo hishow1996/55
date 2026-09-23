@@ -238,7 +238,6 @@ class ExtensionManager(private val context: Context) {
         @JavascriptInterface fun storageSet(extensionId: String, valuesJson: String) { storageSetJson(extensionId, valuesJson) }
         @JavascriptInterface fun storageRemove(extensionId: String, key: String) { storageRemoveJson(extensionId, key) }
         @JavascriptInterface fun storageClear(extensionId: String) { storageClearJson(extensionId) }
-        @JavascriptInterface fun getManifest(extensionId: String): String = getManifestJson(extensionId)
         @JavascriptInterface fun sendMessage(extensionId: String, message: String): String {
             deliverToBackground(extensionId, message)
             return JSONObject.NULL.toString()
@@ -254,13 +253,7 @@ class ExtensionManager(private val context: Context) {
         }
         @JavascriptInterface fun tabsSendMessage(extensionId: String, tabId: Int, message: String): String {
             val target = pageWebViews.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value
-            if (target == null) {
-                val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
-                val newUrl = p.optString("url").takeIf { it.isNotBlank() }
-                browserTabUpdater?.invoke(tabId, newUrl)
-                if (p.optBoolean("active", false)) browserTabSelector?.invoke(tabId)
-                return tabsQuery(JSONObject().apply { put("active", true) }.toString())
-            }
+            if (target == null) return JSONObject.NULL.toString()
             val payload = JSONObject.quote(message)
             val idJson = JSONObject.quote(extensionId)
             target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});", null) }
