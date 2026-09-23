@@ -320,11 +320,10 @@ object Scripts {
 
     fun RESUME_WEB_VIDEO_AT(seconds: Double, autoPlay: Boolean = true): String = """
         (function() {
-            window._elephantFloatingLock = false;
-            if (window._elephantFloatingLockTimer) {
-                clearInterval(window._elephantFloatingLockTimer);
-                window._elephantFloatingLockTimer = null;
-            }
+            // Seek while the native takeover lock is still active. This prevents
+            // the WebView monitor from reporting the old position during the
+            // handoff-back window, which could overwrite the authoritative native
+            // Session position before playback actually resumes.
             const target = window._elephantLastVideoElement;
             const videos = target ? [target] : Array.from(document.querySelectorAll('video')).slice(0, 1);
             videos.forEach(function(v) {
@@ -334,6 +333,17 @@ object Scripts {
                         v._elephantFloatingPlayBound = false;
                     }
                     if (${seconds} >= 0) v.currentTime = ${seconds};
+                } catch(e) {}
+            });
+
+            window._elephantFloatingLock = false;
+            if (window._elephantFloatingLockTimer) {
+                clearInterval(window._elephantFloatingLockTimer);
+                window._elephantFloatingLockTimer = null;
+            }
+
+            videos.forEach(function(v) {
+                try {
                     if (${autoPlay}) {
                         const p = v.play();
                         if (p && typeof p.catch === 'function') p.catch(function(){});
