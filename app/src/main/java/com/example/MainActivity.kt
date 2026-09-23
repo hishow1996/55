@@ -678,7 +678,16 @@ class MainActivity : ComponentActivity() {
             webView.evaluateJavascript(
                 com.example.engine.Scripts.LOCK_WEB_VIDEOS
             ) { _ ->
-                continueGlobalFloatingHandoff(effectiveVideo)
+                // LOCK_WEB_VIDEOS snapshots the real HTML5 position into the
+                // ViewModel before pausing. Re-read it here so Media3 does not
+                // start from the older 250ms monitor sample.
+                val latest = vm?.detectedVideo?.value
+                    ?.takeIf { detected ->
+                        detected.originTabId.isNullOrBlank() ||
+                            detected.originTabId == vm.currentTab.id
+                    }
+                    ?: effectiveVideo
+                continueGlobalFloatingHandoff(latest)
             }
         } else {
             continueGlobalFloatingHandoff(effectiveVideo)
