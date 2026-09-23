@@ -431,6 +431,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val updated = _tabs.value + newTab
         _tabs.value = updated
         extensionTabMap[extensionTabId] = newTab.id
+        repository.extensionManager.bindBrowserTab(extensionTabId, newTab.id)
         if (active) {
             _currentTabIndex.value = updated.lastIndex
             _urlInput.value = url
