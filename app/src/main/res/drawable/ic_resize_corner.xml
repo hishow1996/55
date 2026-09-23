@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <!-- UC-style subtle corner grip lines in the bottom-right corner -->
+    <!-- Outer short line -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#DDFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M11,15 L15,11" />
+    <!-- Middle line -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#DDFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M6,15 L15,6" />
+    <!-- Inner line -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#DDFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M2,14 L14,2" />
+</vector>

@@ -408,7 +408,7 @@ class FloatingPlayerService : Service() {
                 gravity = Gravity.BOTTOM
             }
             setBackgroundColor(0x88000000.toInt())
-            setPadding((8 * density).toInt(), (2 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
+            setPadding((8 * density).toInt(), (2 * density).toInt(), (24 * density).toInt(), (4 * density).toInt())
         }
 
         val sk = SeekBar(this).apply {
@@ -490,6 +490,80 @@ class FloatingPlayerService : Service() {
         lockOv.addView(unlockBtn)
         root.addView(lockOv)
         lockOverlay = lockOv
+
+        // 3.7 UC-Style Subtle Corner Resize Gripper (Bottom-Right Corner)
+        var resizeInitialW = 0
+        var resizeTouchX = 0f
+        var isResizeDragging = false
+        var currentSizePresetIndex = 0
+        val sizePresetsDp = floatArrayOf(300f, 360f, 240f)
+
+        val resizeBtn = FrameLayout(this).apply {
+            val sizePx = (32 * density).toInt()
+            layoutParams = FrameLayout.LayoutParams(sizePx, sizePx).apply {
+                gravity = Gravity.BOTTOM or Gravity.END
+            }
+            background = null
+
+            val iconIv = ImageView(this@FloatingPlayerService).apply {
+                setImageResource(R.drawable.ic_resize_corner)
+                setColorFilter(0xCCFFFFFF.toInt())
+                val p = (7 * density).toInt()
+                setPadding(p, p, p, p)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            addView(iconIv)
+        }
+
+        resizeBtn.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    resizeInitialW = params.width
+                    resizeTouchX = event.rawX
+                    isResizeDragging = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - resizeTouchX
+                    if (Math.abs(dx) > 6) {
+                        isResizeDragging = true
+                        val screenW = resources.displayMetrics.widthPixels
+                        val screenH = resources.displayMetrics.heightPixels
+                        val minW = (180 * density).toInt()
+                        val maxW = (screenW - params.x).coerceAtLeast(minW)
+                        val minH = (110 * density).toInt()
+                        val maxH = (screenH - params.y).coerceAtLeast(minH)
+
+                        val effRatio = if (videoRatio >= 0.5f) videoRatio else (16f / 9f)
+                        val newW = (resizeInitialW + dx).toInt().coerceIn(minW, maxW)
+                        val newH = (newW / effRatio).toInt().coerceIn(minH, maxH)
+                        params.width = newW
+                        params.height = newH
+                        windowManager?.updateViewLayout(root, params)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!isResizeDragging) {
+                        currentSizePresetIndex = (currentSizePresetIndex + 1) % sizePresetsDp.size
+                        val targetWDp = sizePresetsDp[currentSizePresetIndex]
+                        val screenW = resources.displayMetrics.widthPixels
+                        val targetW = (targetWDp * density).toInt().coerceIn((180 * density).toInt(), (screenW - params.x).coerceAtLeast((180 * density).toInt()))
+                        val effRatio = if (videoRatio >= 0.5f) videoRatio else (16f / 9f)
+                        val targetH = (targetW / effRatio).toInt().coerceAtLeast((110 * density).toInt())
+                        params.width = targetW
+                        params.height = targetH
+                        windowManager?.updateViewLayout(root, params)
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+        root.addView(resizeBtn)
 
         rootLayout = root
 

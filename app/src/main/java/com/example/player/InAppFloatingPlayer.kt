@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -66,12 +67,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.Toast
+import com.example.R
 import com.example.model.VideoMediaInfo
 import kotlinx.coroutines.delay
 import kotlin.math.max
@@ -136,6 +140,10 @@ fun InAppFloatingPlayer(
 
     // Lock aspect ratio during resizing
     var lockAspectRatio by remember { mutableStateOf(false) }
+
+    // Resizing visual feedback states
+    var isActivelyResizing by remember { mutableStateOf(false) }
+    var cornerDragDistance by remember { mutableFloatStateOf(0f) }
 
     // Floating window position offset (centered horizontally initially, strictly inside screen)
     var offsetX by remember {
@@ -546,7 +554,7 @@ fun InAppFloatingPlayer(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.5f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .padding(start = 10.dp, end = 24.dp, top = 4.dp, bottom = 4.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -717,45 +725,101 @@ fun InAppFloatingPlayer(
                     }
             )
 
-            // CORNER RESIZE VISUAL ACCENTS (Bottom-Right Corner Handle)
+            // LIVE RESIZING DIMENSION BADGE (Shown during drag resize)
+            if (isActivelyResizing) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xEE0F172A),
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                    shadowElevation = 6.dp,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_resize_corner),
+                            contentDescription = null,
+                            tint = Color(0xFF38BDF8),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "${windowWidthDp.roundToInt()} × ${windowHeightDp.roundToInt()} dp",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // UC-STYLE SUBTLE CORNER RESIZE GRIPPER (Bottom-Right Corner)
             Box(
+                contentAlignment = Alignment.BottomEnd,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .size(32.dp)
-                    .pointerInput(lockAspectRatio, baseRatio) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            val deltaXDp = with(density) { dragAmount.x.toDp().value }
-                            val deltaYDp = with(density) { dragAmount.y.toDp().value }
-                            val maxAllowedWidthDp = with(density) { (screenWidth - offsetX).toDp().value }
-                            val maxAllowedHeightDp = with(density) { (screenHeight - offsetY).toDp().value }
-                            val maxW = minOf(maxWidthDp, maxAllowedWidthDp)
-                            val maxH = minOf(maxHeightDp, maxAllowedHeightDp)
-
-                            var targetWidth = (windowWidthDp + deltaXDp).coerceIn(minWidthDp, maxW)
-                            var targetHeight = (windowHeightDp + deltaYDp).coerceIn(minHeightDp, maxH)
-
-                            if (lockAspectRatio) {
-                                val hFromW = targetWidth / baseRatio
-                                if (hFromW <= maxH && hFromW >= minHeightDp) {
-                                    targetHeight = hFromW
-                                } else {
-                                    targetHeight = targetHeight.coerceIn(minHeightDp, maxH)
-                                    targetWidth = (targetHeight * baseRatio).coerceIn(minWidthDp, maxW)
+                    .pointerInput(baseRatio, screenWidth, screenHeight) {
+                        detectDragGestures(
+                            onDragStart = {
+                                cornerDragDistance = 0f
+                                isActivelyResizing = true
+                            },
+                            onDragEnd = {
+                                isActivelyResizing = false
+                                if (cornerDragDistance < 8f) {
+                                    // Tap / Click action: Toggle between comfortable presets
+                                    val presets = listOf(
+                                        (screenWidthDp * 0.75f).coerceIn(minWidthDp, maxWidthDp),
+                                        (screenWidthDp * 0.95f).coerceIn(minWidthDp, maxWidthDp),
+                                        (screenWidthDp * 0.55f).coerceIn(minWidthDp, maxWidthDp)
+                                    )
+                                    val nextW = when {
+                                        windowWidthDp < screenWidthDp * 0.65f -> presets[0]
+                                        windowWidthDp < screenWidthDp * 0.85f -> presets[1]
+                                        else -> presets[2]
+                                    }
+                                    val effRatio = if (baseRatio >= 0.5f) baseRatio else (16f / 9f)
+                                    val nextH = (nextW / effRatio).coerceIn(minHeightDp, maxHeightDp)
+                                    val maxAllowedW = (screenWidth - offsetX).coerceAtLeast(minWidthDp)
+                                    val maxAllowedH = (screenHeight - offsetY).coerceAtLeast(minHeightDp)
+                                    windowWidthDp = minOf(nextW, maxAllowedW)
+                                    windowHeightDp = minOf(nextH, maxAllowedH)
                                 }
+                            },
+                            onDragCancel = {
+                                isActivelyResizing = false
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                cornerDragDistance += (dragAmount.x * dragAmount.x + dragAmount.y * dragAmount.y)
+                                val deltaXDp = with(density) { dragAmount.x.toDp().value }
+                                val maxAllowedWidthDp = with(density) { (screenWidth - offsetX).toDp().value }
+                                val maxAllowedHeightDp = with(density) { (screenHeight - offsetY).toDp().value }
+                                val maxW = minOf(maxWidthDp, maxAllowedWidthDp)
+                                val maxH = minOf(maxHeightDp, maxAllowedHeightDp)
+
+                                // UC browser preserves video aspect ratio during corner resizing
+                                val effRatio = if (baseRatio >= 0.5f) baseRatio else (16f / 9f)
+                                val targetWidth = (windowWidthDp + deltaXDp).coerceIn(minWidthDp, maxW)
+                                val targetHeight = (targetWidth / effRatio).coerceIn(minHeightDp, maxH)
+
+                                windowWidthDp = targetWidth
+                                windowHeightDp = targetHeight
                             }
-                            windowWidthDp = targetWidth
-                            windowHeightDp = targetHeight
-                        }
+                        )
                     }
             ) {
-                Box(
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_resize_corner),
+                    contentDescription = "调整窗口大小",
+                    tint = Color.White.copy(alpha = if (isActivelyResizing || showControls) 0.9f else 0.45f),
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(5.dp)
-                        .size(10.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Color(0xFF38BDF8))
+                        .padding(end = 4.dp, bottom = 4.dp)
+                        .size(15.dp)
                 )
             }
         }
