@@ -191,6 +191,7 @@ object FloatingVideoPlayerComponent {
             putExtra(FloatingPlayerService.EXTRA_VIDEO_POSITION, session.positionMs.coerceAtLeast(0L))
             putExtra(FloatingPlayerService.EXTRA_VIDEO_PAGE_URL, video.pageUrl)
             putExtra(FloatingPlayerService.EXTRA_ORIGIN_TAB_INDEX, originTabIndex ?: video.originTabIndex ?: 0)
+            putExtra(FloatingPlayerService.EXTRA_ORIGIN_TAB_ID, video.originTabId)
             putExtra(FloatingPlayerService.EXTRA_VIDEO_SHOULD_PLAY, session.isPlaying)
             putExtra(FloatingPlayerService.EXTRA_VIDEO_PLAYBACK_RATE, session.playbackRate)
         }
