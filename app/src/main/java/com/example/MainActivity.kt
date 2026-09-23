@@ -379,7 +379,7 @@ class MainActivity : ComponentActivity() {
                             onSelectTab = { viewModel.selectTab(it) },
                             onCloseTab = { viewModel.closeTab(it) },
                             onCloseTabItem = { viewModel.closeTab(it) },
-                            onNewTab = { incognito -> viewModel.addNewTab(isIncognito = incognito) },
+                            onNewTab = { incognito ->\n                                // Creating a new tab must not inherit/render the old in-app floating player.\n                                // Otherwise the old overlay remains visible and a second, black floating window\n                                // can be composed for the newly selected tab.\n                                if (viewModel.isFloatingPlayerVisible.value) {\n                                    viewModel.closeFloatingPlayer()\n                                }\n                                viewModel.addNewTab(isIncognito = incognito)\n                            },
                             onBack = { viewModel.setTabManagerVisible(false) }
                         )
                     }
