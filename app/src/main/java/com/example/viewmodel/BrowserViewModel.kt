@@ -488,49 +488,78 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun startFloatingPlayer(customVideo: VideoMediaInfo? = null) {
         val baseVideo = customVideo ?: _detectedVideo.value
-        if (baseVideo != null) {
-            val streamUrl = if (baseVideo.url.isBlank() || baseVideo.url.startsWith("blob:") || !baseVideo.url.startsWith("http")) {
-                repository.getDetectedStreamUrl(currentTab.id) ?: repository.lastDetectedStreamUrl ?: baseVideo.url
-            } else {
-                baseVideo.url
-            }
-            val updatedVideo = baseVideo.copy(
-                url = streamUrl,
-                originTabIndex = baseVideo.originTabIndex ?: _currentTabIndex.value
-            )
-            _detectedVideo.value = updatedVideo
-            _isFloatingPlayerVisible.value = true
-            // Pause page video so only floating player plays
-            activeWebView?.evaluateJavascript(Scripts.PAUSE_WEB_VIDEOS, null)
-        } else {
-            // If no video is currently reported, probe page again
+        if (baseVideo == null) {
             activeWebView?.evaluateJavascript(Scripts.VIDEO_SNIFFER_PROBE, null)
-            // Or create playable stream from active page
-            if (currentTab.url.isNotBlank()) {
-                val streamUrl = repository.getDetectedStreamUrl(currentTab.id) ?: repository.lastDetectedStreamUrl ?: currentTab.url
-                val fallback = VideoMediaInfo(
-                    url = streamUrl,
-                    pageUrl = currentTab.url,
-                    title = currentTab.title,
-                    videoWidth = 16,
-                    videoHeight = 9,
-                    originTabIndex = _currentTabIndex.value
-                )
-                _detectedVideo.value = fallback
-                _isFloatingPlayerVisible.value = true
-                activeWebView?.evaluateJavascript(Scripts.PAUSE_WEB_VIDEOS, null)
-            }
+            return
         }
+
+        val candidateUrl = when {
+            baseVideo.url.startsWith("http://", true) || baseVideo.url.startsWith("https://", true) ->
+                baseVideo.url.trim()
+            else ->
+                repository.getDetectedStreamUrl(currentTab.id)
+                    ?.trim()
+                    ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+                    ?: repository.lastDetectedStreamUrl
+                        ?.trim()
+                        ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+                        ?: ""
+        }
+
+        val updatedVideo = baseVideo.copy(
+            url = candidateUrl,
+            originTabIndex = baseVideo.originTabIndex ?: _currentTabIndex.value
+        )
+
+        // Never manufacture the current page URL as a media URL. A webpage URL
+        // handed to Media3 produces the black-player/fake-stream failure mode.
+        if (!VideoSourceResolver.canUseNativePlayer(updatedVideo)) {
+            android.widget.Toast.makeText(
+                getApplication(),
+                "当前视频暂未获得可用原生播放地址，继续使用网页播放器",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            activeWebView?.evaluateJavascript(
+                Scripts.RESUME_WEB_VIDEO_AT(baseVideo.currentTime.coerceAtLeast(0.0)),
+                null
+            )
+            return
+        }
+
+        _detectedVideo.value = updatedVideo
+        _isFloatingPlayerVisible.value = true
+
+        // Hand the playback over to the native player first. The WebView is
+        // locked before the native surface starts so both players never race.
+        activeWebView?.evaluateJavascript(Scripts.LOCK_WEB_VIDEOS, null)
+    }
+
+    /**
+     * Hide the in-app player because an external/system floating player is taking
+     * ownership of playback. Unlike closeFloatingPlayer(), this must NOT resume
+     * the WebView video.
+     */
+    fun hideFloatingPlayerForExternalPlayback() {
+        _isFloatingPlayerVisible.value = false
     }
 
     fun closeFloatingPlayer(resumePositionSeconds: Double? = null) {
+        val video = _detectedVideo.value
         _isFloatingPlayerVisible.value = false
-        if (resumePositionSeconds != null && resumePositionSeconds > 0) {
-            activeWebView?.evaluateJavascript(Scripts.resumeWebVideoAt(resumePositionSeconds), null)
-        } else {
-            activeWebView?.evaluateJavascript(Scripts.RESUME_WEB_VIDEOS, null)
+
+        val sameOriginTab = video?.originTabIndex == null || video.originTabIndex == _currentTabIndex.value
+        val sameSourcePage = video?.pageUrl.isNullOrBlank() || video?.pageUrl == currentTab.url
+        if (!sameOriginTab || !sameSourcePage) {
+            return
         }
+
+        val position = resumePositionSeconds ?: video?.currentTime ?: 0.0
+        activeWebView?.evaluateJavascript(
+            Scripts.RESUME_WEB_VIDEO_AT(position.coerceAtLeast(0.0)),
+            null
+        )
     }
+
 
     // Fullscreen Custom View (Web Video)
     fun showCustomVideoView(view: View, callback: WebChromeClient.CustomViewCallback) {
