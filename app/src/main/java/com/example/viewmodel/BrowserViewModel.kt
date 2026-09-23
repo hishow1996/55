@@ -13,7 +13,6 @@ import com.example.engine.Scripts
 import com.example.model.BookmarkItem
 import com.example.model.BrowserTab
 import com.example.model.HistoryItem
-import com.example.model.PluginItem
 import com.example.model.VideoMediaInfo
 import com.example.player.VideoSourceResolver
 import com.example.player.VideoPlaybackSessionManager
@@ -417,6 +416,34 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         activeWebView?.post {
             activeWebView?.stopLoading()
         }
+    }
+
+    fun addNewTabForExtension(extensionTabId: Int, url: String, active: Boolean) {
+        val newTab = BrowserTab(
+            url = url,
+            title = if (url.isBlank() || url == "about:blank") "新标签页" else "加载中...",
+            isIncognito = repository.isIncognito.value,
+            isDesktopMode = repository.isDesktopMode.value,
+            isNightMode = repository.isNightMode.value
+        )
+        val updated = _tabs.value + newTab
+        _tabs.value = updated
+        if (active) {
+            _currentTabIndex.value = updated.lastIndex
+            _urlInput.value = url
+            activeWebView = tabWebViews[newTab.id]
+        }
+    }
+
+    fun updateExtensionTab(extensionTabId: Int, url: String?) {
+        if (url.isNullOrBlank()) return
+        updateCurrentTab { it.copy(url = url, isLoading = true, progress = 10) }
+        activeWebView?.post { activeWebView?.loadUrl(url) }
+    }
+
+    fun selectExtensionTab(extensionTabId: Int) {
+        val index = _tabs.value.indexOfFirst { it.id == extensionTabId.toString() }
+        if (index >= 0) selectTab(index)
     }
 
     // Tab Management
