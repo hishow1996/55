@@ -221,9 +221,8 @@ class ExtensionManager(private val context: Context) {
         val code = JSONObject.quote(script)
         val id = JSONObject.quote(ext.id)
         val root = JSONObject.quote("file://" + ext.rootPath + "/")
-        return "(function(){if(window['$key'])return;window['$key']=1;window.chrome=window.chrome||{};" +
-            "chrome.runtime=chrome.runtime||{id:$id,getURL:function(p){return $root+p;},sendMessage:function(m,c){try{var r=window.ElephantExtensionBridge&&window.ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)}catch(e){}},onMessage:{addListener:function(fn){window.__elephantRuntimeOnMessage=fn}}};" +
-            "chrome.storage=chrome.storage||{};chrome.storage.local=chrome.storage.local||{get:function(k,c){try{var r=window.ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})}catch(e){if(c)c({})}},set:function(v,c){try{window.ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()}catch(e){if(c)c()}},remove:function(k,c){try{window.ElephantExtensionBridge.storageRemove($id,k);if(c)c()}catch(e){if(c)c()}},clear:function(c){try{window.ElephantExtensionBridge.storageClear($id);if(c)c()}catch(e){if(c)c()}}};" +
+        return "(function(){if(window['$key'])return;window['$key']=1;" +
+            KiwiExtensionApi.content(id, root) +
             "(0,eval)($code);})()"
     }
 
@@ -239,7 +238,11 @@ class ExtensionManager(private val context: Context) {
         wv.addJavascriptInterface(BackgroundBridge(ext.id), "ElephantExtensionBridge")
         val id = JSONObject.quote(ext.id)
         val root = JSONObject.quote("file://" + ext.rootPath + "/")
-        val polyfill = "(function(){window.chrome={runtime:{id:$id,getURL:function(p){return $root+p;},getManifest:function(){return JSON.parse(ElephantExtensionBridge.getManifest($id));},sendMessage:function(m,c){var r=ElephantExtensionBridge.sendMessage($id,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},onMessage:{addListener:function(fn){window.__elephantOnMessage=fn}}},storage:{local:{get:function(k,c){var r=ElephantExtensionBridge.storageGet($id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})},set:function(v,c){ElephantExtensionBridge.storageSet($id,JSON.stringify(v));if(c)c()},remove:function(k,c){ElephantExtensionBridge.storageRemove($id,k);if(c)c()},clear:function(c){ElephantExtensionBridge.storageClear($id);if(c)c()}}},tabs:{query:function(q,c){var r=ElephantExtensionBridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])},sendMessage:function(tabId,m,c){var r=ElephantExtensionBridge.tabsSendMessage($id,tabId,JSON.stringify(m));if(c)c(r?JSON.parse(r):null)},update:function(tabId,p,c){var r=ElephantExtensionBridge.tabsUpdate($id,tabId,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):null)},create:function(p,c){var r=ElephantExtensionBridge.tabsCreate($id,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):null)}},scripting:{executeScript:function(o,c){var r=ElephantExtensionBridge.executeScript($id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}}};})();"
+        val polyfill = KiwiExtensionApi.background(
+            JSONObject.quote(ext.id),
+            JSONObject.quote("file://" + ext.rootPath + "/")
+        )
+
         wv.loadDataWithBaseURL("file://" + ext.rootPath + "/", "<html><script>" + polyfill + file.readText() + "</script></html>", "text/html", "UTF-8", null)
         backgroundHosts[ext.id] = wv
     }
@@ -286,6 +289,9 @@ class ExtensionManager(private val context: Context) {
             pageActive[newKey] = active
             if (active) pageActive.keys.filter { it != newKey }.forEach { pageActive[it] = false }
             browserTabController?.invoke(id, url, active) ?: browserTabCreator?.invoke(url, active)
+            dispatchBackgroundEvent(extensionId, "tabsCreated", JSONObject().apply {
+                put("id", id); put("url", url); put("active", active)
+            }.toString())
             return JSONObject().apply { put("id", id); put("url", url); put("active", active); put("status", "loading"); put("title", "") }.toString()
         }
         @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
@@ -301,6 +307,13 @@ class ExtensionManager(private val context: Context) {
                 setPageActive(key)
                 browserTabSelector?.invoke(tabId)
             }
+            dispatchBackgroundEvent(extensionId, "tabsUpdated", JSONObject().apply {
+                put("id", tabId)
+                put("url", pageUrls[key] ?: "")
+                put("active", pageActive[key] ?: false)
+                put("status", "loading")
+                put("title", pageTitles[key] ?: "")
+            }.toString())
             val obj = JSONObject().apply {
                 put("id", tabId)
                 put("url", pageUrls[key] ?: "")
@@ -327,6 +340,38 @@ class ExtensionManager(private val context: Context) {
             }
             return result.toString()
         }
+        @JavascriptInterface fun tabsRemove(extensionId: String, tabId: Int): String {
+            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return JSONObject.NULL.toString()
+            pageWebViews.remove(key)?.destroy()
+            pageTabIds.remove(key)
+            pageUrls.remove(key)
+            pageTitles.remove(key)
+            pageActive.remove(key)
+            return "true"
+        }
+        @JavascriptInterface fun windowsGetCurrent(extensionId: String): String =
+            JSONObject().apply { put("id", 1); put("focused", true); put("type", "normal") }.toString()
+
+        @JavascriptInterface fun actionSetBadgeText(extensionId: String, text: String) {
+            prefs.edit().putString("badge_text_" + extensionId, text).apply()
+        }
+        @JavascriptInterface fun actionGetBadgeText(extensionId: String): String =
+            prefs.getString("badge_text_" + extensionId, "") ?: ""
+        @JavascriptInterface fun actionSetBadgeBackgroundColor(extensionId: String, colorJson: String) {
+            prefs.edit().putString("badge_color_" + extensionId, colorJson).apply()
+        }
+        @JavascriptInterface fun notificationsCreate(extensionId: String, notificationId: String, optionsJson: String): String =
+            if (notificationId.isNotBlank()) notificationId else "notification-" + System.nanoTime()
+        @JavascriptInterface fun notificationsClear(extensionId: String, notificationId: String): Boolean = true
+
+        @JavascriptInterface fun contextMenuCreate(extensionId: String, itemJson: String): Int {
+            val next = prefs.getInt("context_menu_next_" + extensionId, 1)
+            prefs.edit().putInt("context_menu_next_" + extensionId, next + 1).apply()
+            return next
+        }
+        @JavascriptInterface fun contextMenuRemove(extensionId: String, itemId: String) {}
+        @JavascriptInterface fun contextMenuRemoveAll(extensionId: String) {}
+        
         @JavascriptInterface fun executeScript(extensionId: String, optionsJson: String): String {
             if (!hasPermission(extensionId, "scripting") && !hasPermission(extensionId, "activeTab")) return "[]"
             val o = try { JSONObject(optionsJson) } catch (_: Exception) { JSONObject() }
@@ -375,6 +420,19 @@ class ExtensionManager(private val context: Context) {
                     null
                 )
             }
+        }
+    }
+
+    private fun dispatchBackgroundEvent(extensionId: String, event: String, payload: String) {
+        val wv = backgroundHosts[extensionId] ?: return
+        val p = JSONObject.quote(payload)
+        wv.post {
+            val js = when (event) {
+                "tabsCreated" -> "window.__elephantTabsCreated&&window.__elephantTabsCreated(JSON.parse($p));"
+                "tabsUpdated" -> "window.__elephantTabsUpdated&&window.__elephantTabsUpdated(JSON.parse($p),{},{});"
+                else -> ""
+            }
+            if (js.isNotBlank()) wv.evaluateJavascript(js, null)
         }
     }
 
