@@ -441,8 +441,14 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun updateExtensionTab(extensionTabId: Int, url: String?) {
         if (url.isNullOrBlank()) return
-        updateCurrentTab { it.copy(url = url, isLoading = true, progress = 10) }
-        activeWebView?.post { activeWebView?.loadUrl(url) }
+        val targetId = extensionTabMap[extensionTabId]
+        val index = _tabs.value.indexOfFirst { it.id == targetId }
+        if (index < 0) return
+        _tabs.value = _tabs.value.mapIndexed { i, tab ->
+            if (i == index) tab.copy(url = url, isLoading = true, progress = 10) else tab
+        }
+        targetId?.let { tabWebViews[it]?.post { it.loadUrl(url) } }
+        if (index == _currentTabIndex.value) _urlInput.value = url
     }
 
     fun selectExtensionTab(extensionTabId: Int) {
