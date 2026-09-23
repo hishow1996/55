@@ -906,6 +906,9 @@ fun ChromiumWebViewContainer(
                     "ElephantBridge"
                 )
 
+                // Attach the new extension runtime bridge to every real browser WebView.
+                viewModel.repository.extensionManager.attachWebView(hashCode().toString(), this, tab.url)
+
                 webViewClient = ElephantWebViewClient(
                     tab = tab,
                     repository = viewModel.repository,
