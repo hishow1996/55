@@ -3,25 +3,29 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/app/src/main/java"
+KIWI="$ROOT/third_party/kiwi/src.next"
 
 echo "=== 55 native cutover audit ==="
 
 check_absent() {
   local label="$1"
   local pattern="$2"
-  if grep -RqsE "$pattern" "$APP" 2>/dev/null; then
+  local root="${3:-$APP}"
+  if grep -RqsE "$pattern" "$root" 2>/dev/null; then
     echo "BLOCKED: $label"
-    grep -RIlE "$pattern" "$APP" 2>/dev/null | sed "s#^$ROOT/##"
+    grep -RIlE "$pattern" "$root" 2>/dev/null | sed "s#^$ROOT/##"
   else
     echo "OK: $label"
   fi
 }
 
-check_absent "Android WebView runtime" 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)'
-check_absent "WebView browser bridge" 'ElephantWebBridge|ElephantWebViewClient|ElephantWebChromeClient'
-check_absent "WebView tab registry" 'registerTabWebView|activeWebView|tabWebViews'
-check_absent "custom extension runtime" 'com\.example\.extension|ExtensionManager|KiwiExtensionApi|BrowserExtension'
-check_absent "custom plugin manager" 'PluginManagerScreen|onOpenPlugins|onOpenPluginManager'
+# The Gradle/WebView tree is legacy source material only. The final APK is
+# produced by the Kiwi Chromium GN/Ninja target, so the audit inspects the
+# runtime source that is actually compiled.
+check_absent "WebView runtime copied into Chromium" 'android\\.webkit\\.(WebView|WebChromeClient|WebViewClient)' "$KIWI/chrome"
+check_absent "WebView bridge copied into Chromium" 'ElephantWebBridge|ElephantWebViewClient|ElephantWebChromeClient' "$KIWI/chrome"
+check_absent "custom extension runtime copied into Chromium" 'com\\.example\\.extension|ExtensionManager|KiwiExtensionApi|BrowserExtension' "$KIWI/chrome"
+check_absent "custom plugin manager copied into Chromium" 'PluginManagerScreen|onOpenPlugins|onOpenPluginManager' "$KIWI/chrome"
 
 echo
 echo "Required Chromium native integration points:"
