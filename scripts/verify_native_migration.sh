@@ -8,10 +8,8 @@ KIWI="$ROOT/third_party/kiwi/src.next"
 
 test -d "$KIWI/chrome"
 test -d "$KIWI/extensions"
+"$ROOT/scripts/verify_kiwi_extension_runtime.sh"
 
-# This is deliberately a source-tree migration gate, not a WebView compatibility shim.
-# The 55 Android UI must be ported into Chromium's chrome/android stack before the
-# legacy Gradle/WebView application is removed.
 required=(
   "chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java"
   "chrome/android/java/res"
