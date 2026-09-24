@@ -290,59 +290,7 @@ fun BrowserTopBar(
                 }
             }
 
-            repository?.let { repo ->
-                val extensions by repo.extensionManager.extensions.collectAsState()
-                var extensionMenu by remember { mutableStateOf(false) }
-                var popupId by remember { mutableStateOf<String?>(null) }
-                Box {
-                    IconButton(onClick = { extensionMenu = true }) {
-                        Icon(Icons.Default.Extension, contentDescription = "扩展", tint = textColor)
-                    }
-                    DropdownMenu(expanded = extensionMenu, onDismissRequest = { extensionMenu = false }) {
-                        Text("扩展", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), fontWeight = FontWeight.SemiBold)
-                        val enabled = extensions.filter { it.enabled }.sortedWith(compareByDescending<com.example.extension.BrowserExtension> { repo.extensionManager.isPinned(it.id) }.thenBy { it.name.lowercase() })
-                        if (enabled.isEmpty()) {
-                            Text("暂无已启用扩展", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = subTextColor)
-                        } else {
-                            enabled.forEach { ext ->
-                                DropdownMenuItem(
-                                    text = { Text(ext.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                    leadingIcon = { Icon(Icons.Default.Extension, null) },
-                                    onClick = { extensionMenu = false; if (ext.manifest.popup != null) popupId = ext.id }
-                                )
-                            }
-                        }
-                    }
-                    popupId?.let { id ->
-                        val url = repo.extensionManager.popupUrl(id)
-                        val ext = repo.extensionManager.extension(id)
-                        if (url != null && ext != null) {
-                            AlertDialog(
-                                onDismissRequest = { popupId = null },
-                                title = { Text(ext.name) },
-                                text = {
-                                    androidx.compose.ui.viewinterop.AndroidView(
-                                        factory = { ctx ->
-                                            android.webkit.WebView(ctx).apply {
-                                                settings.javaScriptEnabled = true
-                                                settings.domStorageEnabled = true
-                                                settings.allowFileAccess = true
-                                                settings.allowContentAccess = true
-                                                webViewClient = android.webkit.WebViewClient()
-                                                repo.extensionManager.prepareExtensionPage(this, id, "popup")
-                                                loadUrl(url)
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth().height(430.dp)
-                                    )
-                                },
-                                confirmButton = { androidx.compose.material3.TextButton(onClick = { popupId = null }) { Text("关闭") } }
-                            )
-                        }
-                    }
-                }
-            }
-        }
+
 
         // Animated Web Loading Progress Bar
         if (tab.isLoading && tab.progress in 1..99) {
