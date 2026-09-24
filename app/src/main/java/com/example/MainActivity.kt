@@ -353,7 +353,6 @@ class MainActivity : ComponentActivity() {
                             onOpenBookmarks = { viewModel.openBookmarks() },
                             onOpenHistory = { viewModel.openHistory() },
                             onOpenDownloads = { viewModel.openDownloads() },
-                            onOpenPlugins = { },
                             onOpenFloatingPlayer = { triggerGlobalFloatingOrPiP(viewModel.detectedVideo.value ?: createFallbackVideoForCurrentTab(viewModel)) },
                             onBookmarkPage = {
                                 viewModel.bookmarkCurrentPage()
@@ -406,7 +405,6 @@ class MainActivity : ComponentActivity() {
                             isDesktopMode = currentTab.isDesktopMode,
                             searchEngine = searchEngine,
                             onBack = { viewModel.setSettingsVisible(false) },
-                            onOpenPluginManager = { }
                         )
                     }
 
