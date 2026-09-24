@@ -98,7 +98,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     // its original page even after the user switched tabs.
     var activeWebView: WebView? = null
     private val tabWebViews = mutableMapOf<String, WebView>()
-    private val extensionTabMap = mutableMapOf<Int, String>()
 
     private data class PendingWebVideoResume(
         val tabIndex: Int,
@@ -180,7 +179,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         tabWebViews.clear()
-        extensionTabMap.clear()
         pendingWebVideoResume = null
         activeWebView = null
         super.onCleared()
@@ -415,43 +413,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         activeWebView?.post {
             activeWebView?.stopLoading()
         }
-    }
-
-    fun addNewTabForExtension(extensionTabId: Int, url: String, active: Boolean) {
-        val newTab = BrowserTab(
-            url = url,
-            title = if (url.isBlank() || url == "about:blank") "新标签页" else "加载中...",
-            isIncognito = repository.isIncognito.value,
-            isDesktopMode = repository.isDesktopMode.value,
-            isNightMode = repository.isNightMode.value
-        )
-        val updated = _tabs.value + newTab
-        _tabs.value = updated
-        extensionTabMap[extensionTabId] = newTab.id
-        repository.extensionManager.bindBrowserTab(extensionTabId, newTab.id)
-        if (active) {
-            _currentTabIndex.value = updated.lastIndex
-            _urlInput.value = url
-            activeWebView = tabWebViews[newTab.id]
-        }
-    }
-
-    fun updateExtensionTab(extensionTabId: Int, url: String?) {
-        if (url.isNullOrBlank()) return
-        val targetId = extensionTabMap[extensionTabId]
-        val index = _tabs.value.indexOfFirst { it.id == targetId }
-        if (index < 0) return
-        _tabs.value = _tabs.value.mapIndexed { i, tab ->
-            if (i == index) tab.copy(url = url, isLoading = true, progress = 10) else tab
-        }
-        targetId?.let { tabWebViews[it]?.post { it.loadUrl(url) } }
-        if (index == _currentTabIndex.value) _urlInput.value = url
-    }
-
-    fun selectExtensionTab(extensionTabId: Int) {
-        val targetId = extensionTabMap[extensionTabId]
-        val index = _tabs.value.indexOfFirst { it.id == targetId }
-        if (index >= 0) selectTab(index)
     }
 
     // Tab Management
