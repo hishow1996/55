@@ -499,7 +499,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             }
             _currentTabIndex.value = index
             _urlInput.value = _tabs.value[index].url
-            repository.extensionManager.setPageActive(_tabs.value[index].id)
             _isTabManagerVisible.value = false
         }
     }
