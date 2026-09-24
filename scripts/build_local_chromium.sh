@@ -32,6 +32,7 @@ echo "$GN_ARGS" | grep -Eq "enable_extensions[[:space:]]*=.*true" || { echo "ERR
 
 "$ROOT/scripts/prepare_55_chromium_overlay.sh"
 "$ROOT/scripts/port_55_native_features.sh"
+"$ROOT/scripts/audit_55_native_features.sh"
 "$ROOT/scripts/verify_55_native_cutover.sh"
 
 ninja -C out/android_arm64 chrome_public_apk
