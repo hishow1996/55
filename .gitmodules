@@ -1,0 +1,4 @@
+[submodule "third_party/kiwi/src.next"]
+	path = third_party/kiwi/src.next
+	url = https://github.com/kiwibrowser/src.next.git
+	branch = kiwi
