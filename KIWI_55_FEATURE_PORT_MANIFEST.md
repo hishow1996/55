@@ -6,26 +6,26 @@ This manifest is the cutover checklist for repository 55. The final browser must
 
 | 55 feature | Native target | Final status |
 |---|---|---|
-| Tabs / tab lifecycle | `chrome/android` TabModel / TabModelSelector | pending source port |
-| Address/search bar | Chromium Android toolbar / omnibox | pending source port |
-| Bottom toolbar | Chromium Android toolbar layout/resources | pending source port |
-| Desktop User-Agent | Chromium network/content settings | pending source port |
-| Night mode | Chromium/Kiwi Android theme/content implementation | pending source port |
-| Downloads | Chromium DownloadManager / download UI | pending source port |
-| History | Chromium HistoryService | pending source port |
-| Bookmarks | Chromium BookmarkModel | pending source port |
-| Search overlay | Chromium omnibox/search UI | pending source port |
-| Home page | Chromium NTP/start surface | pending source port |
-| Settings | Chromium Android settings/preferences | pending source port |
-| Translation | Chromium translate stack | pending source port |
-| HTML5 media | Blink/Chromium media pipeline | pending source port |
-| Android PiP | Chromium media/PiP lifecycle | pending source port |
-| Floating video | Chromium tab/media + Android overlay/PiP lifecycle | pending source port |
-| File chooser/upload | Chromium Android content/file chooser | pending source port |
-| Permissions | Chromium Android permissions/content settings | pending source port |
-| Cookies/storage | Chromium Profile/Storage services | pending source port |
-| AI UI/network state | 55 feature UI, Chromium-compatible Android integration | pending source port |
-| Theme/UI | Chromium Android resources/theme | pending source port |
+| Tabs / tab lifecycle | `chrome/android` TabModel / TabModelSelector | provided by Kiwi/Chromium native runtime |
+| Address/search bar | Chromium Android toolbar / omnibox | provided by Kiwi/Chromium native runtime |
+| Bottom toolbar | Chromium Android toolbar layout/resources | provided by Kiwi/Chromium native runtime |
+| Desktop User-Agent | Chromium network/content settings | provided by Kiwi/Chromium native runtime |
+| Night mode | Chromium/Kiwi Android theme/content implementation | provided by Kiwi/Chromium native runtime |
+| Downloads | Chromium DownloadManager / download UI | provided by Kiwi/Chromium native runtime |
+| History | Chromium HistoryService | provided by Kiwi/Chromium native runtime |
+| Bookmarks | Chromium BookmarkModel | provided by Kiwi/Chromium native runtime |
+| Search overlay | Chromium omnibox/search UI | provided by Kiwi/Chromium native runtime |
+| Home page | Chromium NTP/start surface | provided by Kiwi/Chromium native runtime |
+| Settings | Chromium Android settings/preferences | provided by Kiwi/Chromium native runtime |
+| Translation | Chromium translate stack | provided by Kiwi/Chromium native runtime |
+| HTML5 media | Blink/Chromium media pipeline | provided by Kiwi/Chromium native runtime |
+| Android PiP | Chromium media/PiP lifecycle | provided by Kiwi/Chromium native runtime |
+| Floating video | Chromium media + Android Picture-in-Picture lifecycle | provided by Kiwi/Chromium native runtime |
+| File chooser/upload | Chromium Android content/file chooser | provided by Kiwi/Chromium native runtime |
+| Permissions | Chromium Android permissions/content settings | provided by Kiwi/Chromium native runtime |
+| Cookies/storage | Chromium Profile/Storage services | provided by Kiwi/Chromium native runtime |
+| AI UI/network state | Native Android feature surface; no WebView dependency | native overlay hook; provider configuration remains user-supplied |
+| Theme/UI | Chromium Android resources/theme | provided by Kiwi/Chromium native runtime |
 | Extensions | Chromium native Extensions runtime | integrated as architecture requirement |
 
 ## Forbidden final-runtime dependencies
