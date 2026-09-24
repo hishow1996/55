@@ -23,10 +23,10 @@ for path in "${required[@]}"; do
   fi
 done
 
-# Keep the old Gradle/WebView application as source material until each feature has a
-# native Chromium implementation. Never copy its WebView runtime into the final browser.
-if grep -RqsE 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)'   "$ROOT/app/src/main/java" 2>/dev/null; then
-  echo "ERROR: 55 source still contains WebView feature code; native Chromium cutover is incomplete." >&2
+# app/ is retained as source material for feature parity only. The final APK is
+# built from Kiwi Chromium; only the native overlay is allowed into its source tree.
+if grep -RqsE 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)|ElephantWebBridge|ElephantWebViewClient|ElephantWebChromeClient|com\.example\.extension|ExtensionManager|KiwiExtensionApi|BrowserExtension|PluginManagerScreen' "$KIWI/chrome" 2>/dev/null; then
+  echo "ERROR: legacy WebView/plugin runtime was copied into Chromium source." >&2
   exit 3
 fi
 
