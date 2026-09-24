@@ -3,6 +3,8 @@ package org.chromium.chrome.browser;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import org.chromium.base.ContextUtils;
+
 /**
  * Native configuration bridge for the Elephant Browser (repo 55) feature port.
  *
@@ -19,6 +21,13 @@ public final class Elephant55NativeSettings {
     private static final String KEY_AI = "ai_enabled";
 
     private Elephant55NativeSettings() {}
+
+    public static void applyKiwiUiDefaults() {
+        ContextUtils.getAppSharedPreferences().edit()
+                .putBoolean("enable_bottom_toolbar", true)
+                .putBoolean("enable_overscroll_button", true)
+                .apply();
+    }
 
     public static void ensureDefaults(Context context) {
         SharedPreferences p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
