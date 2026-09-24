@@ -72,7 +72,6 @@ fun SettingsScreen(
     isDesktopMode: Boolean,
     searchEngine: String,
     onBack: () -> Unit,
-    onOpenPluginManager: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -144,7 +143,7 @@ fun SettingsScreen(
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
-                onClick = onOpenPluginManager
+                onClick = { /* Extensions are provided by Chromium's native runtime. */ }
             )
 
             // 2. 悬浮窗与播放器
