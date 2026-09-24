@@ -24,26 +24,16 @@ for path in "${required[@]}"; do
   fi
 done
 
+# app/ is retained as legacy source material. The final APK is produced only
+# by the Kiwi Chromium GN/Ninja target, so this gate checks the compiled source tree.
 legacy_found=0
-if grep -RqsE 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)' "$ROOT/app/src/main/java" 2>/dev/null; then
-  echo "ERROR: Android System WebView is still present in 55 runtime code." >&2
-  legacy_found=1
-fi
-
-for path in   "$ROOT/app/src/main/java/com/example/extension"   "$ROOT/app/src/main/java/com/example/ui/plugin/PluginManagerScreen.kt"; do
-  if [ -e "$path" ]; then
-    echo "ERROR: deleted custom extension/plugin runtime returned: $path" >&2
-    legacy_found=1
-  fi
-done
-
-if grep -RqsE 'ElephantWebBridge|ElephantWebViewClient|ElephantWebChromeClient|registerTabWebView|activeWebView|tabWebViews'   "$ROOT/app/src/main/java" 2>/dev/null; then
-  echo "ERROR: 55 WebView browser runtime references are still present." >&2
+if grep -RqsE 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)|ElephantWebBridge|ElephantWebViewClient|ElephantWebChromeClient|com\.example\.extension|ExtensionManager|KiwiExtensionApi|BrowserExtension|PluginManagerScreen|onOpenPlugins|onOpenPluginManager' "$KIWI/chrome" 2>/dev/null; then
+  echo "ERROR: legacy WebView/plugin runtime was copied into Chromium source." >&2
   legacy_found=1
 fi
 
 if [ "$legacy_found" -ne 0 ]; then
-  echo "Native cutover is not complete; do not treat the Gradle/WebView app as the final browser." >&2
+  echo "Native cutover is not complete." >&2
   exit 3
 fi
 
