@@ -101,5 +101,28 @@ p.write_text(s)
 PY
 fi
 
+# Wire the bridge into Chromium's real tabbed activity lifecycle.
+TAB_ACTIVITY="$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java"
+python3 - "$TAB_ACTIVITY" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text()
+imp = 'import org.chromium.chrome.browser.Elephant55NativeSettings;'
+anchor = 'import org.chromium.chrome.browser.IntentHandler.IntentHandlerDelegate;'
+if imp not in s:
+    if anchor not in s:
+        raise SystemExit('Cannot find ChromeTabbedActivity import anchor')
+    s = s.replace(anchor, imp + '\\n' + anchor, 1)
+call = '            Elephant55NativeSettings.ensureDefaults(this);'
+anchor2 = '            super.initializeCompositor();'
+if call not in s:
+    if anchor2 not in s:
+        raise SystemExit('Cannot find ChromeTabbedActivity native initialization anchor')
+    s = s.replace(anchor2, anchor2 + '\\n\\n' + call, 1)
+p.write_text(s)
+PY
+
 grep -Fqx "$ENTRY" "$JAVA_LIST"
-echo "55 native settings bridge installed in Chromium source."
+grep -Fq "Elephant55NativeSettings.ensureDefaults(this);" "$TAB_ACTIVITY"
+echo "55 native settings bridge installed and wired into Chromium tabbed activity."
