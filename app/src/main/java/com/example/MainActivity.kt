@@ -118,20 +118,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             val viewModel: com.example.viewmodel.BrowserViewModel = viewModel()
             viewModelRef = viewModel
-            viewModel.repository.extensionManager.setBrowserTabCreator { url, active ->
-                runOnUiThread { viewModel.addNewTab(initialUrl = url) }
-            }
-            viewModel.repository.extensionManager.setBrowserTabController(
-                creator = { extensionTabId, url, active ->
-                    runOnUiThread { viewModel.addNewTabForExtension(extensionTabId, url, active) }
-                },
-                updater = { extensionTabId, url ->
-                    runOnUiThread { viewModel.updateExtensionTab(extensionTabId, url) }
-                },
-                selector = { extensionTabId ->
-                    runOnUiThread { viewModel.selectExtensionTab(extensionTabId) }
-                }
-            )
 
             LaunchedEffect(Unit) {
                 handleTabIntent(intent)
@@ -246,7 +232,6 @@ class MainActivity : ComponentActivity() {
                                 onDismissTranslation = { viewModel.dismissTranslationBanner() },
                                 onOpenFloatingPlayer = { triggerGlobalFloatingOrPiP(viewModel.detectedVideo.value ?: createFallbackVideoForCurrentTab(viewModel)) },
                                 onToggleDesktopMode = { viewModel.toggleDesktopMode() },
-                                repository = viewModel.repository
                             )
                         }
 
