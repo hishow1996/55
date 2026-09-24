@@ -22,7 +22,7 @@ check_absent() {
 # The Gradle/WebView tree is legacy source material only. The final APK is
 # produced by the Kiwi Chromium GN/Ninja target, so the audit inspects the
 # runtime source that is actually compiled.
-check_absent "WebView runtime copied into Chromium" 'android\\.webkit\\.(WebView|WebChromeClient|WebViewClient)' "$KIWI/chrome"
+check_absent "WebView runtime copied into Chromium" 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)' "$KIWI/chrome"
 check_absent "WebView bridge copied into Chromium" 'ElephantWebBridge|ElephantWebViewClient|ElephantWebChromeClient' "$KIWI/chrome"
 check_absent "custom extension runtime copied into Chromium" 'com\\.example\\.extension|ExtensionManager|KiwiExtensionApi|BrowserExtension' "$KIWI/chrome"
 check_absent "custom plugin manager copied into Chromium" 'PluginManagerScreen|onOpenPlugins|onOpenPluginManager' "$KIWI/chrome"
