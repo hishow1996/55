@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 KIWI="$ROOT/third_party/kiwi/src.next"
+OUTPUT_NAME="${CHROMIUM_APK_NAME:-ElephantBrowser.apk}"
 DEPOT_TOOLS="${DEPOT_TOOLS_DIR:-$ROOT/.depot_tools}"
 
 "$ROOT/scripts/prepare_kiwi_chromium.sh"
@@ -34,3 +35,5 @@ if [ ! -f "$APK" ]; then
 fi
 
 printf "\nAPK: %s\n" "$APK"
+cp -f "$APK" "$ROOT/$OUTPUT_NAME"
+printf "Local APK copy: %s\\n" "$ROOT/$OUTPUT_NAME"
