@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 KIWI="$ROOT/third_party/kiwi/src.next"
 JAVA_ROOT="$KIWI/chrome/android/java/src/org/chromium/chrome/browser"
-JAVA_LIST="$KIWI/chrome/android/java_sources.gni"
+JAVA_LIST="$KIWI/chrome/android/chrome_java_sources.gni"
 TAB_ACTIVITY="$JAVA_ROOT/ChromeTabbedActivity.java"
 
 test -d "$KIWI/chrome/android" || { echo "Kiwi Chromium source is not prepared: $KIWI" >&2; exit 2; }
