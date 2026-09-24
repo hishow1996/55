@@ -84,11 +84,22 @@ from pathlib import Path
 p = Path(__import__("sys").argv[1])
 s = p.read_text()
 entry = '    "java/src/org/chromium/chrome/browser/Elephant55NativeSettings.java",'
-marker = 'chrome_java_sources += public_autofill_assistant_java_sources'
+markers = [
+    'chrome_java_sources += public_autofill_assistant_java_sources',
+    'if (enable_vr) {',
+]
 if entry not in s:
-    s = s.replace(marker, 'chrome_java_sources += [\n' + entry + '\n]\n\n' + marker, 1)
+    replaced = False
+    for marker in markers:
+        if marker in s:
+            s = s.replace(marker, 'chrome_java_sources += [\\n' + entry + '\\n]\\n\\n' + marker, 1)
+            replaced = True
+            break
+    if not replaced:
+        raise SystemExit('Cannot find a stable chrome_java_sources.gni insertion marker')
 p.write_text(s)
 PY
 fi
 
+grep -Fqx "$ENTRY" "$JAVA_LIST"
 echo "55 native settings bridge installed in Chromium source."
