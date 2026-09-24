@@ -55,7 +55,8 @@ if settings_import not in s:
         raise SystemExit("Cannot find ChromeTabbedActivity import anchor")
     s = s.replace(anchor, settings_import + "\n" + controller_import + "\n" + anchor, 1)
 
-settings_call = "        Elephant55NativeSettings.ensureDefaults(this);"
+settings_call = "        Elephant55NativeSettings.ensureDefaults(this);
+        Elephant55NativeSettings.applyKiwiUiDefaults();"
 if settings_call not in s:
     compositor = "        super.initializeCompositor();"
     if compositor in s:
