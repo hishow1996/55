@@ -71,9 +71,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _isSettingsVisible = MutableStateFlow(false)
     val isSettingsVisible: StateFlow<Boolean> = _isSettingsVisible.asStateFlow()
 
-    private val _isPluginManagerVisible = MutableStateFlow(false)
-    val isPluginManagerVisible: StateFlow<Boolean> = _isPluginManagerVisible.asStateFlow()
-
     private val _isHistoryBookmarksVisible = MutableStateFlow(false)
     val isHistoryBookmarksVisible: StateFlow<Boolean> = _isHistoryBookmarksVisible.asStateFlow()
 
@@ -860,7 +857,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun setMenuVisible(visible: Boolean) { _isMenuVisible.value = visible }
     fun setTabManagerVisible(visible: Boolean) { _isTabManagerVisible.value = visible }
     fun setSettingsVisible(visible: Boolean) { _isSettingsVisible.value = visible }
-    fun setPluginManagerVisible(visible: Boolean) { _isPluginManagerVisible.value = visible }
     fun setHistoryBookmarksVisible(visible: Boolean) { _isHistoryBookmarksVisible.value = visible }
     fun openHistory() {
         _historyBookmarksInitialTab.value = 1
