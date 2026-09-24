@@ -20,9 +20,10 @@ mkdir -p out/android_arm64
 cat > out/android_arm64/args.gn <<'EOF'
 target_os = "android"
 target_cpu = "arm64"
-is_debug = true
+is_debug = false
 enable_extensions = true
 is_component_build = false
+is_official_build = false
 EOF
 
 gn gen out/android_arm64
@@ -30,7 +31,7 @@ GN_ARGS="$(gn args out/android_arm64 --list 2>/dev/null || true)"
 echo "$GN_ARGS" | grep -Eq "enable_extensions[[:space:]]*=.*true" || { echo "ERROR: Chromium native Extension Runtime is not enabled." >&2; exit 4; }
 
 "$ROOT/scripts/prepare_55_chromium_overlay.sh"
-"$ROOT/scripts/verify_native_migration.sh"
+"$ROOT/scripts/verify_55_native_cutover.sh"
 
 ninja -C out/android_arm64 chrome_public_apk
 
