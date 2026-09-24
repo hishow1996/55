@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-ROOT="$(pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 KIWI_DIR="$ROOT/third_party/kiwi/src.next"
-DEPOT_TOOLS_DIR="$ROOT/.depot_tools"
+DEPOT_TOOLS_DIR="${DEPOT_TOOLS_DIR:-$ROOT/.depot_tools}"
 KIWI_REPO="https://github.com/kiwibrowser/src.next.git"
 
 mkdir -p "$ROOT/third_party/kiwi"
@@ -14,17 +13,15 @@ fi
 export PATH="$DEPOT_TOOLS_DIR:$PATH"
 
 if [ ! -d "$KIWI_DIR/.git" ]; then
-  git clone "$KIWI_REPO" "$KIWI_DIR"
+  git clone --branch kiwi --depth 1 "$KIWI_REPO" "$KIWI_DIR"
 else
   git -C "$KIWI_DIR" fetch --all --tags
-  git -C "$KIWI_DIR" checkout kiwi 2>/dev/null || true
-  git -C "$KIWI_DIR" pull --ff-only 2>/dev/null || true
+  git -C "$KIWI_DIR" checkout kiwi
+  git -C "$KIWI_DIR" pull --ff-only
 fi
 
 cd "$KIWI_DIR"
-if [ -f ".gclient" ]; then
-  gclient sync
-fi
+gclient sync
 
 echo "Kiwi/Chromium source prepared at: $KIWI_DIR"
-echo "Build with GN/Ninja from the Chromium source tree."
+echo "Next step: scripts/build_local_chromium.sh"
