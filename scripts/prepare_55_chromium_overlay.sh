@@ -26,11 +26,13 @@ done
 # Keep the old Gradle/WebView application as source material until each feature has a
 # native Chromium implementation. Never copy its WebView runtime into the final browser.
 if grep -RqsE 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)'   "$ROOT/app/src/main/java" 2>/dev/null; then
-  echo "WARNING: 55 source still contains WebView feature code; it must be ported to Chromium before final cutover." >&2
+  echo "ERROR: 55 source still contains WebView feature code; native Chromium cutover is incomplete." >&2
+  exit 3
 fi
 
 # The extension runtime is an explicit hard requirement.
 "$ROOT/scripts/verify_kiwi_extension_runtime.sh"
+"$ROOT/scripts/verify_55_native_cutover.sh"
 
 echo "55 Chromium feature overlay prerequisites verified."
 echo "Use Kiwi/Chromium native implementations for tabs, downloads, history, bookmarks,"
