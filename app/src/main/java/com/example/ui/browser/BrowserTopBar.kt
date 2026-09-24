@@ -76,7 +76,6 @@ fun BrowserTopBar(
     onDismissTranslation: () -> Unit,
     onOpenFloatingPlayer: () -> Unit,
     onToggleDesktopMode: () -> Unit = {},
-    repository: BrowserRepository? = null,
     modifier: Modifier = Modifier
 ) {
     var isEditing by remember { mutableStateOf(false) }
