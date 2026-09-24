@@ -15,7 +15,14 @@ cd "$KIWI"
 gclient sync
 mkdir -p out/android_arm64
 if [ ! -f out/android_arm64/args.gn ]; then
-  printf '%s\n' 'target_os = "android"' 'target_cpu = "arm64"' 'is_debug = true' > out/android_arm64/args.gn
+  cat > out/android_arm64/args.gn <<'EOF'
+target_os = "android"
+target_cpu = "arm64"
+is_debug = true
+enable_extensions = true
+is_component_build = false
+EOF
 fi
 gn gen out/android_arm64
 ninja -C out/android_arm64 chrome_public_apk
+printf '\nAPK: %s/out/android_arm64/apks/ChromePublic.apk\n' "$KIWI"
