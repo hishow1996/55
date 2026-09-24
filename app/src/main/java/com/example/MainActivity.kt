@@ -80,7 +80,6 @@ import com.example.ui.download.DownloadManagerScreen
 import com.example.ui.history.HistoryBookmarksScreen
 import com.example.ui.home.HomeScreen
 import com.example.ui.menu.BrowserBottomSheetMenu
-import com.example.ui.plugin.PluginManagerScreen
 import com.example.ui.search.SearchOverlayScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.tabs.TabManagerScreen
@@ -158,7 +157,6 @@ class MainActivity : ComponentActivity() {
             val isMenuVisible by viewModel.isMenuVisible.collectAsState()
             val isTabManagerVisible by viewModel.isTabManagerVisible.collectAsState()
             val isSettingsVisible by viewModel.isSettingsVisible.collectAsState()
-            val isPluginManagerVisible by viewModel.isPluginManagerVisible.collectAsState()
             val isHistoryBookmarksVisible by viewModel.isHistoryBookmarksVisible.collectAsState()
             val historyBookmarksInitialTab by viewModel.historyBookmarksInitialTab.collectAsState()
             val isAiChatVisible by viewModel.isAiChatVisible.collectAsState()
@@ -182,7 +180,6 @@ class MainActivity : ComponentActivity() {
                     customVideoView != null -> viewModel.hideCustomVideoView()
                     isFloatingPlayerVisible -> viewModel.closeFloatingPlayer()
                     isDownloadManagerVisible -> viewModel.setDownloadManagerVisible(false)
-                    isPluginManagerVisible -> viewModel.setPluginManagerVisible(false)
                     isSettingsVisible -> viewModel.setSettingsVisible(false)
                     isHistoryBookmarksVisible -> viewModel.setHistoryBookmarksVisible(false)
                     isTabManagerVisible -> viewModel.setTabManagerVisible(false)
@@ -371,7 +368,7 @@ class MainActivity : ComponentActivity() {
                             onOpenBookmarks = { viewModel.openBookmarks() },
                             onOpenHistory = { viewModel.openHistory() },
                             onOpenDownloads = { viewModel.openDownloads() },
-                            onOpenPlugins = { viewModel.setPluginManagerVisible(true) },
+                            onOpenPlugins = { },
                             onOpenFloatingPlayer = { triggerGlobalFloatingOrPiP(viewModel.detectedVideo.value ?: createFallbackVideoForCurrentTab(viewModel)) },
                             onBookmarkPage = {
                                 viewModel.bookmarkCurrentPage()
@@ -424,20 +421,7 @@ class MainActivity : ComponentActivity() {
                             isDesktopMode = currentTab.isDesktopMode,
                             searchEngine = searchEngine,
                             onBack = { viewModel.setSettingsVisible(false) },
-                            onOpenPluginManager = { viewModel.setPluginManagerVisible(true) }
-                        )
-                    }
-
-                    // --- PLUGIN MANAGER SCREEN ---
-                    AnimatedVisibility(
-                        visible = isPluginManagerVisible,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        PluginManagerScreen(
-                            repository = viewModel.repository,
-                            isNightMode = isNightMode,
-                            onBack = { viewModel.setPluginManagerVisible(false) }
+                            onOpenPluginManager = { }
                         )
                     }
 
