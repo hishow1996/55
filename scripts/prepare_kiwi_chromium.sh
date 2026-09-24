@@ -8,6 +8,23 @@ KIWI_REPO="https://github.com/kiwibrowser/src.next.git"
 
 mkdir -p "$ROOT/third_party/kiwi"
 
+# gclient operates from the directory containing .gclient. Keep that metadata
+# outside the Chromium source so the source remains a clean git submodule.
+GCLIENT_ROOT="$ROOT/third_party/kiwi"
+if [ ! -f "$GCLIENT_ROOT/.gclient" ]; then
+  cat > "$GCLIENT_ROOT/.gclient" <<EOF
+solutions = [
+  {
+    "name": "src.next",
+    "url": "$KIWI_REPO",
+    "managed": False,
+    "custom_deps": {},
+    "custom_vars": {},
+  },
+]
+EOF
+fi
+
 # Prefer the repository gitlink for reproducible local builds.
 if git -C "$ROOT" submodule status -- third_party/kiwi/src.next >/dev/null 2>&1; then
   git -C "$ROOT" submodule update --init --recursive -- third_party/kiwi/src.next
@@ -27,8 +44,10 @@ if [ ! -d "$KIWI_DIR/.git" ]; then
   git clone --branch kiwi --depth 1 "$KIWI_REPO" "$KIWI_DIR"
 fi
 
+cd "$GCLIENT_ROOT"
+gclient sync --nohooks
 cd "$KIWI_DIR"
-gclient sync
+gclient runhooks
 
 test -f extensions/browser/extension_registrar.cc
 test -f extensions/browser/extension_system.cc
