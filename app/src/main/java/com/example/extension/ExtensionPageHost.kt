@@ -10,6 +10,7 @@ import android.webkit.WebView
  * the extension runtime layer.
  */
 interface ExtensionPageHost {
+    fun addJavascriptInterface(obj: Any, name: String)
     fun evaluateJavascript(script: String)
     fun loadUrl(url: String)
     fun post(action: () -> Unit)
@@ -19,6 +20,10 @@ interface ExtensionPageHost {
 class WebViewExtensionPageHost(
     private val webView: WebView
 ) : ExtensionPageHost {
+    override fun addJavascriptInterface(obj: Any, name: String) {
+        webView.addJavascriptInterface(obj, name)
+    }
+
     override fun evaluateJavascript(script: String) {
         webView.evaluateJavascript(script, null)
     }
