@@ -26,8 +26,10 @@ class WebViewExtensionEventHost(
                 "window.__elephantTabsCreated&&window.__elephantTabsCreated(JSON.parse(" + json + "));"
             is ExtensionBrowserEvent.TabsUpdated ->
                 "window.__elephantTabsUpdated&&window.__elephantTabsUpdated(JSON.parse(" + json + "),{},{});"
-            is ExtensionBrowserEvent.RuntimeMessage ->
-                "window.__elephantOnMessage&&window.__elephantOnMessage(JSON.parse(" + json + "),{id:" + JSONObject.quote(event.senderId) + "},function(){});"
+            is ExtensionBrowserEvent.RuntimeMessage -> {
+                val callback = "window.__elephantOnMessage&&window.__elephantOnMessage(JSON.parse(" + json + "),{id:" + JSONObject.quote(event.senderId) + "},function(){});"
+                callback
+            }
         }
         host.post { host.evaluateJavascript(script) }
     }
@@ -36,5 +38,14 @@ class WebViewExtensionEventHost(
 sealed class ExtensionBrowserEvent {
     data class TabsCreated(val tab: TabSnapshot) : ExtensionBrowserEvent()
     data class TabsUpdated(val tab: TabSnapshot) : ExtensionBrowserEvent()
-    data class RuntimeMessage(val message: String, val senderId: String) : ExtensionBrowserEvent()
+    data class RuntimeMessage(
+        val message: String,
+        val senderId: String,
+        val destination: MessageDestination
+    ) : ExtensionBrowserEvent()
+
+    enum class MessageDestination {
+        BACKGROUND,
+        PAGES
+    }
 }
