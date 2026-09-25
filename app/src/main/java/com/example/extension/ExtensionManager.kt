@@ -20,11 +20,10 @@ class ExtensionManager(
     private val permissionPolicy: ExtensionPermissionPolicy = ManifestExtensionPermissionPolicy()
 ) {
     private val prefs = context.getSharedPreferences("extension_runtime_v2", Context.MODE_PRIVATE)
-    private val webViewRuntime = runtime as? WebViewExtensionRuntime
     private val pageRuntime: ExtensionPageRuntime = WebViewExtensionPageRuntime()
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
-    private val lifecycleHost = WebViewExtensionLifecycleHost { startBackground(it) }
+    private val lifecycleHost = RuntimeExtensionLifecycleHost(runtime) { BackgroundBridge(it.id) }
     private val eventHost: ExtensionEventHost = WebViewExtensionEventHost { lifecycleHost.backgroundHosts() }
 
     private val tabHost = BrowserExtensionTabHost()
@@ -82,7 +81,7 @@ class ExtensionManager(
             val updated = _extensions.value.filterNot { it.id == id } + ext
             _extensions.value = updated
             persist(updated)
-            startBackground(ext)
+            lifecycleHost.start(ext)
             return ext
         } finally {
             temp.deleteRecursively()
@@ -222,11 +221,6 @@ class ExtensionManager(
         return "(function(){if(window['$key'])return;window['$key']=1;" +
             KiwiExtensionApi.content(id, root) +
             "(0,eval)($code);})()"
-    }
-
-    private fun startBackground(ext: BrowserExtension): ExtensionBackgroundHost? {
-        if (!ext.enabled) return null
-        return webViewRuntime?.startBackground(ext, BackgroundBridge(ext.id))
     }
 
     private inner class PageBridge(private val pageKey: String) {
