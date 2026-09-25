@@ -16,7 +16,8 @@ import java.util.zip.ZipInputStream
 
 class ExtensionManager(
     private val context: Context,
-    private val runtime: ExtensionRuntimeBackend = CurrentExtensionRuntime
+    private val runtime: ExtensionRuntimeBackend = CurrentExtensionRuntime,
+    private val permissionPolicy: ExtensionPermissionPolicy = ManifestExtensionPermissionPolicy()
 ) {
     private val prefs = context.getSharedPreferences("extension_runtime_v2", Context.MODE_PRIVATE)
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
@@ -191,7 +192,12 @@ class ExtensionManager(
 
     fun hasPermission(id: String, permission: String): Boolean {
         val e = extension(id) ?: return false
-        return permission in e.manifest.permissions || permission in e.manifest.hostPermissions || (permission == "activeTab" && e.enabled)
+        return permissionPolicy.hasPermission(e, permission)
+    }
+
+    fun canAccessUrl(id: String, url: String): Boolean {
+        val e = extension(id) ?: return false
+        return permissionPolicy.canAccessUrl(e, url)
     }
 
     fun getManifestJson(id: String): String {
