@@ -62,6 +62,7 @@ class BrowserExtensionTabHost(
                 pageUrls.remove(entry.key)
                 pageTitles.remove(entry.key)
                 pageActive.remove(entry.key)
+                pageExtensions.remove(entry.key)
             }
         bind(pageKey, extensionTabId)
     }
@@ -128,6 +129,7 @@ class BrowserExtensionTabHost(
     override fun remove(tabId: Int): Boolean {
         val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return false
         pageHosts.remove(key)?.destroy()
+        pageExtensions.remove(key)
         pageTabIds.remove(key)
         pageUrls.remove(key)
         pageTitles.remove(key)
