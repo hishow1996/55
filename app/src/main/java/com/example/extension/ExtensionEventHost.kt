@@ -12,7 +12,8 @@ class NoOpExtensionEventHost : ExtensionEventHost {
 
 class WebViewExtensionEventHost(
     private val backgroundHosts: () -> Map<String, ExtensionBackgroundHost>,
-    private val pageHosts: () -> Collection<ExtensionPageHost> = { emptyList() }
+    private val pageHosts: () -> Collection<ExtensionPageHost> = { emptyList() },
+    private val extensionPageHosts: (String) -> Collection<ExtensionPageHost> = { pageHosts() }
 ) : ExtensionEventHost {
     override fun dispatch(extensionId: String, event: ExtensionBrowserEvent) {
         val host = when (event) {
@@ -23,7 +24,7 @@ class WebViewExtensionEventHost(
         if (event is ExtensionBrowserEvent.RuntimeMessage && event.destination == ExtensionBrowserEvent.MessageDestination.PAGES) {
             val message = JSONObject.quote(event.message)
             val sender = JSONObject.quote(event.senderId)
-            pageHosts().distinct().forEach { page ->
+            extensionPageHosts(extensionId).distinct().forEach { page ->
                 page.post {
                     page.evaluateJavascript(
                         "window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse($message)}));" +
