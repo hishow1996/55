@@ -166,7 +166,13 @@ class ExtensionManager(
         return file.takeIf { it.exists() && it.isFile }?.let { runtime.resourceUrl(ext, path) }
     }
 
-    fun runtimeDescriptor(): ExtensionRuntimeDescriptor = CurrentExtensionRuntime.descriptor
+    fun runtimeDescriptor(): ExtensionRuntimeDescriptor = ExtensionRuntimeDescriptor(
+        kind = runtime.kind,
+        supportsNativeChromiumApis = runtime.supportsNativeChromiumApis,
+        supportsExtensionScheme = runtime.supportsExtensionScheme,
+        supportsManifestV2 = true,
+        supportsManifestV3 = true
+    )
 
     fun updatePageState(pageKey: String, url: String, active: Boolean = true) {
         pageUrls[pageKey] = url
@@ -231,7 +237,7 @@ class ExtensionManager(
         val key = "__elephant_ext_" + ext.id.replace("-", "_")
         val code = JSONObject.quote(script)
         val id = JSONObject.quote(ext.id)
-        val root = JSONObject.quote("file://" + ext.rootPath + "/")
+        val root = JSONObject.quote(runtime.resourceUrl(ext, ""))
         return "(function(){if(window['$key'])return;window['$key']=1;" +
             KiwiExtensionApi.content(id, root) +
             "(0,eval)($code);})()"
@@ -248,13 +254,13 @@ class ExtensionManager(
         wv.webViewClient = WebViewClient()
         wv.addJavascriptInterface(BackgroundBridge(ext.id), "ElephantExtensionBridge")
         val id = JSONObject.quote(ext.id)
-        val root = JSONObject.quote("file://" + ext.rootPath + "/")
+        val root = JSONObject.quote(runtime.resourceUrl(ext, ""))
         val polyfill = KiwiExtensionApi.background(
             JSONObject.quote(ext.id),
             JSONObject.quote("file://" + ext.rootPath + "/")
         )
 
-        wv.loadDataWithBaseURL("file://" + ext.rootPath + "/", "<html><script>" + polyfill + file.readText() + "</script></html>", "text/html", "UTF-8", null)
+        wv.loadDataWithBaseURL(runtime.resourceUrl(ext, ""), "<html><script>" + polyfill + file.readText() + "</script></html>", "text/html", "UTF-8", null)
         backgroundHosts[ext.id] = wv
     }
 
