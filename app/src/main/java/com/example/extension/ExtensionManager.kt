@@ -25,7 +25,7 @@ class ExtensionManager(
     val extensions = _extensions.asStateFlow()
     private val tabHost = BrowserExtensionTabHost()
     private val lifecycleHost = RuntimeExtensionLifecycleHost(runtime) { BackgroundBridge(it.id) }
-    private val eventHost: ExtensionEventHost = WebViewExtensionEventHost(
+    private val eventHost: ExtensionEventHost = runtime.createEventHost(
         backgroundHosts = { lifecycleHost.backgroundHosts() },
         pageHosts = { tabHost.allPageHosts() }
     )
