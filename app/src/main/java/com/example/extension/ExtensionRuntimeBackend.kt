@@ -11,6 +11,13 @@ interface ExtensionRuntimeBackend {
     val kind: Kind
     val supportsNativeChromiumApis: Boolean
 
+    /**
+     * Converts an extension-relative resource into the URL namespace exposed
+     * by this runtime. The WebView backend uses file:// today; a Chromium
+     * backend will return chrome-extension://<id>/... without changing UI code.
+     */
+    fun resourceUrl(extension: BrowserExtension, relativePath: String): String
+
     enum class Kind {
         WEBVIEW_COMPATIBILITY,
         CHROMIUM_NATIVE
@@ -37,6 +44,15 @@ data class ExtensionRuntimeDescriptor(
 object CurrentExtensionRuntime : ExtensionRuntimeBackend {
     override val kind = ExtensionRuntimeBackend.Kind.WEBVIEW_COMPATIBILITY
     override val supportsNativeChromiumApis = false
+
+    override fun resourceUrl(extension: BrowserExtension, relativePath: String): String {
+        val root = java.io.File(extension.rootPath).canonicalFile
+        val target = java.io.File(root, relativePath).canonicalFile
+        require(target.path == root.path || target.path.startsWith(root.path + java.io.File.separator)) {
+            "非法扩展资源路径"
+        }
+        return "file://" + target.absolutePath
+    }
 
     val descriptor = ExtensionRuntimeDescriptor(
         kind = kind,
