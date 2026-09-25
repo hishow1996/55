@@ -189,7 +189,13 @@ class ExtensionManager(
     }
 
     fun attachWebView(pageKey: String, webView: WebView, url: String) {
-        val host = pageRuntime.attach(pageKey, webView, url, PageBridge(pageKey))
+        val surface = WebViewExtensionPageSurface(webView)
+        val existing = tabHost.pageHost(pageKey)
+        if (existing != null && pageRuntime.matches(existing, surface)) {
+            updatePageState(pageKey, url)
+            return
+        }
+        val host = pageRuntime.attach(pageKey, surface, url, PageBridge(pageKey))
         tabHost.attachPage(pageKey, host, url)
     }
 
