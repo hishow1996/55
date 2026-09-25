@@ -21,6 +21,7 @@ class ExtensionManager(
 ) {
     private val prefs = context.getSharedPreferences("extension_runtime_v2", Context.MODE_PRIVATE)
     private val webViewRuntime = runtime as? WebViewExtensionRuntime
+    private val pageRuntime: ExtensionPageRuntime = WebViewExtensionPageRuntime()
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
     private val lifecycleHost = WebViewExtensionLifecycleHost { startBackground(it) }
@@ -222,8 +223,6 @@ class ExtensionManager(
         val ext = extension(extensionId) ?: return false
         if (!ext.enabled) return false
         attachWebView("$pageKey:$extensionId", webView, "extension://$extensionId")
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
         return true
     }
 
@@ -274,12 +273,16 @@ class ExtensionManager(
     }
 
     fun attachWebView(pageKey: String, webView: WebView, url: String) {
-        pageHosts[pageKey] = WebViewExtensionPageHost(webView)
+        pageHosts[pageKey] = pageRuntime.attach(
+            pageKey,
+            webView,
+            url,
+            PageBridge(pageKey)
+        )
         pageUrls[pageKey] = url
         pageActive[pageKey] = true
         pageTitles.putIfAbsent(pageKey, "")
         pageTabIds.putIfAbsent(pageKey, nextTabId++)
-        pageHosts[pageKey]?.addJavascriptInterface(PageBridge(pageKey), "ElephantExtensionBridge")
     }
 
     fun detachWebView(pageKey: String) {
@@ -301,7 +304,9 @@ class ExtensionManager(
                     spec.jsFiles.forEach { name ->
                         val file = safeChild(ext.rootPath, name) ?: return@forEach
                         if (file.exists() && file.isFile) {
-                            pageHosts[pageKey]?.post { pageHosts[pageKey]?.evaluateJavascript(contentBootstrap(ext, file.readText())) }
+                            pageHosts[pageKey]?.let { host ->
+                                pageRuntime.inject(host, contentBootstrap(ext, file.readText()))
+                            }
                         }
                     }
                 }
