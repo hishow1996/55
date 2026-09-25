@@ -1,5 +1,9 @@
 package com.example.extension
 
+import java.util.Collections
+import java.util.HashMap
+import java.util.concurrent.ConcurrentHashMap
+
 /**
  * Owns extension background execution lifetime.
  *
