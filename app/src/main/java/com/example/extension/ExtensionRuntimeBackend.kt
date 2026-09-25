@@ -10,6 +10,7 @@ package com.example.extension
 interface ExtensionRuntimeBackend {
     val kind: Kind
     val supportsNativeChromiumApis: Boolean
+    val supportsExtensionScheme: Boolean
 
     /**
      * Converts an extension-relative resource into the URL namespace exposed
@@ -30,6 +31,7 @@ interface ExtensionRuntimeBackend {
 data class ExtensionRuntimeDescriptor(
     val kind: ExtensionRuntimeBackend.Kind,
     val supportsNativeChromiumApis: Boolean,
+    val supportsExtensionScheme: Boolean,
     val supportsManifestV2: Boolean,
     val supportsManifestV3: Boolean
 )
@@ -44,6 +46,7 @@ data class ExtensionRuntimeDescriptor(
 object CurrentExtensionRuntime : ExtensionRuntimeBackend {
     override val kind = ExtensionRuntimeBackend.Kind.WEBVIEW_COMPATIBILITY
     override val supportsNativeChromiumApis = false
+    override val supportsExtensionScheme = false
 
     override fun resourceUrl(extension: BrowserExtension, relativePath: String): String {
         val root = java.io.File(extension.rootPath).canonicalFile
@@ -57,6 +60,7 @@ object CurrentExtensionRuntime : ExtensionRuntimeBackend {
     val descriptor = ExtensionRuntimeDescriptor(
         kind = kind,
         supportsNativeChromiumApis = supportsNativeChromiumApis,
+        supportsExtensionScheme = supportsExtensionScheme,
         supportsManifestV2 = true,
         supportsManifestV3 = true
     )
