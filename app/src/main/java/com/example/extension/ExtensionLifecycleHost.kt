@@ -1,14 +1,35 @@
 package com.example.extension
 
 /**
- * Lifecycle boundary for an installed extension.
+ * Owns extension background execution lifetime.
  *
- * The compatibility backend can start/stop a WebView background host.
- * A Chromium-native backend can map these calls to the extension service
- * worker/background context lifecycle.
+ * The manager only asks the lifecycle host to start/stop an extension. The
+ * concrete host can therefore be replaced by Chromium's service-worker /
+ * ExtensionService lifecycle later.
  */
 interface ExtensionLifecycleHost {
     fun start(extension: BrowserExtension): Boolean
     fun stop(extensionId: String): Boolean
     fun isRunning(extensionId: String): Boolean
 }
+
+class WebViewExtensionLifecycleHost(
+    private val startAction: (BrowserExtension) -> ExtensionBackgroundHost?
+) : ExtensionLifecycleHost {
+    private val hosts = mutableMapOf<String, ExtensionBackgroundHost>()
+
+    fun backgroundHosts(): Map<String, ExtensionBackgroundHost> = hosts
+
+    override fun start(extension: BrowserExtension): Boolean {
+        if (!extension.enabled || hosts.containsKey(extension.id)) return false
+        val host = startAction(extension) ?: return false
+        hosts[extension.id] = host
+        return true
+    }
+
+    override fun stop(extensionId: String): Boolean =
+        hosts.remove(extensionId)?.let { it.destroy(); true } ?: false
+
+    override fun isRunning(extensionId: String): Boolean = hosts.containsKey(extensionId)
+}
+
