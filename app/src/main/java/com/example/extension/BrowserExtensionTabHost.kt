@@ -2,6 +2,7 @@ package com.example.extension
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -66,9 +67,14 @@ class BrowserExtensionTabHost(
     }
 
     fun markExtensionPage(pageKey: String, extensionId: String) {
-        val ids = pageExtensions[pageKey] ?: mutableSetOf<String>().also { pageExtensions[pageKey] = it }
+        val ids = pageExtensions.computeIfAbsent(pageKey) {
+            Collections.synchronizedSet(mutableSetOf())
+        }
         ids.add(extensionId)
     }
+
+    fun extensionIds(pageKey: String): Set<String> =
+        pageExtensions[pageKey]?.toSet() ?: emptySet()
 
     fun extensionPageHosts(extensionId: String): Collection<ExtensionPageHost> =
         pageExtensions.entries.filter { extensionId in it.value }.mapNotNull { pageHosts[it.key] }.distinct()
