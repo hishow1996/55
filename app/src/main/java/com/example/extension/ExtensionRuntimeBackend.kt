@@ -96,8 +96,9 @@ class WebViewExtensionRuntime(
 
     override fun createEventHost(
         backgroundHosts: () -> Map<String, ExtensionBackgroundHost>,
-        pageHosts: () -> Collection<ExtensionPageHost>
-    ): ExtensionEventHost = WebViewExtensionEventHost(backgroundHosts, pageHosts)
+        pageHosts: () -> Collection<ExtensionPageHost>,
+        extensionPageHosts: (String) -> Collection<ExtensionPageHost>
+    ): ExtensionEventHost = WebViewExtensionEventHost(backgroundHosts, pageHosts, extensionPageHosts)
 
     override fun resourceUrl(extension: BrowserExtension, relativePath: String): String {
         val root = java.io.File(extension.rootPath).canonicalFile
