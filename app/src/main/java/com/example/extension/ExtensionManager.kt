@@ -23,6 +23,8 @@ class ExtensionManager(
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
     private val backgroundHosts = mutableMapOf<String, ExtensionBackgroundHost>()
+    private val eventHost: ExtensionEventHost = NoOpExtensionEventHost()
+
     private val lifecycleHost = object : ExtensionLifecycleHost {
         override fun start(extension: BrowserExtension): Boolean {
             if (!extension.enabled || backgroundHosts.containsKey(extension.id)) return false
@@ -455,19 +457,6 @@ class ExtensionManager(
             wv.post {
                 wv.evaluateJavascript("window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse($payload)}));if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$id},function(){});")
             }
-        }
-    }
-
-    private fun dispatchBackgroundEvent(extensionId: String, event: String, payload: String) {
-        val wv = backgroundHosts[extensionId] ?: return
-        val p = JSONObject.quote(payload)
-        wv.post {
-            val js = when (event) {
-                "tabsCreated" -> "window.__elephantTabsCreated&&window.__elephantTabsCreated(JSON.parse($p));"
-                "tabsUpdated" -> "window.__elephantTabsUpdated&&window.__elephantTabsUpdated(JSON.parse($p),{},{});"
-                else -> ""
-            }
-            if (js.isNotBlank()) wv.evaluateJavascript(js, null)
         }
     }
 
