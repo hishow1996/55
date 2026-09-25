@@ -23,21 +23,9 @@ class ExtensionManager(
     private val webViewRuntime = runtime as? WebViewExtensionRuntime
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
-    private val backgroundHosts = mutableMapOf<String, ExtensionBackgroundHost>()
-    private val eventHost: ExtensionEventHost = WebViewExtensionEventHost { backgroundHosts }
+    private val lifecycleHost = WebViewExtensionLifecycleHost { startBackground(it) }
+    private val eventHost: ExtensionEventHost = WebViewExtensionEventHost { lifecycleHost.backgroundHosts() }
 
-    private val lifecycleHost = object : ExtensionLifecycleHost {
-        override fun start(extension: BrowserExtension): Boolean {
-            if (!extension.enabled || backgroundHosts.containsKey(extension.id)) return false
-            startBackground(extension)
-            return backgroundHosts.containsKey(extension.id)
-        }
-
-        override fun stop(extensionId: String): Boolean =
-            backgroundHosts.remove(extensionId)?.let { it.destroy(); true } ?: false
-
-        override fun isRunning(extensionId: String): Boolean = backgroundHosts.containsKey(extensionId)
-    }
     private val pageHosts = ConcurrentHashMap<String, ExtensionPageHost>()
     private val pageUrls = ConcurrentHashMap<String, String>()
     private val pageActive = ConcurrentHashMap<String, Boolean>()
@@ -331,9 +319,8 @@ class ExtensionManager(
     }
 
     private fun startBackground(ext: BrowserExtension) {
-        if (!ext.enabled || backgroundHosts.containsKey(ext.id)) return
-        val host = webViewRuntime?.startBackground(ext, BackgroundBridge(ext.id)) ?: return
-        backgroundHosts[ext.id] = host
+        if (!ext.enabled) return
+        webViewRuntime?.startBackground(ext, BackgroundBridge(ext.id))
     }
 
     private inner class PageBridge(private val pageKey: String) {
