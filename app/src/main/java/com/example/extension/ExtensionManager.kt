@@ -23,13 +23,12 @@ class ExtensionManager(
     private val pageRuntime: ExtensionPageRuntime = runtime.createPageRuntime()
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
+    private val tabHost = BrowserExtensionTabHost()
     private val lifecycleHost = RuntimeExtensionLifecycleHost(runtime) { BackgroundBridge(it.id) }
     private val eventHost: ExtensionEventHost = WebViewExtensionEventHost(
         backgroundHosts = { lifecycleHost.backgroundHosts() },
         pageHosts = { tabHost.allPageHosts() }
     )
-
-    private val tabHost = BrowserExtensionTabHost()
 
     fun setBrowserTabCreator(creator: ((String, Boolean) -> Unit)?) {
         tabHost.setLegacyCreateTab(creator)
