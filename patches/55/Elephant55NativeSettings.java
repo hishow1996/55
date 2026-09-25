@@ -53,7 +53,8 @@ public final class Elephant55NativeSettings {
 
     public static boolean isDesktopMode(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getBoolean(KEY_DESKTOP_MODE, false);
+                .getBoolean(KEY_DESKTOP_MODE, false)
+                || ContextUtils.getAppSharedPreferences().getBoolean("desktop_mode", false);
     }
 
     public static boolean isNightMode(Context context) {
