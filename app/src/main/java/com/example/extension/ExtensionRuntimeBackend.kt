@@ -17,7 +17,9 @@ interface ExtensionRuntimeBackend {
      * by this runtime. The WebView backend uses file:// today; a Chromium
      * backend will return chrome-extension://<id>/... without changing UI code.
      */
-    fun resourceUrl(extension: BrowserExtension, relativePath: String): String
+    fun createBackgroundHost(extension: BrowserExtension, bridge: Any): ExtensionBackgroundHost? = null
+
+    fun resourceUrl(extension: BrowserExtension, relativePath: String)
 
     enum class Kind {
         WEBVIEW_COMPATIBILITY,
@@ -87,7 +89,7 @@ class WebViewExtensionRuntime(
         return "file://" + target.absolutePath
     }
 
-    fun startBackground(
+    override fun createBackgroundHost(
         extension: BrowserExtension,
         bridge: Any
     ): ExtensionBackgroundHost? {
