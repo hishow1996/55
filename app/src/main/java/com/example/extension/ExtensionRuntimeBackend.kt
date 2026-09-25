@@ -26,7 +26,7 @@ interface ExtensionRuntimeBackend {
         pageHosts: () -> Collection<ExtensionPageHost>
     ): ExtensionEventHost = NoOpExtensionEventHost()
 
-    fun resourceUrl(extension: BrowserExtension, relativePath: String)
+    fun resourceUrl(extension: BrowserExtension, relativePath: String): String
 
     enum class Kind {
         WEBVIEW_COMPATIBILITY,
