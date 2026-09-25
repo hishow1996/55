@@ -53,6 +53,18 @@ class BrowserExtensionTabHost(
         pageTitles[pageKey] = title
     }
 
+    fun bindReplacingLegacy(pageKey: String, extensionTabId: Int) {
+        pageTabIds.entries
+            .filter { it.value == extensionTabId && it.key != pageKey && it.key.startsWith("extension-tab-") }
+            .forEach { entry ->
+                pageTabIds.remove(entry.key)
+                pageUrls.remove(entry.key)
+                pageTitles.remove(entry.key)
+                pageActive.remove(entry.key)
+            }
+        bind(pageKey, extensionTabId)
+    }
+
     fun detachPage(pageKey: String) {
         pageHosts.remove(pageKey)
         pageUrls.remove(pageKey)
@@ -141,6 +153,18 @@ class BrowserExtensionTabHost(
     fun url(pageKey: String): String = pageUrls[pageKey] ?: ""
     fun pageHostMatches(pageKey: String, webView: WebView): Boolean =
         (pageHosts[pageKey] as? WebViewExtensionPageHost)?.matches(webView) == true
+
+    fun executeScriptTargets(tabId: Int): List<Pair<String, ExtensionPageHost>> =
+        if (tabId > 0) pageHosts.entries.filter { pageTabIds[it.key] == tabId }.map { it.key to it.value }
+        else pageHosts.entries.map { it.key to it.value }
+
+    fun pageUrl(pageKey: String): String = pageUrls[pageKey] ?: ""
+
+    fun broadcastMessage(message: String, scriptBuilder: (String) -> String) {
+        pageHosts.values.distinct().forEach { host ->
+            host.post { host.evaluateJavascript(scriptBuilder(message)) }
+        }
+    }
 
     private fun snapshot(key: String): TabSnapshot =
         TabSnapshot(
