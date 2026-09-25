@@ -34,6 +34,73 @@ class ExtensionManager(
     private var browserTabUpdater: ((Int, String?) -> Unit)? = null
     private var browserTabSelector: ((Int) -> Unit)? = null
 
+    private val tabHost = object : ExtensionTabHost {
+        override fun create(url: String, active: Boolean): TabSnapshot {
+            val key = "extension-tab-" + System.nanoTime()
+            val id = nextTabId++
+            pageTabIds[key] = id
+            pageUrls[key] = url
+            pageTitles[key] = ""
+            pageActive[key] = active
+            if (active) pageActive.keys.filter { it != key }.forEach { pageActive[it] = false }
+            browserTabController?.invoke(id, url, active) ?: browserTabCreator?.invoke(url, active)
+            return TabSnapshot(id, url, active)
+        }
+
+        override fun update(tabId: Int, url: String?, active: Boolean?): TabSnapshot? {
+            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return null
+            if (url != null) {
+                pageUrls[key] = url
+                browserTabUpdater?.invoke(tabId, url)
+                pageHosts[key]?.loadUrl(url)
+            }
+            if (active == true) {
+                setPageActive(key)
+                browserTabSelector?.invoke(tabId)
+            }
+            return TabSnapshot(tabId, pageUrls[key] ?: "", pageActive[key] ?: false, title = pageTitles[key] ?: "")
+        }
+
+        override fun query(queryJson: String): JSONArray {
+            val q = try { JSONObject(queryJson) } catch (_: Exception) { JSONObject() }
+            val result = JSONArray()
+            pageUrls.forEach { (key, url) ->
+                val obj = JSONObject().apply {
+                    put("id", pageTabIds[key] ?: 0)
+                    put("url", url)
+                    put("active", pageActive[key] ?: true)
+                    put("status", "complete")
+                    put("title", pageTitles[key] ?: "")
+                }
+                val urlMatch = q.optString("url", "").let { it.isBlank() || matches(listOf(it), url) }
+                if ((!q.has("active") || q.optBoolean("active") == obj.optBoolean("active")) && urlMatch) result.put(obj)
+            }
+            return result
+        }
+
+        override fun remove(tabId: Int): Boolean {
+            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return false
+            pageHosts.remove(key)?.destroy()
+            pageTabIds.remove(key); pageUrls.remove(key); pageTitles.remove(key); pageActive.remove(key)
+            return true
+        }
+
+        override fun select(tabId: Int): Boolean {
+            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return false
+            setPageActive(key)
+            browserTabSelector?.invoke(tabId)
+            return true
+        }
+
+        override fun sendMessage(tabId: Int, extensionId: String, message: String): Boolean {
+            val target = pageHosts.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value ?: return false
+            val payload = JSONObject.quote(message)
+            val idJson = JSONObject.quote(extensionId)
+            target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});") }
+            return true
+        }
+    }
+
     fun setBrowserTabCreator(creator: ((String, Boolean) -> Unit)?) { browserTabCreator = creator }
 
     fun setBrowserTabController(creator: ((Int, String, Boolean) -> Unit)?, updater: ((Int, String?) -> Unit)?, selector: ((Int) -> Unit)?) {
@@ -286,86 +353,24 @@ class ExtensionManager(
             deliverToPages(extensionId, message)
             return JSONObject.NULL.toString()
         }
-        @JavascriptInterface fun tabsSendMessage(extensionId: String, tabId: Int, message: String): String {
-            val target = pageHosts.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value
-            if (target == null) return JSONObject.NULL.toString()
-            val payload = JSONObject.quote(message)
-            val idJson = JSONObject.quote(extensionId)
-            target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});") }
-            return JSONObject.NULL.toString()
-        }
+        @JavascriptInterface fun tabsSendMessage(extensionId: String, tabId: Int, message: String): String =
+            if (tabHost.sendMessage(tabId, extensionId, message)) JSONObject.NULL.toString() else JSONObject.NULL.toString()
         @JavascriptInterface fun tabsCreate(extensionId: String, propertiesJson: String): String {
             val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
-            val url = p.optString("url", "about:blank")
-            val active = p.optBoolean("active", true)
-            val newKey = "extension-tab-" + System.nanoTime()
-            val id = nextTabId++
-            pageTabIds[newKey] = id
-            pageUrls[newKey] = url
-            pageTitles[newKey] = ""
-            pageActive[newKey] = active
-            if (active) pageActive.keys.filter { it != newKey }.forEach { pageActive[it] = false }
-            browserTabController?.invoke(id, url, active) ?: browserTabCreator?.invoke(url, active)
-            dispatchBackgroundEvent(extensionId, "tabsCreated", JSONObject().apply {
-                put("id", id); put("url", url); put("active", active)
-            }.toString())
-            return JSONObject().apply { put("id", id); put("url", url); put("active", active); put("status", "loading"); put("title", "") }.toString()
-        }
-        @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
-            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return JSONObject.NULL.toString()
-            val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
-            val targetUrl = p.optString("url").takeIf { it.isNotBlank() }
-            if (targetUrl != null) {
-                pageUrls[key] = targetUrl
-                browserTabUpdater?.invoke(tabId, targetUrl)
-                pageHosts[key]?.loadUrl(targetUrl)
-            }
-            if (p.has("active") && p.optBoolean("active")) {
-                setPageActive(key)
-                browserTabSelector?.invoke(tabId)
-            }
-            dispatchBackgroundEvent(extensionId, "tabsUpdated", JSONObject().apply {
-                put("id", tabId)
-                put("url", pageUrls[key] ?: "")
-                put("active", pageActive[key] ?: false)
-                put("status", "loading")
-                put("title", pageTitles[key] ?: "")
-            }.toString())
-            val obj = JSONObject().apply {
-                put("id", tabId)
-                put("url", pageUrls[key] ?: "")
-                put("active", pageActive[key] ?: false)
-                put("status", "loading")
-                put("title", pageTitles[key] ?: "")
-            }
-            return obj.toString()
+            return tabHost.create(p.optString("url", "about:blank"), p.optBoolean("active", true)).toJson().toString()
         }
 
-        @JavascriptInterface fun tabsQuery(queryJson: String): String {
-            val q = try { JSONObject(queryJson) } catch (_: Exception) { JSONObject() }
-            val result = JSONArray()
-            pageUrls.forEach { (key, url) ->
-                val obj = JSONObject().apply {
-                    put("id", pageTabIds[key] ?: 0)
-                    put("url", url)
-                    put("active", pageActive[key] ?: true)
-                    put("status", "complete")
-                    put("title", pageTitles[key] ?: "")
-                }
-                val urlMatch = q.optString("url", "").let { it.isBlank() || matches(listOf(it), url) }
-                if ((!q.has("active") || q.optBoolean("active") == obj.optBoolean("active")) && urlMatch) result.put(obj)
-            }
-            return result.toString()
+        @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
+            val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
+            return tabHost.update(tabId, p.optString("url").takeIf { it.isNotBlank() }, if (p.has("active")) p.optBoolean("active") else null)?.toJson()?.toString()
+                ?: JSONObject.NULL.toString()
         }
-        @JavascriptInterface fun tabsRemove(extensionId: String, tabId: Int): String {
-            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return JSONObject.NULL.toString()
-            pageHosts.remove(key)?.destroy()
-            pageTabIds.remove(key)
-            pageUrls.remove(key)
-            pageTitles.remove(key)
-            pageActive.remove(key)
-            return "true"
-        }
+
+        @JavascriptInterface fun tabsQuery(queryJson: String): String = tabHost.query(queryJson).toString()
+
+        @JavascriptInterface fun tabsRemove(extensionId: String, tabId: Int): String =
+            tabHost.remove(tabId).toString()
+
         @JavascriptInterface fun windowsGetCurrent(extensionId: String): String =
             JSONObject().apply { put("id", 1); put("focused", true); put("type", "normal") }.toString()
 
