@@ -23,6 +23,18 @@ class ExtensionManager(
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
     private val backgroundHosts = mutableMapOf<String, ExtensionBackgroundHost>()
+    private val lifecycleHost = object : ExtensionLifecycleHost {
+        override fun start(extension: BrowserExtension): Boolean {
+            if (!extension.enabled || backgroundHosts.containsKey(extension.id)) return false
+            startBackground(extension)
+            return backgroundHosts.containsKey(extension.id)
+        }
+
+        override fun stop(extensionId: String): Boolean =
+            backgroundHosts.remove(extensionId)?.let { it.destroy(); true } ?: false
+
+        override fun isRunning(extensionId: String): Boolean = backgroundHosts.containsKey(extensionId)
+    }
     private val pageHosts = ConcurrentHashMap<String, ExtensionPageHost>()
     private val pageUrls = ConcurrentHashMap<String, String>()
     private val pageActive = ConcurrentHashMap<String, Boolean>()
@@ -127,7 +139,7 @@ class ExtensionManager(
             }
         } catch (_: Exception) {}
         _extensions.value = result
-        result.filter { it.enabled }.forEach(::startBackground)
+        result.filter { it.enabled }.forEach { lifecycleHost.start(it) }
     }
 
     suspend fun install(uri: Uri): Result<BrowserExtension> = runCatching {
@@ -163,7 +175,7 @@ class ExtensionManager(
 
     fun uninstall(id: String) {
         val ext = extension(id) ?: return
-        backgroundHosts.remove(id)?.destroy()
+        lifecycleHost.stop(id)
         prefs.edit().remove("storage_" + id).apply()
         File(ext.rootPath).deleteRecursively()
         val updated = _extensions.value.filterNot { it.id == id }
@@ -183,8 +195,8 @@ class ExtensionManager(
     fun setEnabled(id: String, enabled: Boolean) {
         val updated = _extensions.value.map { if (it.id == id) it.copy(enabled = enabled) else it }
         _extensions.value = updated
-        if (enabled) updated.firstOrNull { it.id == id }?.let(::startBackground)
-        else backgroundHosts.remove(id)?.destroy()
+        if (enabled) updated.firstOrNull { it.id == id }?.let { lifecycleHost.start(it) }
+        else lifecycleHost.stop(id)
         persist(updated)
     }
 
