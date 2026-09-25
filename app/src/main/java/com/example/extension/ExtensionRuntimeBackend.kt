@@ -60,7 +60,8 @@ object CurrentExtensionRuntime : ExtensionRuntimeBackend {
 
     override fun createEventHost(
         backgroundHosts: () -> Map<String, ExtensionBackgroundHost>,
-        pageHosts: () -> Collection<ExtensionPageHost>
+        pageHosts: () -> Collection<ExtensionPageHost>,
+        extensionPageHosts: (String) -> Collection<ExtensionPageHost>
     ): ExtensionEventHost = WebViewExtensionEventHost(backgroundHosts, pageHosts, extensionPageHosts)
 
     override fun resourceUrl(extension: BrowserExtension, relativePath: String): String {
