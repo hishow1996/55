@@ -20,7 +20,7 @@ class ExtensionManager(
     private val permissionPolicy: ExtensionPermissionPolicy = ManifestExtensionPermissionPolicy()
 ) {
     private val prefs = context.getSharedPreferences("extension_runtime_v2", Context.MODE_PRIVATE)
-    private val pageRuntime: ExtensionPageRuntime = WebViewExtensionPageRuntime()
+    private val pageRuntime: ExtensionPageRuntime = runtime.createPageRuntime()
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
     private val lifecycleHost = RuntimeExtensionLifecycleHost(runtime) { BackgroundBridge(it.id) }
