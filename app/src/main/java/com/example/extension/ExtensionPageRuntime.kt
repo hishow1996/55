@@ -5,6 +5,7 @@ import android.webkit.WebView
 interface ExtensionPageRuntime {
     fun attach(pageKey: String, webView: WebView, url: String, bridge: Any): ExtensionPageHost
     fun inject(host: ExtensionPageHost, script: String)
+    fun matches(host: ExtensionPageHost, webView: WebView): Boolean
 }
 
 class WebViewExtensionPageRuntime : ExtensionPageRuntime {
@@ -19,4 +20,7 @@ class WebViewExtensionPageRuntime : ExtensionPageRuntime {
     override fun inject(host: ExtensionPageHost, script: String) {
         host.post { host.evaluateJavascript(script) }
     }
+
+    override fun matches(host: ExtensionPageHost, webView: WebView): Boolean =
+        (host as? WebViewExtensionPageHost)?.matches(webView) == true
 }
