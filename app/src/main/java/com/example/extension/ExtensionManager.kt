@@ -27,90 +27,14 @@ class ExtensionManager(
     private val lifecycleHost = WebViewExtensionLifecycleHost { startBackground(it) }
     private val eventHost: ExtensionEventHost = WebViewExtensionEventHost { lifecycleHost.backgroundHosts() }
 
-    private val pageHosts = ConcurrentHashMap<String, ExtensionPageHost>()
-    private val pageUrls = ConcurrentHashMap<String, String>()
-    private val pageActive = ConcurrentHashMap<String, Boolean>()
-    private val pageTitles = ConcurrentHashMap<String, String>()
-    private val pageTabIds = ConcurrentHashMap<String, Int>()
-    private var nextTabId = 1
-    private var browserTabCreator: ((String, Boolean) -> Unit)? = null
-    private var browserTabController: ((Int, String, Boolean) -> Unit)? = null
-    private var browserTabUpdater: ((Int, String?) -> Unit)? = null
-    private var browserTabSelector: ((Int) -> Unit)? = null
+    private val tabHost = BrowserExtensionTabHost()
 
-    private val tabHost = object : ExtensionTabHost {
-        override fun create(url: String, active: Boolean): TabSnapshot {
-            val key = "extension-tab-" + System.nanoTime()
-            val id = nextTabId++
-            pageTabIds[key] = id
-            pageUrls[key] = url
-            pageTitles[key] = ""
-            pageActive[key] = active
-            if (active) pageActive.keys.filter { it != key }.forEach { pageActive[it] = false }
-            browserTabController?.invoke(id, url, active) ?: browserTabCreator?.invoke(url, active)
-            return TabSnapshot(id, url, active)
-        }
-
-        override fun update(tabId: Int, url: String?, active: Boolean?): TabSnapshot? {
-            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return null
-            if (url != null) {
-                pageUrls[key] = url
-                browserTabUpdater?.invoke(tabId, url)
-                pageHosts[key]?.loadUrl(url)
-            }
-            if (active == true) {
-                setPageActive(key)
-                browserTabSelector?.invoke(tabId)
-            }
-            return TabSnapshot(tabId, pageUrls[key] ?: "", pageActive[key] ?: false, title = pageTitles[key] ?: "")
-        }
-
-        override fun query(queryJson: String): JSONArray {
-            val q = try { JSONObject(queryJson) } catch (_: Exception) { JSONObject() }
-            val result = JSONArray()
-            pageUrls.forEach { (key, url) ->
-                val obj = JSONObject().apply {
-                    put("id", pageTabIds[key] ?: 0)
-                    put("url", url)
-                    put("active", pageActive[key] ?: true)
-                    put("status", "complete")
-                    put("title", pageTitles[key] ?: "")
-                }
-                val urlMatch = q.optString("url", "").let { it.isBlank() || matches(listOf(it), url) }
-                if ((!q.has("active") || q.optBoolean("active") == obj.optBoolean("active")) && urlMatch) result.put(obj)
-            }
-            return result
-        }
-
-        override fun remove(tabId: Int): Boolean {
-            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return false
-            pageHosts.remove(key)?.destroy()
-            pageTabIds.remove(key); pageUrls.remove(key); pageTitles.remove(key); pageActive.remove(key)
-            return true
-        }
-
-        override fun select(tabId: Int): Boolean {
-            val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return false
-            setPageActive(key)
-            browserTabSelector?.invoke(tabId)
-            return true
-        }
-
-        override fun sendMessage(tabId: Int, extensionId: String, message: String): Boolean {
-            val target = pageHosts.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value ?: return false
-            val payload = JSONObject.quote(message)
-            val idJson = JSONObject.quote(extensionId)
-            target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});") }
-            return true
-        }
+    fun setBrowserTabCreator(creator: ((String, Boolean) -> Unit)?) {
+        tabHost.setLegacyCreateTab(creator)
     }
 
-    fun setBrowserTabCreator(creator: ((String, Boolean) -> Unit)?) { browserTabCreator = creator }
-
     fun setBrowserTabController(creator: ((Int, String, Boolean) -> Unit)?, updater: ((Int, String?) -> Unit)?, selector: ((Int) -> Unit)?) {
-        browserTabController = creator
-        browserTabUpdater = updater
-        browserTabSelector = selector
+        tabHost.setLegacyCallbacks(creator, updater, selector)
     }
 
     init { load() }
@@ -249,19 +173,15 @@ class ExtensionManager(
     )
 
     fun updatePageState(pageKey: String, url: String, active: Boolean = true) {
-        pageUrls[pageKey] = url
-        pageActive[pageKey] = active
-        if (active) setPageActive(pageKey)
+        tabHost.updatePage(pageKey, url, active)
     }
 
-    fun updatePageTitle(pageKey: String, title: String) { pageTitles[pageKey] = title }
+    fun updatePageTitle(pageKey: String, title: String) { tabHost.updateTitle(pageKey, title) }
 
-    fun setPageActive(pageKey: String) {
-        pageActive.keys.forEach { pageActive[it] = it == pageKey }
-    }
+    fun setPageActive(pageKey: String) { tabHost.updatePage(pageKey, tabHost.url(pageKey), true) }
 
     fun bindBrowserTab(extensionTabId: Int, pageKey: String) {
-        pageTabIds.entries.filter { it.value == extensionTabId && it.key != pageKey && it.key.startsWith("extension-tab-") }
+        tabHost.bind(pageKey, extensionTabId)
             .forEach { entry ->
                 pageTabIds.remove(entry.key)
                 pageUrls.remove(entry.key)
@@ -269,33 +189,20 @@ class ExtensionManager(
                 pageActive.remove(entry.key)
             }
         // Bind before Compose creates the WebView. attachWebView keeps this ID.
-        pageTabIds[pageKey] = extensionTabId
     }
 
     fun attachWebView(pageKey: String, webView: WebView, url: String) {
-        pageHosts[pageKey] = pageRuntime.attach(
-            pageKey,
-            webView,
-            url,
-            PageBridge(pageKey)
-        )
-        pageUrls[pageKey] = url
-        pageActive[pageKey] = true
-        pageTitles.putIfAbsent(pageKey, "")
-        pageTabIds.putIfAbsent(pageKey, nextTabId++)
+        val host = pageRuntime.attach(pageKey, webView, url, PageBridge(pageKey))
+        tabHost.attachPage(pageKey, host, url)
     }
 
     fun detachWebView(pageKey: String) {
-        pageHosts.remove(pageKey)
-        pageUrls.remove(pageKey)
-        pageActive.remove(pageKey)
-        pageTitles.remove(pageKey)
-        pageTabIds.remove(pageKey)
+        tabHost.detachPage(pageKey)
     }
 
     fun injectForPage(webView: WebView, url: String, runAt: String) {
         val pageKey = webView.hashCode().toString()
-        if (pageHosts[pageKey] !is WebViewExtensionPageHost || !(pageHosts[pageKey] as WebViewExtensionPageHost).matches(webView)) attachWebView(pageKey, webView, url)
+        if (tabHost.pageHostMatches(pageKey, webView).not()) attachWebView(pageKey, webView, url)
         else updatePageState(pageKey, url)
         _extensions.value.filter { it.enabled }.forEach { ext ->
             ext.manifest.contentScripts
