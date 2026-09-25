@@ -26,6 +26,7 @@ class BrowserExtensionTabHost(
     private val pageActive = ConcurrentHashMap<String, Boolean>()
     private val pageTitles = ConcurrentHashMap<String, String>()
     private val pageTabIds = ConcurrentHashMap<String, Int>()
+    private val pageExtensions = ConcurrentHashMap<String, MutableSet<String>>()
     private var nextTabId = 1
 
     fun bind(pageKey: String, extensionTabId: Int, url: String = "") {
@@ -65,7 +66,16 @@ class BrowserExtensionTabHost(
         bind(pageKey, extensionTabId)
     }
 
+    fun markExtensionPage(pageKey: String, extensionId: String) {
+        val ids = pageExtensions[pageKey] ?: mutableSetOf<String>().also { pageExtensions[pageKey] = it }
+        ids.add(extensionId)
+    }
+
+    fun extensionPageHosts(extensionId: String): Collection<ExtensionPageHost> =
+        pageExtensions.entries.filter { extensionId in it.value }.mapNotNull { pageHosts[it.key] }.distinct()
+
     fun detachPage(pageKey: String) {
+        pageExtensions.remove(pageKey)
         pageHosts.remove(pageKey)
         pageUrls.remove(pageKey)
         pageActive.remove(pageKey)
