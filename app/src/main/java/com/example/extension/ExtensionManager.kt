@@ -23,7 +23,7 @@ class ExtensionManager(
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
     private val backgroundHosts = mutableMapOf<String, WebView>()
-    private val pageWebViews = ConcurrentHashMap<String, WebView>()
+    private val pageHosts = ConcurrentHashMap<String, ExtensionPageHost>()
     private val pageUrls = ConcurrentHashMap<String, String>()
     private val pageActive = ConcurrentHashMap<String, Boolean>()
     private val pageTitles = ConcurrentHashMap<String, String>()
@@ -199,7 +199,7 @@ class ExtensionManager(
     }
 
     fun attachWebView(pageKey: String, webView: WebView, url: String) {
-        pageWebViews[pageKey] = webView
+        pageHosts[pageKey] = WebViewExtensionPageHost(webView)
         pageUrls[pageKey] = url
         pageActive[pageKey] = true
         pageTitles.putIfAbsent(pageKey, "")
@@ -208,7 +208,7 @@ class ExtensionManager(
     }
 
     fun detachWebView(pageKey: String) {
-        pageWebViews.remove(pageKey)
+        pageHosts.remove(pageKey)
         pageUrls.remove(pageKey)
         pageActive.remove(pageKey)
         pageTitles.remove(pageKey)
@@ -217,7 +217,7 @@ class ExtensionManager(
 
     fun injectForPage(webView: WebView, url: String, runAt: String) {
         val pageKey = webView.hashCode().toString()
-        if (pageWebViews[pageKey] !== webView) attachWebView(pageKey, webView, url)
+        if (pageHosts[pageKey] !is WebViewExtensionPageHost || !(pageHosts[pageKey] as WebViewExtensionPageHost).matches(webView)) attachWebView(pageKey, webView, url)
         else updatePageState(pageKey, url)
         _extensions.value.filter { it.enabled }.forEach { ext ->
             ext.manifest.contentScripts
@@ -287,7 +287,7 @@ class ExtensionManager(
             return JSONObject.NULL.toString()
         }
         @JavascriptInterface fun tabsSendMessage(extensionId: String, tabId: Int, message: String): String {
-            val target = pageWebViews.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value
+            val target = pageHosts.entries.firstOrNull { pageTabIds[it.key] == tabId }?.value
             if (target == null) return JSONObject.NULL.toString()
             val payload = JSONObject.quote(message)
             val idJson = JSONObject.quote(extensionId)
@@ -318,7 +318,7 @@ class ExtensionManager(
             if (targetUrl != null) {
                 pageUrls[key] = targetUrl
                 browserTabUpdater?.invoke(tabId, targetUrl)
-                pageWebViews[key]?.post { it.loadUrl(targetUrl) }
+                pageHosts[key]?.loadUrl(targetUrl)
             }
             if (p.has("active") && p.optBoolean("active")) {
                 setPageActive(key)
@@ -359,7 +359,7 @@ class ExtensionManager(
         }
         @JavascriptInterface fun tabsRemove(extensionId: String, tabId: Int): String {
             val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return JSONObject.NULL.toString()
-            pageWebViews.remove(key)?.destroy()
+            pageHosts.remove(key)?.destroy()
             pageTabIds.remove(key)
             pageUrls.remove(key)
             pageTitles.remove(key)
@@ -399,9 +399,9 @@ class ExtensionManager(
             val target = o.optJSONObject("target")
             val tabId = target?.optInt("tabId", -1) ?: -1
             val targets = if (tabId > 0) {
-                pageWebViews.entries.filter { pageTabIds[it.key] == tabId }
+                pageHosts.entries.filter { pageTabIds[it.key] == tabId }
             } else {
-                pageWebViews.entries.toList()
+                pageHosts.entries.toList()
             }
             var count = 0
             targets.forEach { entry ->
@@ -409,7 +409,7 @@ class ExtensionManager(
                 val hosts = extension(extensionId)?.manifest?.hostPermissions.orEmpty()
                 if (hosts.isNotEmpty() && !matches(hosts, pageUrl) && !hasPermission(extensionId, "activeTab")) return@forEach
                 count++
-                entry.value.post { entry.value.evaluateJavascript(js, null) }
+                entry.value.post { entry.value.evaluateJavascript(js) }
             }
             return if (count == 0) "[]" else "[{}]"
         }
@@ -430,12 +430,9 @@ class ExtensionManager(
     private fun deliverToPages(extensionId: String, message: String) {
         val payload = JSONObject.quote(message)
         val id = JSONObject.quote(extensionId)
-        pageWebViews.values.distinct().forEach { wv ->
+        pageHosts.values.distinct().forEach { wv ->
             wv.post {
-                wv.evaluateJavascript(
-                    "window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse($payload)}));if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$id},function(){});",
-                    null
-                )
+                wv.evaluateJavascript("window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse($payload)}));if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$id},function(){});")
             }
         }
     }
