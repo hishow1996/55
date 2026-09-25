@@ -270,7 +270,7 @@ class ExtensionManager(
         pageActive[pageKey] = true
         pageTitles.putIfAbsent(pageKey, "")
         pageTabIds.putIfAbsent(pageKey, nextTabId++)
-        webView.addJavascriptInterface(PageBridge(pageKey), "ElephantExtensionBridge")
+        pageHosts[pageKey]?.addJavascriptInterface(PageBridge(pageKey), "ElephantExtensionBridge")
     }
 
     fun detachWebView(pageKey: String) {
@@ -292,7 +292,7 @@ class ExtensionManager(
                     spec.jsFiles.forEach { name ->
                         val file = safeChild(ext.rootPath, name) ?: return@forEach
                         if (file.exists() && file.isFile) {
-                            webView.evaluateJavascript(contentBootstrap(ext, file.readText()), null)
+                            pageHosts[pageKey]?.post { pageHosts[pageKey]?.evaluateJavascript(contentBootstrap(ext, file.readText())) }
                         }
                     }
                 }
