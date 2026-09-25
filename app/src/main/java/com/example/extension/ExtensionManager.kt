@@ -94,7 +94,7 @@ class ExtensionManager(
     fun uninstall(id: String) {
         val ext = extension(id) ?: return
         lifecycleHost.stop(id)
-        prefs.edit().remove("storage_" + id).apply()
+        storageHost.clear(id)
         File(ext.rootPath).deleteRecursively()
         val updated = _extensions.value.filterNot { it.id == id }
         _extensions.value = updated
