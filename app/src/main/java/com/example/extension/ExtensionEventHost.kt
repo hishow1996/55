@@ -1,18 +1,36 @@
 package com.example.extension
 
-/**
- * Event boundary between an extension runtime and the browser.
- *
- * The WebView compatibility runtime may dispatch events as JavaScript calls.
- * A Chromium-native implementation can map the same events to ExtensionHost
- * / ExtensionService event dispatch without exposing WebView details.
- */
+import org.json.JSONObject
+
 interface ExtensionEventHost {
     fun dispatch(extensionId: String, event: ExtensionBrowserEvent)
 }
 
 class NoOpExtensionEventHost : ExtensionEventHost {
     override fun dispatch(extensionId: String, event: ExtensionBrowserEvent) = Unit
+}
+
+class WebViewExtensionEventHost(
+    private val backgroundHosts: () -> Map<String, ExtensionBackgroundHost>
+) : ExtensionEventHost {
+    override fun dispatch(extensionId: String, event: ExtensionBrowserEvent) {
+        val host = backgroundHosts()[extensionId] ?: return
+        val payload = when (event) {
+            is ExtensionBrowserEvent.TabsCreated -> event.tab.toJson().toString()
+            is ExtensionBrowserEvent.TabsUpdated -> event.tab.toJson().toString()
+            is ExtensionBrowserEvent.RuntimeMessage -> event.message
+        }
+        val json = JSONObject.quote(payload)
+        val script = when (event) {
+            is ExtensionBrowserEvent.TabsCreated ->
+                "window.__elephantTabsCreated&&window.__elephantTabsCreated(JSON.parse(" + json + "));"
+            is ExtensionBrowserEvent.TabsUpdated ->
+                "window.__elephantTabsUpdated&&window.__elephantTabsUpdated(JSON.parse(" + json + "),{},{});"
+            is ExtensionBrowserEvent.RuntimeMessage ->
+                "window.__elephantOnMessage&&window.__elephantOnMessage(JSON.parse(" + json + "),{id:" + JSONObject.quote(event.senderId) + "},function(){});"
+        }
+        host.post { host.evaluateJavascript(script) }
+    }
 }
 
 sealed class ExtensionBrowserEvent {
