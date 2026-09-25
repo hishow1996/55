@@ -21,6 +21,11 @@ interface ExtensionRuntimeBackend {
 
     fun createPageRuntime(): ExtensionPageRuntime = WebViewExtensionPageRuntime()
 
+    fun createEventHost(
+        backgroundHosts: () -> Map<String, ExtensionBackgroundHost>,
+        pageHosts: () -> Collection<ExtensionPageHost>
+    ): ExtensionEventHost = NoOpExtensionEventHost()
+
     fun resourceUrl(extension: BrowserExtension, relativePath: String)
 
     enum class Kind {
@@ -51,6 +56,11 @@ object CurrentExtensionRuntime : ExtensionRuntimeBackend {
     override val kind = ExtensionRuntimeBackend.Kind.WEBVIEW_COMPATIBILITY
     override val supportsNativeChromiumApis = false
     override val supportsExtensionScheme = false
+
+    override fun createEventHost(
+        backgroundHosts: () -> Map<String, ExtensionBackgroundHost>,
+        pageHosts: () -> Collection<ExtensionPageHost>
+    ): ExtensionEventHost = WebViewExtensionEventHost(backgroundHosts, pageHosts)
 
     override fun resourceUrl(extension: BrowserExtension, relativePath: String): String {
         val root = java.io.File(extension.rootPath).canonicalFile
