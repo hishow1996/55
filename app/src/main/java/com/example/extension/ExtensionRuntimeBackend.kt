@@ -65,3 +65,60 @@ object CurrentExtensionRuntime : ExtensionRuntimeBackend {
         supportsManifestV3 = true
     )
 }
+
+/**
+ * WebView compatibility runtime. Background WebViews are created here rather
+ * than inside ExtensionManager, leaving the lifecycle boundary replaceable by
+ * a Chromium-native runtime later.
+ */
+class WebViewExtensionRuntime(
+    private val context: android.content.Context
+) : ExtensionRuntimeBackend {
+    override val kind = ExtensionRuntimeBackend.Kind.WEBVIEW_COMPATIBILITY
+    override val supportsNativeChromiumApis = false
+    override val supportsExtensionScheme = false
+
+    override fun resourceUrl(extension: BrowserExtension, relativePath: String): String {
+        val root = java.io.File(extension.rootPath).canonicalFile
+        val target = java.io.File(root, relativePath).canonicalFile
+        require(target.path == root.path || target.path.startsWith(root.path + java.io.File.separator)) {
+            "非法扩展资源路径"
+        }
+        return "file://" + target.absolutePath
+    }
+
+    fun startBackground(
+        extension: BrowserExtension,
+        bridge: Any
+    ): ExtensionBackgroundHost? {
+        val worker = extension.manifest.serviceWorker
+            ?: extension.manifest.backgroundScripts.firstOrNull()
+            ?: return null
+        val root = java.io.File(extension.rootPath).canonicalFile
+        val file = java.io.File(root, worker).canonicalFile
+        if (!file.exists() || !file.isFile ||
+            !(file.path == root.path || file.path.startsWith(root.path + java.io.File.separator))) return null
+
+        val host = createWebViewBackgroundHost(context)
+        host.addJavascriptInterface(bridge, "ElephantExtensionBridge")
+        val polyfill = KiwiExtensionApi.background(
+            org.json.JSONObject.quote(extension.id),
+            org.json.JSONObject.quote("file://" + extension.rootPath + "/")
+        )
+        host.loadDataWithBaseURL(
+            resourceUrl(extension, ""),
+            "<html><script>" + polyfill + file.readText() + "</script></html>"
+        )
+        return host
+    }
+
+    companion object {
+        val descriptor = ExtensionRuntimeDescriptor(
+            kind = ExtensionRuntimeBackend.Kind.WEBVIEW_COMPATIBILITY,
+            supportsNativeChromiumApis = false,
+            supportsExtensionScheme = false,
+            supportsManifestV2 = true,
+            supportsManifestV3 = true
+        )
+    }
+}
