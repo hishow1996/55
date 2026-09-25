@@ -13,3 +13,19 @@ class ExtensionRuntimeBackendTest {
         assertTrue(CurrentExtensionRuntime.descriptor.supportsManifestV3)
     }
 }
+
+
+    @Test
+    fun resourceUrlRejectsPathTraversal() {
+        val ext = BrowserExtension(
+            id = "test",
+            rootPath = System.getProperty("java.io.tmpdir"),
+            manifest = ExtensionManifest(3, "Test", "1.0")
+        )
+        try {
+            CurrentExtensionRuntime.resourceUrl(ext, "../outside.js")
+            throw AssertionError("path traversal must be rejected")
+        } catch (_: IllegalArgumentException) {
+            // expected
+        }
+    }
