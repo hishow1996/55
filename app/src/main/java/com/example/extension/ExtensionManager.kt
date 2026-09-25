@@ -442,15 +442,15 @@ class ExtensionManager(
     }
 
     private fun deliverToBackground(extensionId: String, message: String) {
-        val wv = backgroundHosts[extensionId] ?: return
-        val payload = JSONObject.quote(message)
-        val id = JSONObject.quote(extensionId)
-        wv.post {
-            wv.evaluateJavascript(
-                "window.__elephantOnMessage&&window.__elephantOnMessage(JSON.parse($payload),{id:$id},function(){});",
-                null
+        if (!backgroundHosts.containsKey(extensionId)) return
+        eventHost.dispatch(
+            extensionId,
+            ExtensionBrowserEvent.RuntimeMessage(
+                message = message,
+                senderId = extensionId,
+                destination = ExtensionBrowserEvent.MessageDestination.BACKGROUND
             )
-        }
+        )
     }
 
     private fun deliverToPages(extensionId: String, message: String) {
