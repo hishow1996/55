@@ -9,11 +9,11 @@ class ExtensionRuntimeBackendTest {
     fun currentRuntimeIsExplicitlyWebViewCompatibility() {
         assertTrue(CurrentExtensionRuntime.kind == ExtensionRuntimeBackend.Kind.WEBVIEW_COMPATIBILITY)
         assertFalse(CurrentExtensionRuntime.supportsNativeChromiumApis)
+        assertFalse(CurrentExtensionRuntime.supportsExtensionScheme)
         assertTrue(CurrentExtensionRuntime.descriptor.supportsManifestV2)
         assertTrue(CurrentExtensionRuntime.descriptor.supportsManifestV3)
+        assertFalse(CurrentExtensionRuntime.descriptor.supportsExtensionScheme)
     }
-}
-
 
     @Test
     fun resourceUrlRejectsPathTraversal() {
@@ -29,3 +29,4 @@ class ExtensionRuntimeBackendTest {
             // expected
         }
     }
+}
