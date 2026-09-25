@@ -16,7 +16,10 @@ class BrowserExtensionTabHost(
     private val createTab: ((String, Boolean) -> Unit)? = null,
     private val controlTab: ((Int, String, Boolean) -> Unit)? = null,
     private val updateTab: ((Int, String?) -> Unit)? = null,
-    private val selectTab: ((Int) -> Unit)? = null
+    private var legacyCreateTab: ((String, Boolean) -> Unit)? = createTab
+    private var legacyControlTab: ((Int, String, Boolean) -> Unit)? = controlTab
+    private var legacyUpdateTab: ((Int, String?) -> Unit)? = updateTab
+    private var legacySelectTab: ((Int) -> Unit)? = selectTab
 ) : ExtensionTabHost {
     private val pageHosts = ConcurrentHashMap<String, ExtensionPageHost>()
     private val pageUrls = ConcurrentHashMap<String, String>()
@@ -66,7 +69,7 @@ class BrowserExtensionTabHost(
         pageTitles[key] = ""
         pageActive[key] = active
         if (active) pageActive.keys.filter { it != key }.forEach { pageActive[it] = false }
-        controlTab?.invoke(id, url, active) ?: createTab?.invoke(url, active)
+        legacyControlTab?.invoke(id, url, active) ?: legacyCreateTab?.invoke(url, active)
         return TabSnapshot(id, url, active)
     }
 
@@ -74,12 +77,12 @@ class BrowserExtensionTabHost(
         val key = pageTabIds.entries.firstOrNull { it.value == tabId }?.key ?: return null
         if (url != null) {
             pageUrls[key] = url
-            updateTab?.invoke(tabId, url)
+            legacyUpdateTab?.invoke(tabId, url)
             pageHosts[key]?.loadUrl(url)
         }
         if (active == true) {
             updatePage(key, pageUrls[key] ?: "", true)
-            selectTab?.invoke(tabId)
+            legacySelectTab?.invoke(tabId)
         }
         return snapshot(key)
     }
@@ -123,6 +126,21 @@ class BrowserExtensionTabHost(
         }
         return true
     }
+
+    fun setLegacyCreateTab(callback: ((String, Boolean) -> Unit)?) { legacyCreateTab = callback }
+    fun setLegacyCallbacks(
+        control: ((Int, String, Boolean) -> Unit)?,
+        update: ((Int, String?) -> Unit)?,
+        select: ((Int) -> Unit)?
+    ) {
+        legacyControlTab = control
+        legacyUpdateTab = update
+        legacySelectTab = select
+    }
+
+    fun url(pageKey: String): String = pageUrls[pageKey] ?: ""
+    fun pageHostMatches(pageKey: String, webView: WebView): Boolean =
+        (pageHosts[pageKey] as? WebViewExtensionPageHost)?.matches(webView) == true
 
     private fun snapshot(key: String): TabSnapshot =
         TabSnapshot(
