@@ -23,7 +23,8 @@ interface ExtensionRuntimeBackend {
 
     fun createEventHost(
         backgroundHosts: () -> Map<String, ExtensionBackgroundHost>,
-        pageHosts: () -> Collection<ExtensionPageHost>
+        pageHosts: () -> Collection<ExtensionPageHost>,
+        extensionPageHosts: (String) -> Collection<ExtensionPageHost> = { pageHosts() }
     ): ExtensionEventHost = NoOpExtensionEventHost()
 
     fun resourceUrl(extension: BrowserExtension, relativePath: String): String
@@ -60,7 +61,7 @@ object CurrentExtensionRuntime : ExtensionRuntimeBackend {
     override fun createEventHost(
         backgroundHosts: () -> Map<String, ExtensionBackgroundHost>,
         pageHosts: () -> Collection<ExtensionPageHost>
-    ): ExtensionEventHost = WebViewExtensionEventHost(backgroundHosts, pageHosts)
+    ): ExtensionEventHost = WebViewExtensionEventHost(backgroundHosts, pageHosts, extensionPageHosts)
 
     override fun resourceUrl(extension: BrowserExtension, relativePath: String): String {
         val root = java.io.File(extension.rootPath).canonicalFile
