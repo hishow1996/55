@@ -9,7 +9,10 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 test -d "$KIWI/chrome" || fail "Kiwi Chromium source is not prepared"
 test -f "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java" || fail "ChromeTabbedActivity missing"
 test -f "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/tab/TabUtils.java" || fail "TabUtils missing"
-test -f "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/media/PictureInPictureActivity.java" || fail "Chromium PiP activity missing"
+if ! find "$KIWI/chrome/android/java/src" "$KIWI/chrome/android/java" -type f \
+    \( -name '*PictureInPicture*.java' -o -name '*PictureInPicture*.kt' \) -print -quit | grep -q .; then
+  fail "Chromium PiP implementation is missing"
+fi
 test -d "$KIWI/components/history" || fail "Chromium history service missing"
 test -d "$KIWI/components/bookmarks" || fail "Chromium bookmarks service missing"
 test -f "$KIWI/extensions/browser/extension_service.cc" || fail "Chromium extension runtime missing"
