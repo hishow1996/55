@@ -291,7 +291,7 @@ class ExtensionManager(
             if (target == null) return JSONObject.NULL.toString()
             val payload = JSONObject.quote(message)
             val idJson = JSONObject.quote(extensionId)
-            target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});", null) }
+            target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});") }
             return JSONObject.NULL.toString()
         }
         @JavascriptInterface fun tabsCreate(extensionId: String, propertiesJson: String): String {
