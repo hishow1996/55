@@ -318,9 +318,9 @@ class ExtensionManager(
             "(0,eval)($code);})()"
     }
 
-    private fun startBackground(ext: BrowserExtension) {
-        if (!ext.enabled) return
-        webViewRuntime?.startBackground(ext, BackgroundBridge(ext.id))
+    private fun startBackground(ext: BrowserExtension): ExtensionBackgroundHost? {
+        if (!ext.enabled) return null
+        return webViewRuntime?.startBackground(ext, BackgroundBridge(ext.id))
     }
 
     private inner class PageBridge(private val pageKey: String) {
