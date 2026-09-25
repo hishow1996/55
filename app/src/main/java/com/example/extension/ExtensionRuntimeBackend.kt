@@ -92,6 +92,11 @@ class WebViewExtensionRuntime(
     override val supportsNativeChromiumApis = false
     override val supportsExtensionScheme = false
 
+    override fun createEventHost(
+        backgroundHosts: () -> Map<String, ExtensionBackgroundHost>,
+        pageHosts: () -> Collection<ExtensionPageHost>
+    ): ExtensionEventHost = WebViewExtensionEventHost(backgroundHosts, pageHosts)
+
     override fun resourceUrl(extension: BrowserExtension, relativePath: String): String {
         val root = java.io.File(extension.rootPath).canonicalFile
         val target = java.io.File(root, relativePath).canonicalFile
