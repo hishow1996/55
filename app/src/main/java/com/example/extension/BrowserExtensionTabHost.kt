@@ -179,7 +179,7 @@ class BrowserExtensionTabHost(
 
     private fun matchesPattern(pattern: String, url: String): Boolean {
         if (pattern == "<all_urls>") return url.startsWith("http://") || url.startsWith("https://")
-        val p = pattern.replace(".", "\\u002e").replace("*", ".*")
-        return Regex("^$p$").matches(url)
+        val regex = "^" + pattern.split("*").joinToString(".*") { Regex.escape(it) } + "$"
+        return Regex(regex).matches(url)
     }
 }
