@@ -21,7 +21,7 @@ class ExtensionManager(
     private val prefs = context.getSharedPreferences("extension_runtime_v2", Context.MODE_PRIVATE)
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
-    private val backgroundHosts = mutableMapOf<String, WebView>()
+    private val backgroundHosts = mutableMapOf<String, ExtensionBackgroundHost>()
     private val pageHosts = ConcurrentHashMap<String, ExtensionPageHost>()
     private val pageUrls = ConcurrentHashMap<String, String>()
     private val pageActive = ConcurrentHashMap<String, Boolean>()
