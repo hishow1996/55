@@ -199,7 +199,7 @@ class ExtensionManager(
 
     fun injectForPage(webView: WebView, url: String, runAt: String) {
         val pageKey = webView.hashCode().toString()
-        if (tabHost.pageHostMatches(pageKey, webView).not()) attachWebView(pageKey, webView, url)
+        if (tabHost.pageHost(pageKey) == null) attachWebView(pageKey, webView, url)
         else updatePageState(pageKey, url)
         _extensions.value.filter { it.enabled }.forEach { ext ->
             ext.manifest.contentScripts
