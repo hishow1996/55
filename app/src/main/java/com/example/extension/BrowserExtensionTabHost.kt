@@ -17,8 +17,8 @@ class BrowserExtensionTabHost(
     private val controlTab: ((Int, String, Boolean) -> Unit)? = null,
     private val updateTab: ((Int, String?) -> Unit)? = null,
     private var legacyCreateTab: ((String, Boolean) -> Unit)? = createTab
-    private var legacyControlTab: ((Int, String, Boolean) -> Unit)? = controlTab
-    private var legacyUpdateTab: ((Int, String?) -> Unit)? = updateTab
+    private var legacyControlTab: ((Int, String, Boolean) -> Unit)? = controlTab,
+    private var legacyUpdateTab: ((Int, String?) -> Unit)? = updateTab,
     private var legacySelectTab: ((Int) -> Unit)? = selectTab
 ) : ExtensionTabHost {
     private val pageHosts = ConcurrentHashMap<String, ExtensionPageHost>()
@@ -179,7 +179,7 @@ class BrowserExtensionTabHost(
 
     private fun matchesPattern(pattern: String, url: String): Boolean {
         if (pattern == "<all_urls>") return url.startsWith("http://") || url.startsWith("https://")
-        val p = pattern.replace(".", "\.").replace("*", ".*")
+        val p = pattern.replace(".", "\\u002e").replace("*", ".*")
         return Regex("^$p$").matches(url)
     }
 }
