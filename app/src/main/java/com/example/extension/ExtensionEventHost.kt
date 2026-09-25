@@ -11,10 +11,29 @@ class NoOpExtensionEventHost : ExtensionEventHost {
 }
 
 class WebViewExtensionEventHost(
-    private val backgroundHosts: () -> Map<String, ExtensionBackgroundHost>
+    private val backgroundHosts: () -> Map<String, ExtensionBackgroundHost>,
+    private val pageHosts: () -> Collection<ExtensionPageHost> = { emptyList() }
 ) : ExtensionEventHost {
     override fun dispatch(extensionId: String, event: ExtensionBrowserEvent) {
-        val host = backgroundHosts()[extensionId] ?: return
+        val host = when (event) {
+            is ExtensionBrowserEvent.RuntimeMessage ->
+                if (event.destination == ExtensionBrowserEvent.MessageDestination.PAGES) null else backgroundHosts()[extensionId]
+            else -> backgroundHosts()[extensionId]
+        }
+        if (event is ExtensionBrowserEvent.RuntimeMessage && event.destination == ExtensionBrowserEvent.MessageDestination.PAGES) {
+            val message = JSONObject.quote(event.message)
+            val sender = JSONObject.quote(event.senderId)
+            pageHosts().distinct().forEach { page ->
+                page.post {
+                    page.evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse($message)}));" +
+                            "if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($message),{id:$sender},function(){});"
+                    )
+                }
+            }
+            return
+        }
+        host ?: return
         val payload = when (event) {
             is ExtensionBrowserEvent.TabsCreated -> event.tab.toJson().toString()
             is ExtensionBrowserEvent.TabsUpdated -> event.tab.toJson().toString()
