@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
@@ -318,7 +317,6 @@ class ExtensionManager(
         val wv = WebView(context)
         wv.settings.javaScriptEnabled = true
         wv.settings.domStorageEnabled = true
-        wv.webViewClient = WebViewClient()
         wv.addJavascriptInterface(BackgroundBridge(ext.id), "ElephantExtensionBridge")
         val id = JSONObject.quote(ext.id)
         val root = JSONObject.quote(runtime.resourceUrl(ext, ""))
@@ -327,7 +325,7 @@ class ExtensionManager(
             JSONObject.quote("file://" + ext.rootPath + "/")
         )
 
-        wv.loadDataWithBaseURL(runtime.resourceUrl(ext, ""), "<html><script>" + polyfill + file.readText() + "</script></html>", "text/html", "UTF-8", null)
+        wv.loadDataWithBaseURL(runtime.resourceUrl(ext, ""), "<html><script>" + polyfill + file.readText() + "</script></html>")
         backgroundHosts[ext.id] = wv
     }
 
