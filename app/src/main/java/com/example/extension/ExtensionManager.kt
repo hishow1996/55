@@ -20,6 +20,7 @@ class ExtensionManager(
     private val permissionPolicy: ExtensionPermissionPolicy = ManifestExtensionPermissionPolicy()
 ) {
     private val prefs = context.getSharedPreferences("extension_runtime_v2", Context.MODE_PRIVATE)
+    private val storageHost: ExtensionStorageHost = SharedPreferencesExtensionStorageHost(context)
     private val pageRuntime: ExtensionPageRuntime = runtime.createPageRuntime()
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
@@ -227,10 +228,10 @@ class ExtensionManager(
 
     private inner class PageBridge(private val pageKey: String) {
         @JavascriptInterface fun getManifest(extensionId: String): String = getManifestJson(extensionId)
-        @JavascriptInterface fun storageGet(extensionId: String, key: String?): String = storageGetJson(extensionId, key)
-        @JavascriptInterface fun storageSet(extensionId: String, valuesJson: String) { storageSetJson(extensionId, valuesJson) }
-        @JavascriptInterface fun storageRemove(extensionId: String, key: String) { storageRemoveJson(extensionId, key) }
-        @JavascriptInterface fun storageClear(extensionId: String) { storageClearJson(extensionId) }
+        @JavascriptInterface fun storageGet(extensionId: String, key: String?): String = storageHost.get(extensionId, key)
+        @JavascriptInterface fun storageSet(extensionId: String, valuesJson: String) { storageHost.set(extensionId, valuesJson) }
+        @JavascriptInterface fun storageRemove(extensionId: String, key: String) { storageHost.remove(extensionId, key) }
+        @JavascriptInterface fun storageClear(extensionId: String) { storageHost.clear(extensionId) }
         @JavascriptInterface fun sendMessage(extensionId: String, message: String): String {
             deliverToBackground(extensionId, message)
             return JSONObject.NULL.toString()
@@ -335,35 +336,6 @@ class ExtensionManager(
                 destination = ExtensionBrowserEvent.MessageDestination.PAGES
             )
         )
-    }
-
-    private fun storageGetJson(extensionId: String, key: String?): String {
-        val all = try { JSONObject(prefs.getString("storage_" + extensionId, "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
-        if (key.isNullOrBlank()) return all.toString()
-        val out = JSONObject()
-        if (all.has(key)) out.put(key, all.opt(key))
-        return out.toString()
-    }
-
-    private fun storageRemoveJson(extensionId: String, key: String) {
-        val all = try { JSONObject(prefs.getString("storage_" + extensionId, "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
-        all.remove(key)
-        prefs.edit().putString("storage_" + extensionId, all.toString()).apply()
-    }
-
-    private fun storageClearJson(extensionId: String) {
-        prefs.edit().putString("storage_" + extensionId, "{}").apply()
-    }
-
-    private fun storageSetJson(extensionId: String, valuesJson: String) {
-        val all = try { JSONObject(prefs.getString("storage_" + extensionId, "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
-        val values = try { JSONObject(valuesJson) } catch (_: Exception) { JSONObject() }
-        val keys = values.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
-            all.put(key, values.opt(key))
-        }
-        prefs.edit().putString("storage_" + extensionId, all.toString()).apply()
     }
 
     private fun persist(list: List<BrowserExtension>) {
