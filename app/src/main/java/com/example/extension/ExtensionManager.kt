@@ -28,7 +28,8 @@ class ExtensionManager(
     private val lifecycleHost = RuntimeExtensionLifecycleHost(runtime) { BackgroundBridge(it.id) }
     private val eventHost: ExtensionEventHost = runtime.createEventHost(
         backgroundHosts = { lifecycleHost.backgroundHosts() },
-        pageHosts = { tabHost.allPageHosts() }
+        pageHosts = { tabHost.allPageHosts() },
+        extensionPageHosts = { tabHost.extensionPageHosts(it) }
     )
 
     fun setBrowserTabCreator(creator: ((String, Boolean) -> Unit)?) {
@@ -208,6 +209,7 @@ class ExtensionManager(
                         val file = safeChild(ext.rootPath, name) ?: return@forEach
                         if (file.exists() && file.isFile) {
                             tabHost.pageHost(pageKey)?.let { host ->
+                                tabHost.markExtensionPage(pageKey, ext.id)
                                 pageRuntime.inject(host, contentBootstrap(ext, file.readText()))
                             }
                         }
