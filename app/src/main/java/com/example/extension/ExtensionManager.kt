@@ -15,7 +15,10 @@ import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipInputStream
 
-class ExtensionManager(private val context: Context) {
+class ExtensionManager(
+    private val context: Context,
+    private val runtime: ExtensionRuntimeBackend = CurrentExtensionRuntime
+) {
     private val prefs = context.getSharedPreferences("extension_runtime_v2", Context.MODE_PRIVATE)
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
@@ -149,13 +152,21 @@ class ExtensionManager(private val context: Context) {
         return true
     }
 
-    fun popupUrl(id: String): String? = extension(id)?.manifest?.popup?.let {
-        File(extension(id)!!.rootPath, it).takeIf(File::exists)?.let { f -> "file://" + f.absolutePath }
+    fun popupUrl(id: String): String? {
+        val ext = extension(id) ?: return null
+        val path = ext.manifest.popup ?: return null
+        val file = safeChild(ext.rootPath, path) ?: return null
+        return file.takeIf { it.exists() && it.isFile }?.let { runtime.resourceUrl(ext, path) }
     }
 
-    fun optionsUrl(id: String): String? = extension(id)?.manifest?.optionsPage?.let {
-        File(extension(id)!!.rootPath, it).takeIf(File::exists)?.let { f -> "file://" + f.absolutePath }
+    fun optionsUrl(id: String): String? {
+        val ext = extension(id) ?: return null
+        val path = ext.manifest.optionsPage ?: return null
+        val file = safeChild(ext.rootPath, path) ?: return null
+        return file.takeIf { it.exists() && it.isFile }?.let { runtime.resourceUrl(ext, path) }
     }
+
+    fun runtimeDescriptor(): ExtensionRuntimeDescriptor = CurrentExtensionRuntime.descriptor
 
     fun updatePageState(pageKey: String, url: String, active: Boolean = true) {
         pageUrls[pageKey] = url
