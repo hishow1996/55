@@ -13,8 +13,9 @@ interface ExtensionLifecycleHost {
     fun isRunning(extensionId: String): Boolean
 }
 
-class WebViewExtensionLifecycleHost(
-    private val startAction: (BrowserExtension) -> ExtensionBackgroundHost?
+class RuntimeExtensionLifecycleHost(
+    private val runtime: ExtensionRuntimeBackend,
+    private val bridgeFactory: (BrowserExtension) -> Any
 ) : ExtensionLifecycleHost {
     private val hosts = mutableMapOf<String, ExtensionBackgroundHost>()
 
@@ -22,7 +23,7 @@ class WebViewExtensionLifecycleHost(
 
     override fun start(extension: BrowserExtension): Boolean {
         if (!extension.enabled || hosts.containsKey(extension.id)) return false
-        val host = startAction(extension) ?: return false
+        val host = runtime.createBackgroundHost(extension, bridgeFactory(extension)) ?: return false
         hosts[extension.id] = host
         return true
     }
