@@ -48,9 +48,6 @@ class ExtensionManager(
     private var browserTabUpdater: ((Int, String?) -> Unit)? = null
     private var browserTabSelector: ((Int) -> Unit)? = null
 
-    private fun extensionIdForEvent(): String = currentEventExtensionId
-    private var currentEventExtensionId: String = ""
-
     private val tabHost = object : ExtensionTabHost {
         override fun create(url: String, active: Boolean): TabSnapshot {
             val key = "extension-tab-" + System.nanoTime()
@@ -61,9 +58,7 @@ class ExtensionManager(
             pageActive[key] = active
             if (active) pageActive.keys.filter { it != key }.forEach { pageActive[it] = false }
             browserTabController?.invoke(id, url, active) ?: browserTabCreator?.invoke(url, active)
-            val snapshot = TabSnapshot(id, url, active)
-            eventHost.dispatchForTestingOrBrowser(extensionIdForEvent(), ExtensionBrowserEvent.TabsCreated(snapshot))
-            return snapshot
+            return TabSnapshot(id, url, active)
         }
 
         override fun update(tabId: Int, url: String?, active: Boolean?): TabSnapshot? {
@@ -77,9 +72,7 @@ class ExtensionManager(
                 setPageActive(key)
                 browserTabSelector?.invoke(tabId)
             }
-            val snapshot = TabSnapshot(tabId, pageUrls[key] ?: "", pageActive[key] ?: false, title = pageTitles[key] ?: "")
-            eventHost.dispatchForTestingOrBrowser(extensionIdForEvent(), ExtensionBrowserEvent.TabsUpdated(snapshot))
-            return snapshot
+            return TabSnapshot(tabId, pageUrls[key] ?: "", pageActive[key] ?: false, title = pageTitles[key] ?: "")
         }
 
         override fun query(queryJson: String): JSONArray {
@@ -120,10 +113,6 @@ class ExtensionManager(
             target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});") }
             return true
         }
-    }
-
-    private fun ExtensionEventHost.dispatchForTestingOrBrowser(extensionId: String, event: ExtensionBrowserEvent) {
-        if (extensionId.isNotBlank()) dispatch(extensionId, event)
     }
 
     fun setBrowserTabCreator(creator: ((String, Boolean) -> Unit)?) { browserTabCreator = creator }
@@ -386,13 +375,16 @@ class ExtensionManager(
             if (tabHost.sendMessage(tabId, extensionId, message)) JSONObject.NULL.toString() else JSONObject.NULL.toString()
         @JavascriptInterface fun tabsCreate(extensionId: String, propertiesJson: String): String {
             val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
-            return tabHost.create(p.optString("url", "about:blank"), p.optBoolean("active", true)).toJson().toString()
+            val snapshot = tabHost.create(p.optString("url", "about:blank"), p.optBoolean("active", true))
+            eventHost.dispatch(extensionId, ExtensionBrowserEvent.TabsCreated(snapshot))
+            return snapshot.toJson().toString()
         }
 
         @JavascriptInterface fun tabsUpdate(extensionId: String, tabId: Int, propertiesJson: String): String {
             val p = try { JSONObject(propertiesJson) } catch (_: Exception) { JSONObject() }
-            return tabHost.update(tabId, p.optString("url").takeIf { it.isNotBlank() }, if (p.has("active")) p.optBoolean("active") else null)?.toJson()?.toString()
-                ?: JSONObject.NULL.toString()
+            val snapshot = tabHost.update(tabId, p.optString("url").takeIf { it.isNotBlank() }, if (p.has("active")) p.optBoolean("active") else null)
+            if (snapshot != null) eventHost.dispatch(extensionId, ExtensionBrowserEvent.TabsUpdated(snapshot))
+            return snapshot?.toJson()?.toString() ?: JSONObject.NULL.toString()
         }
 
         @JavascriptInterface fun tabsQuery(queryJson: String): String = tabHost.query(queryJson).toString()
