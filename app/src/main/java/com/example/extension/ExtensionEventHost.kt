@@ -11,6 +11,10 @@ interface ExtensionEventHost {
     fun dispatch(extensionId: String, event: ExtensionBrowserEvent)
 }
 
+class NoOpExtensionEventHost : ExtensionEventHost {
+    override fun dispatch(extensionId: String, event: ExtensionBrowserEvent) = Unit
+}
+
 sealed class ExtensionBrowserEvent {
     data class TabsCreated(val tab: TabSnapshot) : ExtensionBrowserEvent()
     data class TabsUpdated(val tab: TabSnapshot) : ExtensionBrowserEvent()
