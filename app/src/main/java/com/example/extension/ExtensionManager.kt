@@ -20,6 +20,7 @@ class ExtensionManager(
     private val permissionPolicy: ExtensionPermissionPolicy = ManifestExtensionPermissionPolicy()
 ) {
     private val prefs = context.getSharedPreferences("extension_runtime_v2", Context.MODE_PRIVATE)
+    private val webViewRuntime = runtime as? WebViewExtensionRuntime
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
     private val backgroundHosts = mutableMapOf<String, ExtensionBackgroundHost>()
@@ -331,22 +332,8 @@ class ExtensionManager(
 
     private fun startBackground(ext: BrowserExtension) {
         if (!ext.enabled || backgroundHosts.containsKey(ext.id)) return
-        val worker = ext.manifest.serviceWorker ?: ext.manifest.backgroundScripts.firstOrNull() ?: return
-        val file = safeChild(ext.rootPath, worker) ?: return
-        if (!file.exists() || !file.isFile) return
-        val wv = WebView(context)
-        wv.settings.javaScriptEnabled = true
-        wv.settings.domStorageEnabled = true
-        wv.addJavascriptInterface(BackgroundBridge(ext.id), "ElephantExtensionBridge")
-        val id = JSONObject.quote(ext.id)
-        val root = JSONObject.quote(runtime.resourceUrl(ext, ""))
-        val polyfill = KiwiExtensionApi.background(
-            JSONObject.quote(ext.id),
-            JSONObject.quote("file://" + ext.rootPath + "/")
-        )
-
-        wv.loadDataWithBaseURL(runtime.resourceUrl(ext, ""), "<html><script>" + polyfill + file.readText() + "</script></html>")
-        backgroundHosts[ext.id] = wv
+        val host = webViewRuntime?.startBackground(ext, BackgroundBridge(ext.id)) ?: return
+        backgroundHosts[ext.id] = host
     }
 
     private inner class PageBridge(private val pageKey: String) {
