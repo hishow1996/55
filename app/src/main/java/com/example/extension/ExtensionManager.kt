@@ -181,13 +181,7 @@ class ExtensionManager(
     fun setPageActive(pageKey: String) { tabHost.updatePage(pageKey, tabHost.url(pageKey), true) }
 
     fun bindBrowserTab(extensionTabId: Int, pageKey: String) {
-        tabHost.bind(pageKey, extensionTabId)
-            .forEach { entry ->
-                pageTabIds.remove(entry.key)
-                pageUrls.remove(entry.key)
-                pageTitles.remove(entry.key)
-                pageActive.remove(entry.key)
-            }
+        tabHost.bindReplacingLegacy(pageKey, extensionTabId)
         // Bind before Compose creates the WebView. attachWebView keeps this ID.
     }
 
@@ -211,7 +205,7 @@ class ExtensionManager(
                     spec.jsFiles.forEach { name ->
                         val file = safeChild(ext.rootPath, name) ?: return@forEach
                         if (file.exists() && file.isFile) {
-                            pageHosts[pageKey]?.let { host ->
+                            tabHost.pageHost(pageKey)?.let { host ->
                                 pageRuntime.inject(host, contentBootstrap(ext, file.readText()))
                             }
                         }
@@ -310,25 +304,22 @@ class ExtensionManager(
             if (js.isBlank()) return "[]"
             val target = o.optJSONObject("target")
             val tabId = target?.optInt("tabId", -1) ?: -1
-            val targets = if (tabId > 0) {
-                pageHosts.entries.filter { pageTabIds[it.key] == tabId }
-            } else {
-                pageHosts.entries.toList()
-            }
+            val targets = tabHost.executeScriptTargets(tabId)
             var count = 0
             targets.forEach { entry ->
-                val pageUrl = pageUrls[entry.key] ?: return@forEach
+                val pageUrl = tabHost.pageUrl(entry.first)
+                val host = entry.second
                 val hosts = extension(extensionId)?.manifest?.hostPermissions.orEmpty()
                 if (hosts.isNotEmpty() && !matches(hosts, pageUrl) && !hasPermission(extensionId, "activeTab")) return@forEach
                 count++
-                entry.value.post { entry.value.evaluateJavascript(js) }
+                host.post { host.evaluateJavascript(js) }
             }
             return if (count == 0) "[]" else "[{}]"
         }
     }
 
     private fun deliverToBackground(extensionId: String, message: String) {
-        if (!backgroundHosts.containsKey(extensionId)) return
+        if (!lifecycleHost.isRunning(extensionId)) return
         eventHost.dispatch(
             extensionId,
             ExtensionBrowserEvent.RuntimeMessage(
@@ -342,10 +333,9 @@ class ExtensionManager(
     private fun deliverToPages(extensionId: String, message: String) {
         val payload = JSONObject.quote(message)
         val id = JSONObject.quote(extensionId)
-        pageHosts.values.distinct().forEach { wv ->
-            wv.post {
-                wv.evaluateJavascript("window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse($payload)}));if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$id},function(){});")
-            }
+        tabHost.broadcastMessage(message) { raw ->
+            "window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse(" + JSONObject.quote(raw) + ")}));" +
+                "if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse(" + JSONObject.quote(raw) + "),{id:$id},function(){});"
         }
     }
 
