@@ -24,7 +24,10 @@ class ExtensionManager(
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
     private val lifecycleHost = RuntimeExtensionLifecycleHost(runtime) { BackgroundBridge(it.id) }
-    private val eventHost: ExtensionEventHost = WebViewExtensionEventHost { lifecycleHost.backgroundHosts() }
+    private val eventHost: ExtensionEventHost = WebViewExtensionEventHost(
+        backgroundHosts = { lifecycleHost.backgroundHosts() },
+        pageHosts = { tabHost.allPageHosts() }
+    )
 
     private val tabHost = BrowserExtensionTabHost()
 
@@ -325,12 +328,14 @@ class ExtensionManager(
     }
 
     private fun deliverToPages(extensionId: String, message: String) {
-        val payload = JSONObject.quote(message)
-        val id = JSONObject.quote(extensionId)
-        tabHost.broadcastMessage(message) { raw ->
-            "window.dispatchEvent(new CustomEvent('elephant-extension-message',{detail:JSON.parse(" + JSONObject.quote(raw) + ")}));" +
-                "if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse(" + JSONObject.quote(raw) + "),{id:$id},function(){});"
-        }
+        eventHost.dispatch(
+            extensionId,
+            ExtensionBrowserEvent.RuntimeMessage(
+                message = message,
+                senderId = extensionId,
+                destination = ExtensionBrowserEvent.MessageDestination.PAGES
+            )
+        )
     }
 
     private fun storageGetJson(extensionId: String, key: String?): String {
