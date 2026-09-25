@@ -19,6 +19,8 @@ interface ExtensionRuntimeBackend {
      */
     fun createBackgroundHost(extension: BrowserExtension, bridge: Any): ExtensionBackgroundHost? = null
 
+    fun createPageRuntime(): ExtensionPageRuntime = WebViewExtensionPageRuntime()
+
     fun resourceUrl(extension: BrowserExtension, relativePath: String)
 
     enum class Kind {
