@@ -16,7 +16,7 @@ import java.util.zip.ZipInputStream
 
 class ExtensionManager(
     private val context: Context,
-    private val runtime: ExtensionRuntimeBackend = CurrentExtensionRuntime,
+    private val runtime: ExtensionRuntimeBackend = WebViewExtensionRuntime(context),
     private val permissionPolicy: ExtensionPermissionPolicy = ManifestExtensionPermissionPolicy()
 ) {
     private val prefs = context.getSharedPreferences("extension_runtime_v2", Context.MODE_PRIVATE)
