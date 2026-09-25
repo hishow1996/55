@@ -23,7 +23,7 @@ class ExtensionManager(
     private val _extensions = MutableStateFlow<List<BrowserExtension>>(emptyList())
     val extensions = _extensions.asStateFlow()
     private val backgroundHosts = mutableMapOf<String, ExtensionBackgroundHost>()
-    private val eventHost: ExtensionEventHost = NoOpExtensionEventHost()
+    private val eventHost: ExtensionEventHost = WebViewExtensionEventHost { backgroundHosts }
 
     private val lifecycleHost = object : ExtensionLifecycleHost {
         override fun start(extension: BrowserExtension): Boolean {
@@ -48,6 +48,9 @@ class ExtensionManager(
     private var browserTabUpdater: ((Int, String?) -> Unit)? = null
     private var browserTabSelector: ((Int) -> Unit)? = null
 
+    private fun extensionIdForEvent(): String = currentEventExtensionId
+    private var currentEventExtensionId: String = ""
+
     private val tabHost = object : ExtensionTabHost {
         override fun create(url: String, active: Boolean): TabSnapshot {
             val key = "extension-tab-" + System.nanoTime()
@@ -58,7 +61,9 @@ class ExtensionManager(
             pageActive[key] = active
             if (active) pageActive.keys.filter { it != key }.forEach { pageActive[it] = false }
             browserTabController?.invoke(id, url, active) ?: browserTabCreator?.invoke(url, active)
-            return TabSnapshot(id, url, active)
+            val snapshot = TabSnapshot(id, url, active)
+            eventHost.dispatchForTestingOrBrowser(extensionIdForEvent(), ExtensionBrowserEvent.TabsCreated(snapshot))
+            return snapshot
         }
 
         override fun update(tabId: Int, url: String?, active: Boolean?): TabSnapshot? {
@@ -72,7 +77,9 @@ class ExtensionManager(
                 setPageActive(key)
                 browserTabSelector?.invoke(tabId)
             }
-            return TabSnapshot(tabId, pageUrls[key] ?: "", pageActive[key] ?: false, title = pageTitles[key] ?: "")
+            val snapshot = TabSnapshot(tabId, pageUrls[key] ?: "", pageActive[key] ?: false, title = pageTitles[key] ?: "")
+            eventHost.dispatchForTestingOrBrowser(extensionIdForEvent(), ExtensionBrowserEvent.TabsUpdated(snapshot))
+            return snapshot
         }
 
         override fun query(queryJson: String): JSONArray {
@@ -113,6 +120,10 @@ class ExtensionManager(
             target.post { target.evaluateJavascript("if(window.__elephantRuntimeOnMessage)window.__elephantRuntimeOnMessage(JSON.parse($payload),{id:$idJson},function(){});") }
             return true
         }
+    }
+
+    private fun ExtensionEventHost.dispatchForTestingOrBrowser(extensionId: String, event: ExtensionBrowserEvent) {
+        if (extensionId.isNotBlank()) dispatch(extensionId, event)
     }
 
     fun setBrowserTabCreator(creator: ((String, Boolean) -> Unit)?) { browserTabCreator = creator }
