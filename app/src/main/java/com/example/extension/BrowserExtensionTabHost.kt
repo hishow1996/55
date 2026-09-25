@@ -152,6 +152,7 @@ class BrowserExtensionTabHost(
 
     fun url(pageKey: String): String = pageUrls[pageKey] ?: ""
     fun pageHost(pageKey: String): ExtensionPageHost? = pageHosts[pageKey]
+    fun allPageHosts(): Collection<ExtensionPageHost> = pageHosts.values
 
     fun pageHostMatches(pageKey: String, webView: WebView): Boolean =
         (pageHosts[pageKey] as? WebViewExtensionPageHost)?.matches(webView) == true
