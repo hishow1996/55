@@ -32,7 +32,7 @@ import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.player.FloatingVideoPlayerComponent
-import com.example.player.Media3VideoPlayerController
+import com.example.player.NativeVideoPlaybackManager
 import com.example.player.VideoPlaybackSessionManager
 import com.example.model.VideoMediaInfo
 import androidx.media3.common.PlaybackException
@@ -45,8 +45,6 @@ class FloatingPlayerService : Service() {
     private var windowManager: WindowManager? = null
     private var rootLayout: FrameLayout? = null
     private var textureView: TextureView? = null
-    private var mediaPlayer: androidx.media3.exoplayer.ExoPlayer? = null
-    private var nativePlayerController: Media3VideoPlayerController? = null
     private var currentSurface: Surface? = null
 
     private var controlsLayout: FrameLayout? = null
@@ -80,22 +78,19 @@ class FloatingPlayerService : Service() {
 
     private val progressUpdater = object : Runnable {
         override fun run() {
-            mediaPlayer?.let { mp ->
-                try {
-                    if (mp.isPlaying) {
-                        val cur = mp.currentPosition
-                        val dur = max(mp.duration, 1000)
-                        currentPositionMs = cur
-                        durationMs = dur
-                        VideoPlaybackSessionManager.updatePosition(cur)
-                        VideoPlaybackSessionManager.updateDuration(dur)
-                        FloatingVideoPlayerComponent.syncProgress(cur / 1000.0)
-                        seekBar?.max = dur
-                        seekBar?.progress = cur
-                        timeTv?.text = "${formatTime(cur)} / ${formatTime(dur)}"
-                    }
-                } catch (e: Exception) {}
-            }
+            try {
+                val cur = NativeVideoPlaybackManager.currentPositionMs()
+                val dur = NativeVideoPlaybackManager.durationMs().coerceAtLeast(1000L)
+                currentPositionMs = cur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                durationMs = dur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                VideoPlaybackSessionManager.updatePosition(cur)
+                VideoPlaybackSessionManager.updateDuration(dur)
+                FloatingVideoPlayerComponent.syncProgress(cur / 1000.0)
+                seekBar?.max = durationMs
+                seekBar?.progress = currentPositionMs
+                timeTv?.text = "${formatTime(currentPositionMs)} / ${formatTime(durationMs)}"
+                isPlaying = NativeVideoPlaybackManager.isPlaying()
+            } catch (_: Exception) {}
             handler.postDelayed(this, 500)
         }
     }
@@ -113,7 +108,7 @@ class FloatingPlayerService : Service() {
         val action = intent.action
         if (action == ACTION_STOP) {
             val position = try {
-                mediaPlayer?.currentPosition?.toDouble()?.div(1000.0)
+                NativeVideoPlaybackManager.currentPositionMs().toDouble() / 1000.0
                     ?: FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
             } catch (e: Exception) {
                 FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
