@@ -110,7 +110,15 @@ class FloatingPlayerService : MediaSessionService() {
         NativeVideoPlaybackManager.ensureMediaSession(this)
         // Observe the same ExoPlayer used by the service so the floating window
         // follows the actual decoded video aspect ratio.
-        NativeVideoPlaybackManager.player()?.addListener(videoSizeListener)
+        val player = NativeVideoPlaybackManager.player()
+        player?.addListener(videoSizeListener)
+        val currentSize = player?.videoSize
+        if (currentSize != null && currentSize.width > 0 && currentSize.height > 0) {
+            val ratio = currentSize.width.toFloat() * currentSize.pixelWidthHeightRatio / currentSize.height.toFloat()
+            if (ratio.isFinite() && ratio in 0.42f..2.38f) {
+                videoRatio = ratio
+            }
+        }
         // MediaSessionService supplies the media notification for this service.
     }
 

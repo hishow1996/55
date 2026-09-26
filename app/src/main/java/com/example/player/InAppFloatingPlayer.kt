@@ -388,14 +388,14 @@ fun InAppFloatingPlayer(
             val overlayModifier = if (isDesktopPiP) {
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.65f))
+                    .background(if (isFullscreen) Color.Black.copy(alpha = 0.25f) else Color.Transparent)
                     .pointerInput(Unit) {
                         detectTapGestures { showControls = false }
                     }
             } else {
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.65f))
+                    .background(if (isFullscreen) Color.Black.copy(alpha = 0.25f) else Color.Transparent)
                     .pointerInput(Unit) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
@@ -469,8 +469,7 @@ fun InAppFloatingPlayer(
                 if (!isFullscreen) Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.5f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
