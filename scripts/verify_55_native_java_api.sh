@@ -20,7 +20,7 @@ grep -Fq 'TabUtils.switchUserAgent(' "$CONTROLLER" ||
   fail "55 native feature controller does not use Chromium TabUtils"
 
 if grep -Fq 'forcedByUser' "$CONTROLLER"; then
-  fail "55 controller appears to use a stale 4-argument switchUserAgent call"
+  fail "55 controller appears to use a stale switchUserAgent call"
 fi
 
 if grep -Eq 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)' "$CONTROLLER"; then
