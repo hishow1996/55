@@ -92,7 +92,21 @@ object NativeVideoPlaybackManager {
     @Synchronized
     fun attachSurface(surface: Surface?) {
         assertMainThread()
-        controller?.setSurface(surface)
+        val playerController = controller ?: return
+
+        // Configuration changes (especially the forced portrait -> landscape
+        // transition used by native fullscreen) may destroy and recreate the
+        // TextureView Surface. Rebinding the new Surface must also restore the
+        // previous playback intent; otherwise ExoPlayer can keep its clock alive
+        // while the newly created surface remains visually frozen.
+        playerController.setSurface(surface)
+
+        if (surface != null) {
+            val session = VideoPlaybackSessionManager.current()
+            if (session?.isPlaying == true) {
+                playerController.play()
+            }
+        }
     }
 
     @Synchronized
