@@ -715,9 +715,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         if (VideoSourceResolver.canUseNativePlayer(info)) {
             repository.setDetectedStreamUrl(currentTab.id, effectiveUrl)
         }
-        // Native Media3 takeover is used only for sources the app can reliably
-        // play itself. Blob/MSE pages remain on the WebView as a compatibility fallback.
+        // Native Media3 is now the real playback owner. The WebView only discovers
+        // the current media source. For a native-playable URL, freeze HTML5 playback
+        // first, then start the single application-wide ExoPlayer. The callback is
+        // important because evaluateJavascript is asynchronous.
         _detectedVideo.value = info
+        if (VideoSourceResolver.canUseNativePlayer(info)) {
+            activeWebView?.evaluateJavascript(Scripts.LOCK_WEB_VIDEOS) {
+                NativeVideoPlaybackManager.start(getApplication(), info, autoPlay = true)
+            }
+        }
     }
 
     fun onWebVideoPlaybackState(currentTime: Double, isPlaying: Boolean) {
@@ -787,14 +794,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
         _detectedVideo.value = updatedVideo
 
-        // Freeze WebView playback before exposing the native player. This closes
-        // the small handoff window in which the HTML5 player could continue
-        // advancing after the native session snapshot was taken.
-        activeWebView?.evaluateJavascript(Scripts.LOCK_WEB_VIDEOS, null)
-
-        // The JS state monitor is the source of the latest WebView position.
-        // Reuse that authoritative snapshot, then create the native session.
-        VideoPlaybackSessionManager.handoffState(updatedVideo)
+        // Native playback has already been started by onVideoFound(). This method
+        // only makes the existing native player surface/UI visible; it must never
+        // create a second player or perform a WebView -> native handoff.
+        NativeVideoPlaybackManager.start(getApplication(), updatedVideo, autoPlay = true)
         _isFloatingPlayerVisible.value = true
     }
 
@@ -823,18 +826,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
-        val session = VideoPlaybackSessionManager.current()
-        val position = resumePositionSeconds
-            ?: (session?.positionMs?.div(1000.0))
-            ?: video?.currentTime
-            ?: 0.0
-        val shouldPlay = session?.isPlaying ?: true
-        VideoPlaybackSessionManager.updatePosition((position * 1000.0).toLong().coerceAtLeast(0L))
-        VideoPlaybackSessionManager.updatePlaying(shouldPlay)
-        activeWebView?.evaluateJavascript(
-            Scripts.RESUME_WEB_VIDEO_AT(position.coerceAtLeast(0.0), shouldPlay),
-            null
-        )
+        // Do not hand playback back to HTML5. Native Media3 remains the single
+        // playback authority even when the floating surface is closed.
+        val position = resumePositionSeconds?.let { (it * 1000.0).toLong() }
+        if (position != null) NativeVideoPlaybackManager.seekTo(position)
+        NativeVideoPlaybackManager.stopForUiClose()
     }
 
 
