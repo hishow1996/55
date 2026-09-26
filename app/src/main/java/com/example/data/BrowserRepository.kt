@@ -373,6 +373,74 @@ class BrowserRepository(private val context: Context) {
         prefs.edit().putString(KEY_SEARCH_HISTORY, array.toString()).apply()
     }
 
+    /** Import methods used by the portable browser backup format. */
+    fun importBookmarks(array: JSONArray?) {
+        if (array == null) return
+        val list = mutableListOf<BookmarkItem>()
+        for (i in 0 until array.length()) {
+            val o = array.optJSONObject(i) ?: continue
+            val url = o.optString("url").trim()
+            if (url.isBlank()) continue
+            list.add(BookmarkItem(
+                id = o.optString("id").ifBlank { java.util.UUID.randomUUID().toString() },
+                title = o.optString("title").ifBlank { url },
+                url = url,
+                createTime = o.optLong("createTime", System.currentTimeMillis())
+            ))
+        }
+        _bookmarks.value = list.distinctBy { it.url }
+        saveBookmarks(_bookmarks.value)
+    }
+
+    fun importHistory(array: JSONArray?) {
+        if (array == null) return
+        val list = mutableListOf<HistoryItem>()
+        for (i in 0 until array.length()) {
+            val o = array.optJSONObject(i) ?: continue
+            val url = o.optString("url").trim()
+            if (url.isBlank()) continue
+            list.add(HistoryItem(
+                id = o.optString("id").ifBlank { java.util.UUID.randomUUID().toString() },
+                title = o.optString("title").ifBlank { url },
+                url = url,
+                visitTime = o.optLong("visitTime", System.currentTimeMillis())
+            ))
+        }
+        _history.value = list.sortedByDescending { it.visitTime }.take(300)
+        saveHistory(_history.value)
+    }
+
+    fun importSearchHistory(array: JSONArray?) {
+        if (array == null) return
+        val list = buildList {
+            for (i in 0 until array.length()) {
+                val value = array.optString(i).trim()
+                if (value.isNotBlank() && !contains(value)) add(value)
+            }
+        }.take(50)
+        _searchHistory.value = list
+        saveSearchHistory(list)
+    }
+
+    fun importQuickSites(array: JSONArray?) {
+        if (array == null) return
+        val list = mutableListOf<QuickSite>()
+        for (i in 0 until array.length()) {
+            val o = array.optJSONObject(i) ?: continue
+            val url = o.optString("url").trim()
+            if (url.isBlank()) continue
+            list.add(QuickSite(
+                title = o.optString("title").ifBlank { url },
+                url = url,
+                iconName = o.optString("iconName"),
+                bgColor = o.optLong("bgColor", 0xFFF1F5F9),
+                isCustom = o.optBoolean("isCustom", false)
+            ))
+        }
+        _quickSites.value = list
+        saveQuickSites(list)
+    }
+
     // Extension operations are owned by ExtensionManager.
     private fun loadQuickSites() {
         val sitesVersion = prefs.getInt("quick_sites_version_v8", 0)
