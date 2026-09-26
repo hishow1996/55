@@ -35,7 +35,7 @@ for entry in entries:
     if marker not in s:
         marker = 'if (enable_vr) {'
     if marker not in s:
-        raise SystemExit("Cannot find stable chrome_java_sources.gni insertion marker")
+        raise SystemExit("Cannot find stable chrome_java_sources insertion marker")
     block = "chrome_java_sources += [\n" + entry + "\n]\n\n"
     s = s.replace(marker, block + marker, 1)
 p.write_text(s)
