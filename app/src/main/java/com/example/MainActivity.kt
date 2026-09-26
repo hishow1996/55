@@ -221,6 +221,16 @@ class MainActivity : ComponentActivity() {
             // Fullscreen video lock: blocks accidental touches on the fullscreen video
             // while leaving a lock/unlock control on the left edge of the screen.
             var nativePlayerFullscreen by remember { mutableStateOf(false) }
+
+            // Fullscreen is a presentation/orientation change, never a playback command.
+            // Re-assert the native player's explicit play intent after both entering and
+            // leaving fullscreen, including devices where configChanges keeps the Activity alive.
+            LaunchedEffect(nativePlayerFullscreen) {
+                if (detectedVideo != null) {
+                    kotlinx.coroutines.delay(120)
+                    NativeVideoPlaybackManager.resumeIfNeeded()
+                }
+            }
             var fullscreenVideoLocked by remember { mutableStateOf(false) }
             LaunchedEffect(customVideoView) {
                 // Every new fullscreen session starts unlocked.
