@@ -33,6 +33,9 @@ class Media3VideoPlayerController(context: Context) {
         )
         if (!pageUrl.isNullOrBlank()) {
             headers["Referer"] = pageUrl
+            android.webkit.CookieManager.getInstance().getCookie(pageUrl)
+                ?.takeIf { it.isNotBlank() }
+                ?.let { headers["Cookie"] = it }
         }
         httpFactory.setDefaultRequestProperties(headers)
     }
