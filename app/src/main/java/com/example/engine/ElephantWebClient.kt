@@ -18,11 +18,19 @@ class ElephantWebViewClient(
     private val tab: BrowserTab,
     private val repository: BrowserRepository,
     private val onPageStart: (url: String) -> Unit,
-    private val onPageFinish: (url: String, title: String) -> Unit
+    private val onPageFinish: (url: String, title: String) -> Unit,
+    private val onExtensionDownload: (url: String) -> Unit = {}
 ) : WebViewClient() {
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         val url = request?.url?.toString() ?: return false
+        val lower = url.lowercase()
+        val looksLikeCrx = lower.contains("/service/update2/crx") ||
+            lower.substringBefore("?").endsWith(".crx")
+        if (looksLikeCrx) {
+            onExtensionDownload(url)
+            return true
+        }
         if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://")) {
             return false // Let WebView load it
         }
