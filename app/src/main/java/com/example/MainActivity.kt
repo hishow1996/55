@@ -1039,6 +1039,17 @@ fun ChromiumWebViewContainer(
                                     Toast.makeText(this@MainActivity, "扩展安装失败：" + (it.message ?: "扩展包无效"), Toast.LENGTH_LONG).show()
                                 }
                         }
+                    },
+                    onUserScriptDownload = { url ->
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                            viewModel.repository.userScriptManager.installUrl(url)
+                                .onSuccess {
+                                    Toast.makeText(this@MainActivity, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show()
+                                }
+                                .onFailure {
+                                    Toast.makeText(this@MainActivity, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show()
+                                }
+                        }
                     }
                 )
 
