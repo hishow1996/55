@@ -70,6 +70,13 @@ object CurrentExtensionRuntime : ExtensionRuntimeBackend {
         require(target.path == root.path || target.path.startsWith(root.path + java.io.File.separator)) {
             "非法扩展资源路径"
         }
+        val relative = target.relativeTo(root).invariantSeparatorsPath
+        if (relative.isNotBlank() && extension.manifest.webAccessibleResources.isNotEmpty()) {
+            val allowed = extension.manifest.webAccessibleResources.any { pattern ->
+                ExtensionManager.matchesResourcePattern(pattern, relative)
+            }
+            require(allowed) { "扩展资源未声明为 web_accessible_resources" }
+        }
         return "file://" + target.absolutePath
     }
 
