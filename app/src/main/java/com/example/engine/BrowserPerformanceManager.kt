@@ -16,8 +16,11 @@ object BrowserPerformanceManager {
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
-        settings.setSupportZoom(true)
-        settings.builtInZoomControls = true
+        // Web pages use the dedicated PinchZoomWebView gesture layer.
+        // Disable WebView's legacy zoom/double-tap path so there is only one
+        // zoom implementation and pinch response stays predictable.
+        settings.setSupportZoom(false)
+        settings.builtInZoomControls = false
         settings.displayZoomControls = false
         // Desktop pages already provide their own responsive CSS. Keep the
         // browser's CSS layout dimensions intact in desktop mode; text
