@@ -46,4 +46,6 @@ test -f "$KIWI/extensions/browser/extension_service.cc"
 test -f "$KIWI/extensions/browser/extension_registrar.cc"
 test -f "$KIWI/extensions/browser/extension_system.cc"
 
+bash "$ROOT/scripts/verify_kiwi_extension_ui.sh"
+
 echo "Native extension build configuration ready: $ARGS"
