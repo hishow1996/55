@@ -404,21 +404,33 @@ class ExtensionManager(
     }
 
     private fun normalizeArchive(bytes: ByteArray): ByteArray {
-        if (bytes.size < 4 || bytes[0].toInt() != 0x43 || bytes[1].toInt() != 0x72 || bytes[2].toInt() != 0x32 || bytes[3].toInt() != 0x34) return bytes
-        if (bytes.size < 16) error("CRX 文件损坏")
-        return when (readIntLE(bytes, 8)) {
+        if (bytes.size < 4 ||
+            bytes[0].toInt() != 0x43 ||
+            bytes[1].toInt() != 0x72 ||
+            bytes[2].toInt() != 0x32 ||
+            bytes[3].toInt() != 0x34
+        ) return bytes
+
+        require(bytes.size >= 12) { "CRX 文件损坏" }
+        // CRX layout: magic(4) + version(4) + header.
+        // The version is at offset 4; offset 8 is the CRX2 public-key
+        // length or the CRX3 header size.
+        return when (readIntLE(bytes, 4)) {
             2 -> {
+                require(bytes.size >= 16) { "CRX2 文件损坏" }
                 val publicKeyLength = readIntLE(bytes, 8)
                 val signatureLength = readIntLE(bytes, 12)
-                val start = 16 + publicKeyLength + signatureLength
-                require(start <= bytes.size) { "CRX 文件损坏" }
-                bytes.copyOfRange(start, bytes.size)
+                require(publicKeyLength >= 0 && signatureLength >= 0) { "CRX2 文件损坏" }
+                val start = 16L + publicKeyLength.toLong() + signatureLength.toLong()
+                require(start <= bytes.size.toLong()) { "CRX2 文件损坏" }
+                bytes.copyOfRange(start.toInt(), bytes.size)
             }
             3 -> {
                 val headerSize = readIntLE(bytes, 8)
-                val start = 12 + headerSize
-                require(start <= bytes.size) { "CRX 文件损坏" }
-                bytes.copyOfRange(start, bytes.size)
+                require(headerSize >= 0) { "CRX3 文件损坏" }
+                val start = 12L + headerSize.toLong()
+                require(start <= bytes.size.toLong()) { "CRX3 文件损坏" }
+                bytes.copyOfRange(start.toInt(), bytes.size)
             }
             else -> error("不支持的 CRX 版本")
         }
