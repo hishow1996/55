@@ -102,9 +102,19 @@ fun InAppFloatingPlayer(
     val context = LocalContext.current
 
     // Video aspect ratio calculation
-    val baseRatio = remember(videoInfo.videoWidth, videoInfo.videoHeight) {
-        if (videoInfo.videoHeight > 0 && videoInfo.videoWidth > 0) {
-            (videoInfo.videoWidth.toFloat() / videoInfo.videoHeight.toFloat()).coerceIn(0.5f, 3.0f)
+    // Prefer the dimensions reported by the actual native decoder. WebView
+    // dimensions are only the initial hint; the decoded stream can legitimately
+    // use a different display aspect ratio (for example a 4:3 picture inside a
+    // 16:9 transport). The floating surface follows the native decoder.
+    var nativeVideoWidth by remember(videoInfo.videoWidth) {
+        mutableIntStateOf(videoInfo.videoWidth)
+    }
+    var nativeVideoHeight by remember(videoInfo.videoHeight) {
+        mutableIntStateOf(videoInfo.videoHeight)
+    }
+    val baseRatio = remember(nativeVideoWidth, nativeVideoHeight) {
+        if (nativeVideoWidth > 0 && nativeVideoHeight > 0) {
+            (nativeVideoWidth.toFloat() / nativeVideoHeight.toFloat()).coerceIn(0.5f, 3.0f)
         } else {
             16f / 9f
         }
@@ -151,8 +161,15 @@ fun InAppFloatingPlayer(
     }
 
     // Playback state
-    var isPlaying by remember { mutableStateOf(true) }
-    var currentPositionMs by remember { mutableIntStateOf((videoInfo.currentTime * 1000).toInt()) }
+    var isPlaying by remember { mutableStateOf(runCatching { NativeVideoPlaybackManager.isPlaying() }.getOrDefault(videoInfo.isPlaying)) }
+    var currentPositionMs by remember {
+        mutableIntStateOf(
+            runCatching { NativeVideoPlaybackManager.currentPositionMs() }
+                .getOrDefault((videoInfo.currentTime * 1000).toLong())
+                .coerceAtMost(Int.MAX_VALUE.toLong())
+                .toInt()
+        )
+    }
     var durationMs by remember { mutableIntStateOf((videoInfo.duration * 1000).toInt().coerceAtLeast(1000)) }
     var bufferedPositionMs by remember { mutableIntStateOf(0) }
     var isBuffering by remember { mutableStateOf(false) }
@@ -190,6 +207,12 @@ fun InAppFloatingPlayer(
                 val pos = NativeVideoPlaybackManager.currentPositionMs()
                 val dur = NativeVideoPlaybackManager.durationMs()
                 val buffered = NativeVideoPlaybackManager.bufferedPositionMs()
+                val nativePlayer = NativeVideoPlaybackManager.player()
+                val decodedSize = nativePlayer?.videoSize
+                if (decodedSize != null && decodedSize.width > 0 && decodedSize.height > 0) {
+                    nativeVideoWidth = decodedSize.width
+                    nativeVideoHeight = decodedSize.height
+                }
                 currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 if (dur > 0L) durationMs = dur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 bufferedPositionMs = buffered.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
@@ -282,9 +305,9 @@ fun InAppFloatingPlayer(
                         override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
                         override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
                             try {
-                                NativeVideoPlaybackManager.seekTo(
-                                    NativeVideoPlaybackManager.currentPositionMs()
-                                )
+                                // Surface destruction is a rendering lifecycle event,
+                                // not a seek event. The native player clock is already
+                                // authoritative, so do not issue a redundant seek here.
                                 NativeVideoPlaybackManager.detachSurface()
                                 currentSurface?.release()
                                 currentSurface = null
