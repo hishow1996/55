@@ -114,6 +114,7 @@ class ElephantWebViewClient(
         // Inject document_end plugins
         val page = view ?: return
         repository.extensionManager.injectForPage(page, currentUrl, "document_end")
+        repository.userScriptManager.injectForPage(page, currentUrl, "document_end")
         repository.userScriptManager.injectForPage(page, currentUrl, "document_idle")
 
         // Apply night mode if tab or global night mode is enabled, otherwise enforce clean white background
