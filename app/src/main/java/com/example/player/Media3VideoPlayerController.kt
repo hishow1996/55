@@ -131,13 +131,24 @@ class Media3VideoPlayerController(context: Context) {
                 "clearkey" -> C.CLEARKEY_UUID
                 else -> C.WIDEVINE_UUID
             }
+            val drmHeaders = linkedMapOf<String, String>().apply {
+                putAll(video.drmLicenseHeaders)
+                // License servers frequently authenticate with the same cookie
+                // jar as the webpage. Keep it scoped to this request.
+                if (!containsKey("Cookie")) {
+                    android.webkit.CookieManager.getInstance()
+                        .getCookie(drmUri)
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { put("Cookie", it) }
+                }
+            }
             val drmBuilder = MediaItem.DrmConfiguration.Builder(drmUuid)
                 .setLicenseUri(drmUri)
                 .setMultiSession(true)
                 .setForceDefaultLicenseUri(true)
 
-            if (video.drmLicenseHeaders.isNotEmpty()) {
-                drmBuilder.setLicenseRequestHeaders(video.drmLicenseHeaders)
+            if (drmHeaders.isNotEmpty()) {
+                drmBuilder.setLicenseRequestHeaders(drmHeaders)
             }
             itemBuilder.setDrmConfiguration(drmBuilder.build())
         }
