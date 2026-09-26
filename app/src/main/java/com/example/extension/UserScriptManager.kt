@@ -49,7 +49,11 @@ class UserScriptManager(private val context: Context) {
     fun injectForPage(webView: WebView, url: String) {
         all().filter { it.enabled && ExtensionManager.matches(it.matches, url) }.forEach { script ->
             val js = org.json.JSONObject.quote(script.code)
-            webView.evaluateJavascript("(function(){try{(0,eval)(" + js + ")}catch(e){}})();", null)
+            webView.evaluateJavascript(
+                "(function(){try{if(!window.__elephantUserscript_" + script.id + "){window.__elephantUserscript_" +
+                    script.id + "=1;(0,eval)(" + js + ")}}catch(e){}})();",
+                null
+            )
         }
     }
 
