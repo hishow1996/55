@@ -45,7 +45,12 @@ data class VideoMediaInfo(
     val isPlaying: Boolean = true,
     val playbackRate: Float = 1.0f,
     val originTabIndex: Int? = null,
-    val originTabId: String? = null
+    val originTabId: String? = null,
+    // Authorized DRM playback metadata discovered from the page's own license request.
+    // These values are only used to configure Media3; no keys or decrypted media are exposed.
+    val drmScheme: String? = null,
+    val drmLicenseUri: String? = null,
+    val drmLicenseHeaders: Map<String, String> = emptyMap()
 ) {
     val aspectRatio: Float
         get() = if (videoHeight > 0 && videoWidth > 0) {
