@@ -33,7 +33,7 @@ echo "$GN_ARGS" | grep -Eq "enable_extensions[[:space:]]*=.*true" || { echo "ERR
 "$ROOT/scripts/verify_55_native_cutover.sh"
 "$ROOT/scripts/validate_55_native_migration.sh"
 "$ROOT/scripts/verify_native_extension_lifecycle.sh"
-"$ROOT/scripts/verify_kiwi_extension_ui.sh"
+bash "$ROOT/scripts/verify_kiwi_extension_ui.sh"
 
 ninja -C out/android_arm64 chrome_public_apk
 
