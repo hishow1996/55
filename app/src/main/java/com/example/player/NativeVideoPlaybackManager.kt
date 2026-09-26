@@ -118,8 +118,12 @@ object NativeVideoPlaybackManager {
 
     fun seekTo(positionMs: Long) {
         assertMainThread()
-        controller?.seekTo(positionMs)
-        VideoPlaybackSessionManager.updatePosition(positionMs)
+        val duration = controller?.durationMs() ?: 0L
+        val target = positionMs.coerceAtLeast(0L).let { requested ->
+            if (duration > 0L) requested.coerceAtMost(duration) else requested
+        }
+        controller?.seekTo(target)
+        VideoPlaybackSessionManager.updatePosition(target)
     }
 
     fun currentPositionMs(): Long {
