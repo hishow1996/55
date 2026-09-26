@@ -71,10 +71,12 @@ fun SettingsScreen(
     isNightMode: Boolean,
     isDesktopMode: Boolean,
     searchEngine: String,
+    isContentBlocking: Boolean = true,
     onBack: () -> Unit,
     onOpenPluginManager: () -> Unit,
     onBackupData: () -> Unit = {},
     onRestoreData: () -> Unit = {},
+    onToggleContentBlocking: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -149,7 +151,17 @@ fun SettingsScreen(
                 onClick = onOpenPluginManager
             )
 
-            // 2. 悬浮窗与播放器
+            // 2. 广告与跟踪保护
+            SettingsItem(
+                title = "广告与跟踪保护",
+                detail = if (isContentBlocking) "已开启" else "已关闭",
+                textColor = textColor,
+                subTextColor = subTextColor,
+                dividerColor = dividerColor,
+                onClick = { onToggleContentBlocking() }
+            )
+
+            // 3. 悬浮窗与播放器
             SettingsItem(
                 title = "悬浮窗与播放器",
                 detail = "",
@@ -173,7 +185,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 3. 电脑端模式
+            // 4. 电脑端模式
             SettingsItem(
                 title = "电脑端模式",
                 detail = "",
@@ -191,7 +203,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 4. 电脑版 User-Agent
+            // 5. 电脑版 User-Agent
             SettingsItem(
                 title = "电脑版 User-Agent",
                 detail = "",
@@ -201,7 +213,7 @@ fun SettingsScreen(
                 onClick = { showUaDialog = true }
             )
 
-            // 5. 搜索设置
+            // 6. 搜索设置
             SettingsItem(
                 title = "搜索设置",
                 detail = "",
@@ -211,7 +223,7 @@ fun SettingsScreen(
                 onClick = { showSearchEngineDialog = true }
             )
 
-            // 6. 网页翻译
+            // 7. 网页翻译
             SettingsItem(
                 title = "网页翻译",
                 detail = "",
@@ -223,7 +235,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 7. 主题
+            // 8. 主题
             SettingsItem(
                 title = "主题",
                 detail = "",
@@ -241,7 +253,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 8. 云加速
+            // 9. 云加速
             SettingsItem(
                 title = "云加速",
                 detail = "开启",
@@ -257,7 +269,7 @@ fun SettingsScreen(
                 }
             )
 
-            // 9. 数据备份与恢复
+            // 10. 数据备份与恢复
             SettingsItem(
                 title = "数据备份与恢复",
                 detail = "",
@@ -267,7 +279,7 @@ fun SettingsScreen(
                 onClick = { showBrowserSettingsDialog = true }
             )
 
-            // 10. 清除记录
+            // 11. 清除记录
             SettingsItem(
                 title = "清除记录",
                 detail = "",
@@ -277,7 +289,7 @@ fun SettingsScreen(
                 onClick = { showClearDialog = true }
             )
 
-            // 11. 关于大象
+            // 12. 关于大象
             SettingsItem(
                 title = "关于大象",
                 detail = "V1.0.0",
