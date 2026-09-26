@@ -141,9 +141,11 @@ class FloatingPlayerService : MediaSessionService() {
     }
 
     override fun onCreate() {
-
         super.onCreate()
         NativeVideoPlaybackManager.ensureMediaSession(this)
+        // Observe the same ExoPlayer used by the service so the floating window
+        // follows the actual decoded video aspect ratio.
+        NativeVideoPlaybackManager.player()?.addListener(videoSizeListener)
         // MediaSessionService supplies the media notification for this service.
     }
 
@@ -328,16 +330,16 @@ class FloatingPlayerService : MediaSessionService() {
                 override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
                     currentSurface = Surface(st)
                     try {
+                        // Surface attachment must never reload or seek the shared
+                        // player. ExoPlayer already owns the authoritative live
+                        // position/play state, so re-seeking here could jump
+                        // backwards whenever the overlay is recreated.
                         NativeVideoPlaybackManager.attachSurface(currentSurface)
                         val session = VideoPlaybackSessionManager.current()
                         NativeVideoPlaybackManager.setPlaybackRate(
                             session?.playbackRate ?: requestedPlaybackRate
                         )
-                        val position = session?.positionMs ?: initialPositionMs
-                        if (position > 0L) NativeVideoPlaybackManager.seekTo(position)
-                        isPlaying = session?.isPlaying ?: requestedShouldPlay
-                        if (isPlaying) NativeVideoPlaybackManager.play()
-                        else NativeVideoPlaybackManager.pause()
+                        isPlaying = NativeVideoPlaybackManager.isPlaying()
                         currentPositionMs = NativeVideoPlaybackManager.currentPositionMs()
                             .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                         durationMs = NativeVideoPlaybackManager.durationMs()
@@ -857,6 +859,9 @@ class FloatingPlayerService : MediaSessionService() {
 
     override fun onDestroy() {
         NativeVideoPlaybackManager.setPlaybackErrorListener(null)
+        try {
+            NativeVideoPlaybackManager.player()?.removeListener(videoSizeListener)
+        } catch (_: Exception) {}
         removeFloatingWindow()
         NativeVideoPlaybackManager.release()
         super.onDestroy()
