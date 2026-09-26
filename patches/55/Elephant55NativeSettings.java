@@ -3,8 +3,6 @@ package org.chromium.chrome.browser;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import org.chromium.base.ContextUtils;
-
 /**
  * Native configuration bridge for the Elephant Browser (repo 55) feature port.
  *
@@ -23,11 +21,10 @@ public final class Elephant55NativeSettings {
     private Elephant55NativeSettings() {}
 
     public static void applyKiwiUiDefaults() {
-        ContextUtils.getAppSharedPreferences().edit()
-                .putBoolean("enable_bottom_toolbar", true)
-                .putBoolean("enable_overscroll_button", true)
-                .apply();
+        // Kiwi-specific toolbar defaults are handled by Kiwi/Chromium preferences.
+        // Keep repo-55 state isolated here until the exact preference contract is wired.
     }
+
 
     public static void ensureDefaults(Context context) {
         SharedPreferences p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -53,8 +50,7 @@ public final class Elephant55NativeSettings {
 
     public static boolean isDesktopMode(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getBoolean(KEY_DESKTOP_MODE, false)
-                || ContextUtils.getAppSharedPreferences().getBoolean("desktop_mode", false);
+                .getBoolean(KEY_DESKTOP_MODE, false);
     }
 
     public static boolean isNightMode(Context context) {
