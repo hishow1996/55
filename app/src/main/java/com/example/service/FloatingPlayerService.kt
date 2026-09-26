@@ -161,6 +161,18 @@ class FloatingPlayerService : Service() {
             VideoPlaybackSessionManager.updatePlaybackRate(requestedPlaybackRate)
         }
 
+        NativeVideoPlaybackManager.setPlaybackErrorListener { error ->
+            if (closing) return@setPlaybackErrorListener
+            android.util.Log.e("FloatingPlayerService", "Native Media3 playback error", error)
+            val position = try {
+                NativeVideoPlaybackManager.currentPositionMs().toDouble() / 1000.0
+            } catch (_: Exception) {
+                VideoPlaybackSessionManager.current()?.positionMs?.toDouble()?.div(1000.0) ?: 0.0
+            }
+            Toast.makeText(this, "原生播放器无法播放当前媒体，已尝试返回网页播放", Toast.LENGTH_SHORT).show()
+            closeFloatingWindowOrResumeBrowser(position)
+        }
+
         if (videoUrl.isNotBlank()) {
             val nativeInfo = VideoMediaInfo(
                 url = videoUrl,
@@ -776,6 +788,7 @@ class FloatingPlayerService : Service() {
     }
 
     override fun onDestroy() {
+        NativeVideoPlaybackManager.setPlaybackErrorListener(null)
         super.onDestroy()
         removeFloatingWindow()
     }
