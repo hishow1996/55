@@ -34,8 +34,6 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
@@ -185,27 +183,16 @@ fun InAppFloatingPlayer(
     var isBuffering by remember { mutableStateOf(false) }
     var playbackSpeed by remember { mutableFloatStateOf(VideoPlaybackSessionManager.current()?.playbackRate ?: 1.0f) }
     var showControls by remember { mutableStateOf(true) }
-    var isLocked by remember { mutableStateOf(false) }
-    var showLockHint by remember { mutableStateOf(false) }
-
     // The player is application-wide. This UI only attaches a surface and
     // controls the already-running native Media3 instance.
     var currentSurface by remember { mutableStateOf<Surface?>(null) }
     var isVideoReady by remember { mutableStateOf(NativeVideoPlaybackManager.player() != null) }
 
     // Auto-hide controls after 4 seconds of playback
-    LaunchedEffect(showControls, isPlaying, isLocked) {
-        if (showControls && isPlaying && !isLocked) {
+    LaunchedEffect(showControls, isPlaying) {
+        if (showControls && isPlaying) {
             delay(4000)
             showControls = false
-        }
-    }
-
-    // Auto-hide lock icon hint after 3 seconds
-    LaunchedEffect(showLockHint) {
-        if (showLockHint) {
-            delay(3000)
-            showLockHint = false
         }
     }
 
@@ -334,42 +321,8 @@ fun InAppFloatingPlayer(
             modifier = Modifier.fillMaxSize()
         )
 
-        // --- 2. Screen Lock Overlay & Unlock Trigger ---
-        if (isLocked) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures {
-                            showLockHint = !showLockHint
-                        }
-                    }
-            ) {
-                if (showLockHint) {
-                    IconButton(
-                        onClick = {
-                            isLocked = false
-                            showControls = true
-                            showLockHint = false
-                        },
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .padding(start = 12.dp)
-                            .size(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "点击解锁",
-                            tint = Color(0xFF38BDF8),
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-            }
-        }
-
         // --- 3. Fluid In-App Drag Gesture when Controls are Hidden ---
-        if (!isDesktopPiP && !showControls && !isLocked) {
+        if (!isDesktopPiP && !showControls) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -394,7 +347,7 @@ fun InAppFloatingPlayer(
 
         // --- 4. Floating Video Player Controls Overlay (Figure 1 UI in both PiP & In-App) ---
         AnimatedVisibility(
-            visible = showControls && !isLocked,
+            visible = showControls,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
@@ -631,7 +584,7 @@ fun InAppFloatingPlayer(
 
         // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
         // Resizing cannot exceed screen width or move/expand outside phone screen
-        if (!isDesktopPiP && !isLocked) {
+        if (!isDesktopPiP) {
             // TOP EDGE RESIZE
             Box(
                 modifier = Modifier
