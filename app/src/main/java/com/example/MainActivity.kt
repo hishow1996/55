@@ -217,6 +217,7 @@ class MainActivity : ComponentActivity() {
             var aiPageTitle by remember { mutableStateOf("") }
             // Fullscreen video lock: blocks accidental touches on the fullscreen video
             // while leaving a lock/unlock control on the left edge of the screen.
+            var nativePlayerFullscreen by remember { mutableStateOf(false) }
             var fullscreenVideoLocked by remember { mutableStateOf(false) }
             LaunchedEffect(customVideoView) {
                 // Every new fullscreen session starts unlocked.
@@ -442,10 +443,11 @@ class MainActivity : ComponentActivity() {
                     // --- IN-APP FLOATING WINDOW PLAYER ---
                     // Supports arbitrary resizing in all directions (top, bottom, left, right)
                     // and matches video aspect ratio as requested!
-                    if (isFloatingPlayerVisible && detectedVideo != null) {
+                    if ((isFloatingPlayerVisible || nativePlayerFullscreen) && detectedVideo != null) {
                         InAppFloatingPlayer(
                             videoInfo = detectedVideo!!,
                             isDesktopPiP = false,
+                            isFullscreen = nativePlayerFullscreen,
                             currentTabIndex = currentTabIndex,
                             onReturnToOriginTab = { originIdx ->
                                 viewModel.selectTab(originIdx)
@@ -457,8 +459,7 @@ class MainActivity : ComponentActivity() {
                                 triggerGlobalFloatingOrPiP(detectedVideo!!)
                             },
                             onEnterFullscreen = {
-                                viewModel.closeFloatingPlayer()
-                                Toast.makeText(this@MainActivity, "已在当前网页切换至全屏", Toast.LENGTH_SHORT).show()
+                                nativePlayerFullscreen = !nativePlayerFullscreen
                             },
                             onDownloadVideo = { url, title ->
                                 viewModel.startVideoDownload(url, title)
