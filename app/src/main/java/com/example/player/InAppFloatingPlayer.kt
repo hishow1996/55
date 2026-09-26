@@ -287,6 +287,18 @@ fun InAppFloatingPlayer(
         offsetY = offsetY.coerceIn(0f, maxOffsetY)
     }
 
+    // Orientation/fullscreen can resize the TextureView without destroying its
+    // SurfaceTexture. Rebind the existing surface after the new layout is committed.
+    LaunchedEffect(isFullscreen, isLandscape) {
+        delay(180)
+        currentSurface?.let { surface ->
+            runCatching {
+                NativeVideoPlaybackManager.attachSurface(surface)
+                NativeVideoPlaybackManager.resumeIfNeeded()
+            }
+        }
+    }
+
     // --- Container Box Modifier ---
     val rootModifier = when {
         isGlobalFloating || isDesktopPiP || isFullscreen -> {
@@ -345,7 +357,20 @@ fun InAppFloatingPlayer(
                             isVideoReady = NativeVideoPlaybackManager.player() != null
                         }
 
-                        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
+                        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
+                            // Fullscreen changes the TextureView buffer size while the
+                            // same ExoPlayer instance remains alive. Rebind the exact
+                            // same Surface so the decoder is not left rendering into the
+                            // old portrait buffer (a common cause of a frozen fullscreen
+                            // frame after the orientation transition).
+                            try {
+                                st.setDefaultBufferSize(w, h)
+                                currentSurface?.let { surface ->
+                                    NativeVideoPlaybackManager.attachSurface(surface)
+                                    NativeVideoPlaybackManager.resumeIfNeeded()
+                                }
+                            } catch (_: Exception) {}
+                        }
                         override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
                             try {
                                 // Surface destruction is a rendering lifecycle event,
