@@ -592,7 +592,9 @@ fun InAppFloatingPlayer(
                                         val width = size.width.toFloat().coerceAtLeast(1f)
                                         val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
                                         NativeVideoPlaybackManager.seekTo(target)
-                                        currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                        val actual = NativeVideoPlaybackManager.currentPositionMs()
+                                        currentPositionMs = actual.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                        VideoPlaybackSessionManager.updatePosition(actual)
                                     }
                                 }
                         ) {
@@ -699,7 +701,9 @@ fun InAppFloatingPlayer(
                                 val width = size.width.toFloat().coerceAtLeast(1f)
                                 val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
                                 NativeVideoPlaybackManager.seekTo(target)
-                                currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                val actual = NativeVideoPlaybackManager.currentPositionMs()
+                                currentPositionMs = actual.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                VideoPlaybackSessionManager.updatePosition(actual)
                             }
                         }
                 ) {
