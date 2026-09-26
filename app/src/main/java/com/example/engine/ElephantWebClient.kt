@@ -64,7 +64,9 @@ class ElephantWebViewClient(
         onPageStart(currentUrl)
 
         // Inject document_start plugins
-        repository.extensionManager.injectForPage(view ?: return, currentUrl, "document_start")
+        val page = view ?: return
+        repository.extensionManager.injectForPage(page, currentUrl, "document_start")
+        repository.userScriptManager.injectForPage(page, currentUrl)
 
         // When night mode is OFF, enforce light color scheme at document start
         if (!tab.isNightMode && !repository.isNightMode.value) {
@@ -105,7 +107,9 @@ class ElephantWebViewClient(
         tab.canGoForward = view?.canGoForward() ?: false
 
         // Inject document_end plugins
-        repository.extensionManager.injectForPage(view ?: return, currentUrl, "document_end")
+        val page = view ?: return
+        repository.extensionManager.injectForPage(page, currentUrl, "document_end")
+        repository.userScriptManager.injectForPage(page, currentUrl)
 
         // Apply night mode if tab or global night mode is enabled, otherwise enforce clean white background
         if (tab.isNightMode || repository.isNightMode.value) {
