@@ -4,25 +4,12 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.PixelFormat
-import android.graphics.SurfaceTexture
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.Gravity
-import android.view.MotionEvent
-import android.view.Surface
-import android.view.TextureView
-import android.view.View
 import android.view.WindowManager
-import android.widget.FrameLayout
-import android.widget.ImageButton
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import com.example.MainActivity
-import com.example.R
 import com.example.player.FloatingVideoPlayerComponent
 import com.example.player.NativeVideoPlaybackManager
 import com.example.player.VideoPlaybackSessionManager
@@ -31,7 +18,6 @@ import com.example.model.VideoMediaInfo
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
-import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 import org.json.JSONObject
@@ -42,8 +28,6 @@ class FloatingPlayerService : MediaSessionService() {
     private var rootLayout: View? = null
     private var composeView: androidx.compose.ui.platform.ComposeView? = null
     private var composeLifecycleOwner: FloatingComposeLifecycleOwner? = null
-    private var textureView: TextureView? = null
-    private var currentSurface: Surface? = null
 
 
     private var videoUrl: String = ""
@@ -63,8 +47,6 @@ class FloatingPlayerService : MediaSessionService() {
     private var isPlaying = true
     // Prevent duplicate close/error callbacks from racing during teardown.
     private var closing = false
-    private var currentPositionMs = 0
-    private var durationMs = 0
 
     // The native Media3 player is the single playback owner. This listener only
     // observes its decoded video size so the overlay can follow the actual
@@ -110,8 +92,7 @@ class FloatingPlayerService : MediaSessionService() {
         wm.updateViewLayout(root, p)
     }
 
-    private var currentSizeIndex = 0 // 0: Normal (320dp), 1: Large (370dp), 2: Compact (260dp)
-    private val sizePresets = floatArrayOf(320f, 370f, 260f)
+    private val globalWindowWidthDp = 320f
 
     override fun onCreate() {
         super.onCreate()
@@ -261,7 +242,7 @@ class FloatingPlayerService : MediaSessionService() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val density = resources.displayMetrics.density
         val screenWidth = resources.displayMetrics.widthPixels
-        val preferredW = (sizePresets[currentSizeIndex] * density).toInt()
+        val preferredW = (globalWindowWidthDp * density).toInt()
         val defaultW = preferredW.coerceAtMost((screenWidth * 0.95f).toInt())
         val effectiveRatio = currentValidRatio()
         val heightPx = (defaultW / effectiveRatio).toInt().coerceAtLeast((100 * density).toInt())
@@ -401,12 +382,6 @@ class FloatingPlayerService : MediaSessionService() {
         FloatingVideoPlayerComponent.clearActiveVideo()
         stopSelf()
     }
-    private fun formatTime(ms: Int): String {
-        val totalSeconds = (ms / 1000).coerceAtLeast(0)
-        val minutes = totalSeconds / 60
-        val seconds = totalSeconds % 60
-        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
-    }
 
     private fun removeFloatingWindow() {
         try {
@@ -416,8 +391,6 @@ class FloatingPlayerService : MediaSessionService() {
                 )
                 NativeVideoPlaybackManager.detachSurface()
             } catch (_: Exception) {}
-            try { currentSurface?.release() } catch (_: Exception) {}
-            currentSurface = null
             rootLayout?.let { windowManager?.removeView(it) }
         } catch (e: Exception) {
             e.printStackTrace()
