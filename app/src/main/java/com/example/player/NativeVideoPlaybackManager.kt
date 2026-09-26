@@ -220,7 +220,6 @@ object NativeVideoPlaybackManager {
         controller = null
         activeSessionId = null
         listenerInstalled = false
-        playbackErrorListener = null
         mediaSession?.release()
         mediaSession = null
         VideoPlaybackSessionManager.clear()
