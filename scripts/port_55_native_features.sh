@@ -58,7 +58,7 @@ if settings_import not in s:
     s = s.replace(anchor, settings_import + "\n" + controller_import + "\n" + anchor, 1)
 
 settings_call = "        Elephant55NativeSettings.ensureDefaults(this);
-        Elephant55NativeSettings.applyKiwiUiDefaults();"
+        Elephant55NativeSettings.applyKiwiUiDefaults(this);"
 if settings_call not in s:
     compositor = "        super.initializeCompositor();"
     if compositor in s:
