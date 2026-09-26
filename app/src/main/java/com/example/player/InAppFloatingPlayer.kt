@@ -90,6 +90,7 @@ fun InAppFloatingPlayer(
     onEnterFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
     isDesktopPiP: Boolean = false,
+    isFullscreen: Boolean = false,
     currentTabIndex: Int = 0,
     onReturnToOriginTab: ((Int) -> Unit)? = null,
     onDownloadVideo: ((url: String, title: String) -> Unit)? = null
@@ -248,24 +249,28 @@ fun InAppFloatingPlayer(
     }
 
     // --- Container Box Modifier ---
-    val rootModifier = if (isDesktopPiP) {
-        // Desktop Picture-in-Picture: full window bleed
-        modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    } else {
-        // In-App Floating Window: draggable, rounded corner container
-        modifier
-            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
-            .size(windowWidthDp.dp, windowHeightDp.dp)
-            .shadow(12.dp, RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF0F172A))
-            .border(
-                1.5.dp,
-                if (lockAspectRatio) Color(0xFF60A5FA) else Color(0xFF38BDF8),
-                RoundedCornerShape(16.dp)
-            )
+    val rootModifier = when {
+        isDesktopPiP || isFullscreen -> {
+            // Fullscreen native player: the same Media3 surface expands to the
+            // entire activity without creating a second player or reloading video.
+            modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        }
+        else -> {
+            // In-App Floating Window: draggable, rounded corner container
+            modifier
+                .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+                .size(windowWidthDp.dp, windowHeightDp.dp)
+                .shadow(12.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF0F172A))
+                .border(
+                    1.5.dp,
+                    if (lockAspectRatio) Color(0xFF60A5FA) else Color(0xFF38BDF8),
+                    RoundedCornerShape(16.dp)
+                )
+        }
     }
 
     Box(modifier = rootModifier) {
@@ -384,6 +389,17 @@ fun InAppFloatingPlayer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
+                    IconButton(
+                        onClick = { onEnterFullscreen() },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Fullscreen,
+                            contentDescription = if (isFullscreen) "退出全屏" else "全屏",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                     // Close button (passes back current progress to sync with webpage video)
                     IconButton(
                         onClick = {
