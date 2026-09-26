@@ -26,13 +26,15 @@ is_component_build = false
 is_official_build = false
 EOF
 
+# Install and wire the repo-55 native overlay before GN generation so the
+# generated Chromium Java targets include the injected native sources.
+"$ROOT/scripts/port_55_native_features.sh"
+"$ROOT/scripts/prepare_55_chromium_overlay.sh"
+
 gn gen out/android_arm64
 GN_ARGS="$(gn args out/android_arm64 --list 2>/dev/null || true)"
 echo "$GN_ARGS" | grep -Eq "enable_extensions[[:space:]]*=.*true" || { echo "ERROR: Chromium native Extension Runtime is not enabled." >&2; exit 4; }
 
-# Install and wire the repo-55 native overlay before any verification step.
-"$ROOT/scripts/port_55_native_features.sh"
-"$ROOT/scripts/prepare_55_chromium_overlay.sh"
 "$ROOT/scripts/audit_55_native_features.sh"
 "$ROOT/scripts/verify_55_native_cutover.sh"
 "$ROOT/scripts/validate_55_native_migration.sh"
