@@ -41,8 +41,6 @@ import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -503,85 +501,48 @@ fun InAppFloatingPlayer(
                     }
                 }
 
-                // Bottom Progress Bar, Speed Pill & Time Labels
-                // Buffering is rendered in the existing player UI instead of
-                // replacing the surface with another player view.
-                if (isBuffering) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(if (isDesktopPiP) 28.dp else 36.dp),
-                        strokeWidth = 3.dp
-                    )
-                }
-
+                // Bottom progress display: a thin red line hugs the bottom edge.
+                // The elapsed/total time sits immediately above it on the left.
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.5f))
-                        .padding(start = 10.dp, end = 24.dp, top = 4.dp, bottom = 4.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp, end = 8.dp, bottom = 2.dp),
+                        horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = formatTime(currentPositionMs),
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 11.sp
-                        )
-                        // Speed Switcher Pill Button
-                        Text(
-                            text = "${playbackSpeed}x",
-                            color = Color(0xFF38BDF8),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.White.copy(alpha = 0.15f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .pointerInput(Unit) {
-                                    detectTapGestures(onTap = {
-                                        val speeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
-                                        val nextIndex = (speeds.indexOf(playbackSpeed) + 1) % speeds.size
-                                        playbackSpeed = speeds[nextIndex]
-                                        try {
-                                            NativeVideoPlaybackManager.setPlaybackRate(playbackSpeed)
-                                        } catch (e: Exception) {}
-                                    })
-                                }
-                        )
-                        Text(
-                            text = formatTime(durationMs),
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 11.sp
+                            text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
+                            color = Color.White.copy(alpha = 0.92f),
+                            fontSize = if (isDesktopPiP) 10.sp else 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
                         )
                     }
 
-                    Slider(
-                        value = if (durationMs > 0) currentPositionMs.toFloat() / durationMs.toFloat() else 0f,
-                        onValueChange = { frac ->
-                            val target = (frac * durationMs).toInt()
-                            currentPositionMs = target
-                            try {
-                                NativeVideoPlaybackManager.seekTo(target.toLong())
-                            } catch (e: Exception) {}
-                        },
-                        colors = SliderDefaults.colors(
-                            thumbColor = Color(0xFF38BDF8),
-                            activeTrackColor = Color(0xFF38BDF8),
-                            inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-                        ),
+                    // Playback progress. The red portion grows continuously with
+                    // the native Media3 playback clock; the track is kept subtle.
+                    val progress = if (durationMs > 0) {
+                        (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                    } else 0f
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(20.dp)
-                    )
+                            .height(if (isDesktopPiP) 2.dp else 3.dp)
+                            .background(Color.White.copy(alpha = 0.22f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress)
+                                .fillMaxHeight()
+                                .background(Color.Red)
+                        )
+                    }
                 }
-            }
-        }
-
         // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
         // Resizing cannot exceed screen width or move/expand outside phone screen
         if (!isDesktopPiP) {
