@@ -8,6 +8,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import com.example.model.VideoMediaInfo
+import com.example.model.VideoSource
 
 /**
  * Application-wide owner of the single native video player.
@@ -28,7 +29,16 @@ object NativeVideoPlaybackManager {
     @Synchronized
     fun start(context: Context, video: VideoMediaInfo, autoPlay: Boolean = true): Boolean {
         assertMainThread()
-        val session = VideoPlaybackSessionManager.start(video)
+
+        // The native player is only allowed to receive an actual media source.
+        // Page URLs, blob URLs and other unresolved WebView URLs must stay in
+        // the WebView fallback path rather than being handed to ExoPlayer.
+        val resolvedSource = VideoSourceResolver.resolve(video)
+        if (resolvedSource is VideoSource.WebFallback) {
+            return false
+        }
+
+        val session = VideoPlaybackSessionManager.start(video, resolvedSource)
         val playerController = ensureController(context)
 
         if (activeSessionId != session.id) {
