@@ -17,7 +17,12 @@ another compatibility layer.
 The browser exposes Chromium/Kiwi's native extension management surface
 (`chrome://extensions`) rather than the old Compose `PluginManagerScreen`.
 Installed extensions are managed by Chromium's native ExtensionService and
-ExtensionsRegistry.
+ExtensionRegistry.
+
+The Android extension path also includes the native extension-action/toolbar
+bridge and Chromium's native install prompt/installer path. The build runs
+`scripts/verify_55_extension_android_path.sh` before Ninja so a desktop-only
+extension runtime cannot be mistaken for complete Android support.
 
 ## Build requirements
 
@@ -29,6 +34,9 @@ The local build must contain:
 - `extensions/browser/extension_registrar.cc`
 - `extensions/browser/extension_system.cc`
 - Chromium Android `ChromeTabbedActivity`
+- Chromium Android extension action/toolbar sources
+- Chromium native extension installer/prompt sources
+- Chromium Extensions WebUI resources
 
 Use:
 
@@ -40,6 +48,7 @@ scripts/verify_55_native_java_api.sh
 scripts/verify_kiwi_extension_runtime.sh
 scripts/verify_55_native_cutover.sh
 scripts/validate_55_native_migration.sh
+scripts/verify_55_extension_android_path.sh
 scripts/build_local_chromium.sh
 ```
 
@@ -53,18 +62,15 @@ It is not the runtime of the final browser APK.
 No `android.webkit.WebView`, `ExtensionManager`, `KiwiExtensionApi`,
 or custom JavaScript extension bridge may be copied into the Chromium runtime.
 
-
 ## Management contract
 
 The management layer deliberately delegates lifecycle operations to Chromium's
-native `ExtensionService`/registry rather than maintaining a second extension
-database. Chromium's current ExtensionService exposes lifecycle operations such
-as initialization, unload/remove, update handling and user-disable checks.
+native `ExtensionService`/`ExtensionRegistry` rather than maintaining a
+second extension database.
 
-For repo 55, the browser UI must therefore treat `chrome://extensions` as the
-source of truth. A future native Android toolbar surface may mirror the
-ExtensionAction/toolbar state, but it must not duplicate extension state or
-permissions.
+For repo 55, the browser UI treats `chrome://extensions` as the source of
+truth. A native Android toolbar surface may mirror ExtensionAction/toolbar
+state, but it must not duplicate extension state or permissions.
 
 Acceptance criteria:
 
@@ -75,11 +81,19 @@ Acceptance criteria:
    state.
 4. Extension permissions are read from the native manifest/permission system.
 5. Content scripts and background/service-worker execution remain native.
-6. No Kotlin `ExtensionManager` or JavaScript compatibility API is introduced.
-
+6. Android extension actions/popups use Chromium's native Android bridge.
+7. Extension installation uses Chromium's native installer/prompt path.
+8. No Kotlin `ExtensionManager` or JavaScript compatibility API is introduced.
 
 ## Native management surface
 
-Kiwi's Chromium integration exposes the extension manager through the native Extensions WebUI (kiwi://extensions in the Kiwi source baseline). The final APK therefore does not need a Compose/WebView plugin manager. The page is backed by Chromium's extension resources and the native ExtensionService/Registry lifecycle.
+Kiwi's Chromium integration exposes the extension manager through the native
+Extensions WebUI. The final APK therefore does not need a Compose/WebView
+plugin manager. The page is backed by Chromium's extension resources and the
+native ExtensionService/ExtensionRegistry lifecycle.
 
-The local build verifier requires the Chromium extension resources before GN/Ninja compilation proceeds. The browser uses Chromium's native Extensions WebUI as the management surface; no second Kotlin/WebView manager is introduced.
+The local build verifier requires the Chromium extension resources and Android
+extension bridge before GN/Ninja compilation proceeds. No second Kotlin/WebView
+manager is introduced.
+
+GitHub Actions are intentionally not part of the local build workflow.
