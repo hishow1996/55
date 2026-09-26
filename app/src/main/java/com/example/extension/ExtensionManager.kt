@@ -71,10 +71,9 @@ class ExtensionManager(
     suspend fun installUrl(url: String): Result<BrowserExtension> = withContext(Dispatchers.IO) { runCatching {
         val normalized = url.trim()
         require(normalized.startsWith("https://", true) || normalized.startsWith("http://", true)) { "扩展地址无效" }
-        val lowerUrl = normalized.lowercase()
-        require(lowerUrl.contains(".crx") || lowerUrl.contains(".zip") || lowerUrl.contains("/service/update2/crx") || lowerUrl.contains("extension")) {
-            "不是可识别的扩展下载地址"
-        }
+        // Do not infer the archive type from the URL path. Chrome CDN download URLs
+        // are often opaque and may not contain ".crx" or ".zip"; installBytes()
+        // validates the actual downloaded archive and manifest instead.
         val connection = java.net.URL(normalized).openConnection() as java.net.HttpURLConnection
         connection.instanceFollowRedirects = true
         connection.connectTimeout = 15000
