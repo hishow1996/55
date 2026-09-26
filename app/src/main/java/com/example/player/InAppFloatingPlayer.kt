@@ -592,26 +592,23 @@ fun InAppFloatingPlayer(
             val progress = if (durationMs > 0) {
                 (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
             } else 0f
-            Row(
+            Column(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
+                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(start = 7.dp, end = 7.dp, bottom = 2.dp),
-                verticalAlignment = Alignment.Bottom
+                    .padding(horizontal = 7.dp, bottom = 1.dp)
             ) {
                 Text(
                     text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
                     color = Color.White,
-                    fontSize = if (isDesktopPiP) 10.sp else 12.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
-                    modifier = Modifier
-                        .padding(end = 6.dp)
-                        .width(58.dp)
+                    modifier = Modifier.padding(start = 1.dp, bottom = 1.dp)
                 )
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
                         .height(18.dp)
                         .pointerInput(durationMs) {
                             detectTapGestures { offset ->
