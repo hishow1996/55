@@ -6,6 +6,8 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
@@ -66,7 +68,7 @@ class ExtensionManager(
         installBytes(input.use { it.readBytes() })
     }
 
-    suspend fun installUrl(url: String): Result<BrowserExtension> = runCatching {
+    suspend fun installUrl(url: String): Result<BrowserExtension> = withContext(Dispatchers.IO) { runCatching {
         val normalized = url.trim()
         require(normalized.startsWith("https://", true) || normalized.startsWith("http://", true)) { "扩展地址无效" }
         val connection = java.net.URL(normalized).openConnection() as java.net.HttpURLConnection
@@ -79,7 +81,7 @@ class ExtensionManager(
         val bytes = connection.inputStream.use { it.readBytes() }
         require(bytes.isNotEmpty()) { "扩展文件为空" }
         installBytes(bytes)
-    }
+    } }
 
     fun installBytes(bytes: ByteArray): BrowserExtension {
         val archive = normalizeArchive(bytes)
