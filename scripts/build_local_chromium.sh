@@ -17,14 +17,8 @@ export PATH="$DEPOT_TOOLS:$PATH"
 cd "$KIWI"
 
 mkdir -p out/android_arm64
-cat > out/android_arm64/args.gn <<'EOF'
-target_os = "android"
-target_cpu = "arm64"
-is_debug = false
-enable_extensions = true
-is_component_build = false
-is_official_build = false
-EOF
+"$ROOT/scripts/configure_kiwi_extensions.sh" "$KIWI/out/android_arm64"
+
 
 # Install and wire the repo-55 native overlay before GN generation so the
 # generated Chromium Java targets include the injected native sources.
