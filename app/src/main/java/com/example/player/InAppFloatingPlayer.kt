@@ -193,7 +193,20 @@ fun InAppFloatingPlayer(
                 .toInt()
         )
     }
-    var durationMs by remember { mutableIntStateOf((videoInfo.duration * 1000).toInt().coerceAtLeast(1000)) }
+    var durationMs by remember {
+        mutableIntStateOf(
+            runCatching { NativeVideoPlaybackManager.durationMs() }
+                .getOrDefault(0L)
+                .takeIf { it > 0L }
+                ?.coerceAtMost(Int.MAX_VALUE.toLong())
+                ?.toInt()
+                ?: (videoInfo.duration * 1000)
+                    .toLong()
+                    .coerceAtLeast(0L)
+                    .coerceAtMost(Int.MAX_VALUE.toLong())
+                    .toInt()
+        )
+    }
     var bufferedPositionMs by remember { mutableIntStateOf(0) }
     var isBuffering by remember { mutableStateOf(false) }
     var playbackSpeed by remember { mutableFloatStateOf(VideoPlaybackSessionManager.current()?.playbackRate ?: 1.0f) }
