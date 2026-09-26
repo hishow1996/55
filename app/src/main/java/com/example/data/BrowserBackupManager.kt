@@ -46,6 +46,27 @@ class BrowserBackupManager(private val context: Context) {
         return root.toString(2)
     }
 
+    fun extractTabs(json: String): Pair<List<BrowserTab>, Int>? = try {
+        val root = JSONObject(json)
+        if (root.optString("format") != "elephant-browser-backup") return null
+        val array = root.optJSONArray("tabs") ?: return null
+        val tabs = buildList {
+            for (i in 0 until array.length()) {
+                val o = array.optJSONObject(i) ?: continue
+                val url = o.optString("url")
+                add(BrowserTab(
+                    url = url,
+                    title = o.optString("title").ifBlank { "恢复的标签页" },
+                    isDesktopMode = o.optBoolean("isDesktopMode", false),
+                    isNightMode = o.optBoolean("isNightMode", false)
+                ))
+            }
+        }.ifEmpty { listOf(BrowserTab()) }
+        tabs to root.optInt("currentTabIndex", 0).coerceIn(0, tabs.lastIndex)
+    } catch (_: Exception) {
+        null
+    }
+
     fun write(uri: Uri, json: String): Boolean = try {
         context.contentResolver.openOutputStream(uri)?.use {
             it.write(json.toByteArray(Charsets.UTF_8))
