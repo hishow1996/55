@@ -331,14 +331,16 @@ class FloatingPlayerService : MediaSessionService() {
                     onEnterFullscreen = {},
                     onDownloadVideo = null,
                     onGlobalDrag = { dx, dy ->
-                        val wm = windowManager ?: return@InAppFloatingPlayer
-                        val root = rootLayout ?: return@InAppFloatingPlayer
-                        val lp = root.layoutParams as? WindowManager.LayoutParams ?: return@InAppFloatingPlayer
-                        val maxX = (resources.displayMetrics.widthPixels - lp.width).coerceAtLeast(0)
-                        val maxY = (resources.displayMetrics.heightPixels - lp.height).coerceAtLeast(0)
-                        lp.x = (lp.x + dx.roundToInt()).coerceIn(0, maxX)
-                        lp.y = (lp.y + dy.roundToInt()).coerceIn(0, maxY)
-                        runCatching { wm.updateViewLayout(root, lp) }
+                        val wm = windowManager
+                        val root = rootLayout
+                        val lp = root?.layoutParams as? WindowManager.LayoutParams
+                        if (wm != null && root != null && lp != null) {
+                            val maxX = (resources.displayMetrics.widthPixels - lp.width).coerceAtLeast(0)
+                            val maxY = (resources.displayMetrics.heightPixels - lp.height).coerceAtLeast(0)
+                            lp.x = (lp.x + dx.roundToInt()).coerceIn(0, maxX)
+                            lp.y = (lp.y + dy.roundToInt()).coerceIn(0, maxY)
+                            runCatching { wm.updateViewLayout(root, lp) }
+                        }
                     }
                 )
             }
