@@ -221,11 +221,6 @@ class MainActivity : ComponentActivity() {
             // Fullscreen video lock: blocks accidental touches on the fullscreen video
             // while leaving a lock/unlock control on the left edge of the screen.
             var nativePlayerFullscreen by remember { mutableStateOf(false) }
-            var fullscreenVideoLocked by remember { mutableStateOf(false) }
-            LaunchedEffect(customVideoView) {
-                // Every new fullscreen session starts unlocked.
-                fullscreenVideoLocked = false
-            }
 
             var orientationBeforeNativeFullscreen by remember {
                 mutableStateOf(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
@@ -410,41 +405,6 @@ class MainActivity : ComponentActivity() {
                                         modifier = Modifier.fillMaxSize()
                                     )
 
-                                    // Fullscreen lock button: vertically centered on the left edge.
-                                    // When locked, the transparent blocker consumes accidental taps
-                                    // so the video's fullscreen controls cannot be triggered by mistake.
-                                    if (fullscreenVideoLocked) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .pointerInput(Unit) {
-                                                    detectTapGestures { /* keep fullscreen locked */ }
-                                                }
-                                        )
-                                    }
-
-                                    IconButton(
-                                        onClick = { fullscreenVideoLocked = !fullscreenVideoLocked },
-                                        modifier = Modifier
-                                            .align(Alignment.CenterStart)
-                                            .padding(start = 8.dp)
-                                            .size(42.dp)
-                                            .background(
-                                                Color.Black.copy(alpha = 0.48f),
-                                                androidx.compose.foundation.shape.CircleShape
-                                            )
-                                    ) {
-                                        androidx.compose.material3.Icon(
-                                            imageVector = if (fullscreenVideoLocked) {
-                                                androidx.compose.material.icons.Icons.Default.LockOpen
-                                            } else {
-                                                androidx.compose.material.icons.Icons.Default.Lock
-                                            },
-                                            contentDescription = if (fullscreenVideoLocked) "解锁全屏播放器" else "锁定全屏播放器",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
                                 }
                             }
                         }
