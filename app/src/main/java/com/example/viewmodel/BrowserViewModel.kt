@@ -893,6 +893,45 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Native Media3 failed after the WebView video was locked. Restore the
+     * browser video using the native clock instead of leaving a black player.
+     */
+    fun onNativePlaybackError() {
+        val video = _detectedVideo.value ?: return
+        val nativePositionSeconds =
+            (NativeVideoPlaybackManager.currentPositionMs().coerceAtLeast(0L) / 1000.0)
+
+        NativeVideoPlaybackManager.resetAfterPlaybackError()
+
+        // Only resume the WebView that owns this exact video/page. If the user
+        // has switched tabs, leave the source paused rather than touching the
+        // unrelated active page.
+        val sourceWebView = video.originTabId?.let { tabWebViews[it] }
+            ?: tabWebViews[currentTab.id].takeIf {
+                video.originTabId.isNullOrBlank() &&
+                    (video.pageUrl.isBlank() || video.pageUrl == currentTab.url)
+            }
+
+        if (sourceWebView != null) {
+            sourceWebView.post {
+                sourceWebView.evaluateJavascript(
+                    Scripts.RESUME_WEB_VIDEO_AT(
+                        nativePositionSeconds.coerceAtLeast(0.0),
+                        true
+                    ),
+                    null
+                )
+            }
+        }
+
+        _detectedVideo.value = video.copy(
+            currentTime = nativePositionSeconds.coerceAtLeast(0.0),
+            isPlaying = true
+        )
+        _isFloatingPlayerVisible.value = false
+    }
+
     fun onWebVideoPlaybackState(currentTime: Double, isPlaying: Boolean) {
         val video = _detectedVideo.value ?: return
         if (video.originTabId != null && video.originTabId != currentTab.id) return
