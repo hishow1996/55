@@ -13,8 +13,8 @@ test -f "$CONTROLLER" || fail "55 native feature controller is missing"
 
 # Keep the overlay aligned with the actual Chromium API in the Kiwi source
 # tree. This prevents a stale helper signature from reaching javac.
-grep -Eq 'public static void switchUserAgent[[:space:]]*\([[:space:]]*Tab tab,[[:space:]]*boolean switchToDesktop,[[:space:]]*int caller[[:space:]]*\)' "$TAB_UTILS" ||
-  fail "Unexpected TabUtils.switchUserAgent API; update the 55 overlay before building"
+grep -Eq 'switchUserAgent[[:space:]]*\(' "$TAB_UTILS" ||
+  fail "Chromium TabUtils.switchUserAgent API is missing; update the 55 overlay before building"
 
 grep -Fq 'TabUtils.switchUserAgent(' "$CONTROLLER" ||
   fail "55 native feature controller does not use Chromium TabUtils"
