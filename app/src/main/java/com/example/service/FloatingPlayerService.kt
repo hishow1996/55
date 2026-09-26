@@ -34,6 +34,7 @@ import com.example.R
 import com.example.player.FloatingVideoPlayerComponent
 import com.example.player.NativeVideoPlaybackManager
 import com.example.player.VideoPlaybackSessionManager
+import com.example.player.VideoSourceResolver
 import com.example.model.VideoMediaInfo
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -216,6 +217,14 @@ class FloatingPlayerService : Service() {
     }
 
     private fun showFloatingWindow() {
+        // Repeated launch requests must reuse the existing overlay instead of
+        // adding a second root view on top of the first one.
+        if (rootLayout != null) {
+            isPlaying = try { NativeVideoPlaybackManager.isPlaying() } catch (_: Exception) { isPlaying }
+            handler.removeCallbacks(progressUpdater)
+            handler.post(progressUpdater)
+            return
+        }
         removeFloatingWindow()
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
