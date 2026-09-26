@@ -117,7 +117,12 @@ class FloatingPlayerService : MediaSessionService() {
             return START_NOT_STICKY
         }
 
-        // A new playback request starts a fresh close/error lifecycle.\n        // Without this reset, a previously closed service instance could ignore\n        // later Media3 errors because `closing` remained true.\n        closing = false\n\n        videoUrl = intent.getStringExtra(EXTRA_VIDEO_URL) ?: ""
+        // A new playback request starts a fresh close/error lifecycle.
+        // Without this reset, a previously closed service instance could ignore
+        // later Media3 errors because `closing` remained true.
+        closing = false
+
+        videoUrl = intent.getStringExtra(EXTRA_VIDEO_URL) ?: ""
         videoTitle = intent.getStringExtra(EXTRA_VIDEO_TITLE) ?: "网页视频"
         videoRatio = intent.getFloatExtra(EXTRA_VIDEO_RATIO, 16f / 9f).coerceIn(0.5f, 3.0f)
         initialPositionMs = intent.getLongExtra(EXTRA_VIDEO_POSITION, 0L)
@@ -185,7 +190,7 @@ class FloatingPlayerService : MediaSessionService() {
                 isPlaying = isPlaying
             )
             val started = try {
-                NativeVideoPlaybackManager.start(this, nativeInfo, autoPlay = true)
+                NativeVideoPlaybackManager.start(this, nativeInfo, autoPlay = isPlaying)
             } catch (e: Exception) {
                 android.util.Log.e("FloatingPlayerService", "Failed to start shared Native Media3 player", e)
                 false
