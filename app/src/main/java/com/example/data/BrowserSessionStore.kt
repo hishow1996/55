@@ -16,6 +16,7 @@ class BrowserSessionStore(context: Context) {
     private val prefs = context.getSharedPreferences("elephant_browser_session", Context.MODE_PRIVATE)
 
     fun saveTabs(tabs: List<BrowserTab>, currentIndex: Int) {
+        val currentId = tabs.getOrNull(currentIndex)?.id.orEmpty()
         val array = JSONArray()
         tabs.filterNot { it.isIncognito }.take(MAX_TABS).forEach { tab ->
             array.put(JSONObject().apply {
@@ -28,7 +29,7 @@ class BrowserSessionStore(context: Context) {
         }
         prefs.edit()
             .putString(KEY_TABS, array.toString())
-            .putInt(KEY_CURRENT, currentIndex.coerceIn(0, maxOf(0, tabs.lastIndex)))
+            .putString(KEY_CURRENT_ID, currentId)
             .apply()
     }
 
@@ -50,7 +51,9 @@ class BrowserSessionStore(context: Context) {
                     )
                 }
             }.ifEmpty { listOf(BrowserTab()) }
-            result to prefs.getInt(KEY_CURRENT, 0).coerceIn(0, result.lastIndex)
+            val savedId = prefs.getString(KEY_CURRENT_ID, null)
+            val savedIndex = savedId?.let { id -> result.indexOfFirst { it.id == id } }?.takeIf { it >= 0 } ?: 0
+            result to savedIndex.coerceIn(0, result.lastIndex)
         } catch (_: Exception) {
             emptyList<BrowserTab>() to 0
         }
@@ -92,7 +95,7 @@ class BrowserSessionStore(context: Context) {
 
     companion object {
         private const val KEY_TABS = "tabs_v2"
-        private const val KEY_CURRENT = "current_index_v2"
+        private const val KEY_CURRENT_ID = "current_tab_id_v2"
         private const val KEY_CLOSED = "recently_closed_v2"
         private const val MAX_TABS = 24
         private const val MAX_CLOSED = 20
