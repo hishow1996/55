@@ -80,7 +80,10 @@ object NativeVideoPlaybackManager {
         controller?.setSurface(null)
     }
 
-    fun player(): ExoPlayer? = controller?.rawPlayer()
+    fun player(): ExoPlayer? {
+        assertMainThread()
+        return controller?.rawPlayer()
+    }
 
     fun play() {
         assertMainThread()
