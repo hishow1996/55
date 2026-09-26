@@ -750,8 +750,6 @@ fun InAppFloatingPlayer(
         }
     }
 }
-}
-}
 
 private fun formatTime(ms: Int): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)
