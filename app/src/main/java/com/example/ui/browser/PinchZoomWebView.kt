@@ -10,9 +10,9 @@ import kotlin.math.pow
 /**
  * WebView with explicit two-finger pinch zoom.
  *
- * Native WebView zoom controls are disabled so double-tap and the browser's
- * legacy zoom gesture cannot unexpectedly change the page scale. Zooming is
- * driven only by ScaleGestureDetector and WebView.zoomBy().
+ * Native zoom UI is disabled, but WebView zoom support itself remains enabled
+ * because WebView.zoomBy() requires zoom support on some Android System WebView
+ * versions. Zooming is driven only by ScaleGestureDetector.
  */
 class PinchZoomWebView @JvmOverloads constructor(
     context: Context,
@@ -30,7 +30,8 @@ class PinchZoomWebView @JvmOverloads constructor(
         context,
         object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-                pinchActive = detector.currentSpan >= 24f
+                pinchActive = detector.currentSpan >= 16f
+                if (pinchActive) parent?.requestDisallowInterceptTouchEvent(true)
                 return pinchActive
             }
 
@@ -51,6 +52,7 @@ class PinchZoomWebView @JvmOverloads constructor(
 
             override fun onScaleEnd(detector: ScaleGestureDetector) {
                 pinchActive = false
+                parent?.requestDisallowInterceptTouchEvent(false)
             }
         }
     )
@@ -58,7 +60,10 @@ class PinchZoomWebView @JvmOverloads constructor(
     init {
         // We implement pinch zoom ourselves. This prevents WebView's legacy
         // built-in zoom/double-tap behavior from competing with the detector.
-        settings.setSupportZoom(false)
+        // zoomBy() can be a no-op when supportZoom is disabled on older
+        // Android System WebView builds. Keep the engine capable of zooming,
+        // while hiding all legacy zoom controls/gestures from the user.
+        settings.setSupportZoom(true)
         settings.builtInZoomControls = false
         settings.displayZoomControls = false
     }
@@ -102,12 +107,15 @@ class PinchZoomWebView @JvmOverloads constructor(
                     }
                 }
                 if (event.pointerCount >= 2) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
                     lastPanX = event.x
                     lastPanY = event.y
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 panStarted = false
+                pinchActive = false
+                parent?.requestDisallowInterceptTouchEvent(false)
             }
         }
 
