@@ -2,7 +2,9 @@ package com.example.player
 
 import android.content.Context
 import android.view.Surface
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -24,6 +26,7 @@ class Media3VideoPlayerController(context: Context) {
     private val httpFactory = DefaultHttpDataSource.Factory()
     private val player = ExoPlayer.Builder(appContext)
         .setMediaSourceFactory(DefaultMediaSourceFactory(httpFactory))
+        .setWakeMode(C.WAKE_MODE_NETWORK)
         .build()
 
     fun setHeaders(pageUrl: String?) {
@@ -63,6 +66,11 @@ class Media3VideoPlayerController(context: Context) {
         val itemBuilder = MediaItem.Builder()
             .setUri(url)
             .setMediaId(video.pageUrl.ifBlank { url })
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(video.title.ifBlank { "网页视频" })
+                    .build()
+            )
 
         if (mimeType != null) {
             itemBuilder.setMimeType(mimeType)
