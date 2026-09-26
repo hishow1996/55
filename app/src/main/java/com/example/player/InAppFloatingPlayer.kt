@@ -543,6 +543,9 @@ fun InAppFloatingPlayer(
                         )
                     }
                 }
+            }
+        }
+
         // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
         // Resizing cannot exceed screen width or move/expand outside phone screen
         if (!isDesktopPiP) {

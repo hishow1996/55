@@ -151,7 +151,7 @@ fun HomeScreen(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Image(
-                            painter = painterResource(id = R.drawable.ic_elephant),
+                            painter = painterResource(id = R.drawable.elephant_line),
                             contentDescription = "大象图标",
                             modifier = Modifier.size(34.dp)
                         )

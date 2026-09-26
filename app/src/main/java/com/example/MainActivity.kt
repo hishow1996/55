@@ -98,6 +98,7 @@ import com.example.ui.tabs.TabManagerScreen
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
+    // Main browser activity
 
     private var viewModelRef: com.example.viewmodel.BrowserViewModel? = null
     private val isPipModeState = mutableStateOf(false)
@@ -193,7 +194,7 @@ class MainActivity : ComponentActivity() {
 
             val tabs by viewModel.tabs.collectAsState()
             val currentTabIndex by viewModel.currentTabIndex.collectAsState()
-            val currentTab = tabs.getOrNull(currentTabIndex) ?: tabs.first()
+            val currentTab = tabs.getOrNull(currentTabIndex) ?: tabs.firstOrNull() ?: com.example.model.BrowserTab()
 
             val detectedVideo by viewModel.detectedVideo.collectAsState()
             val isFloatingPlayerVisible by viewModel.isFloatingPlayerVisible.collectAsState()

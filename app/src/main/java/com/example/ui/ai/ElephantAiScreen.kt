@@ -214,7 +214,7 @@ fun ElephantAiScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_elephant),
+                        painter = painterResource(id = R.drawable.elephant_line),
                         contentDescription = "大象图标",
                         modifier = Modifier.size(22.dp)
                     )
@@ -311,7 +311,7 @@ fun ElephantAiScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Image(
-                                    painter = painterResource(id = R.drawable.ic_elephant),
+                                    painter = painterResource(id = R.drawable.elephant_line),
                                     contentDescription = null,
                                     modifier = Modifier.size(38.dp)
                                 )
@@ -387,7 +387,7 @@ fun ElephantAiScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Image(
-                                    painter = painterResource(id = R.drawable.ic_elephant),
+                                    painter = painterResource(id = R.drawable.elephant_line),
                                     contentDescription = "AI",
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -461,7 +461,7 @@ fun ElephantAiScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Image(
-                                    painter = painterResource(id = R.drawable.ic_elephant),
+                                    painter = painterResource(id = R.drawable.elephant_line),
                                     contentDescription = "AI",
                                     modifier = Modifier.size(18.dp)
                                 )
