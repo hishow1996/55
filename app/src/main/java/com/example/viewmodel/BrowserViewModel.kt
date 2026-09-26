@@ -713,6 +713,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 s.userAgentString = targetUa
                 s.useWideViewPort = newMode
                 s.loadWithOverviewMode = newMode
+                if (newMode) {
+                    s.layoutAlgorithm = android.webkit.WebSettings.LayoutAlgorithm.NORMAL
+                } else {
+                    s.layoutAlgorithm = android.webkit.WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+                }
+                s.textZoom = 100
             }
             val currentUrl = currentTab.url
             if (newMode && currentUrl.isNotBlank()) {
