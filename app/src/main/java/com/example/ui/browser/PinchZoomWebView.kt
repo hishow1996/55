@@ -44,8 +44,13 @@ class PinchZoomWebView @JvmOverloads constructor(
                 // aggressive jumps on larger pinch gestures.
                 val amplified = detector.scaleFactor.toDouble().coerceIn(0.5, 2.0).pow(1.20)
                 if (amplified.isFinite() && amplified > 0.0 && amplified != 1.0) {
-                    zoomBy(amplified.toFloat())
-                    pageZoom = (pageZoom * amplified.toFloat()).coerceIn(0.5f, 5f)
+                    val currentZoom = pageZoom
+                    val targetZoom = (currentZoom * amplified.toFloat()).coerceIn(0.5f, 5f)
+                    val effectiveDelta = targetZoom / currentZoom
+                    if (effectiveDelta.isFinite() && effectiveDelta > 0f && effectiveDelta != 1f) {
+                        zoomBy(effectiveDelta)
+                        pageZoom = targetZoom
+                    }
                 }
                 return true
             }
@@ -76,11 +81,19 @@ class PinchZoomWebView @JvmOverloads constructor(
      * one-finger pan start unexpectedly after switching modes.
      */
     fun resetGestureZoomState() {
+        // Undo wrapper-owned zoom before a reused WebView changes mode/page.
+        if (pageZoom != 1f) {
+            val restoreFactor = 1f / pageZoom
+            if (restoreFactor.isFinite() && restoreFactor > 0f) {
+                zoomBy(restoreFactor)
+            }
+        }
         pinchActive = false
         pageZoom = 1f
         panStarted = false
         lastPanX = 0f
         lastPanY = 0f
+        parent?.requestDisallowInterceptTouchEvent(false)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
