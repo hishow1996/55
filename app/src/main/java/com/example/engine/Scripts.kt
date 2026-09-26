@@ -471,6 +471,19 @@ object Scripts {
                 }
             }
 
+            function displayedVideoDimensions(video) {
+                if (!video) return [16, 9];
+                try {
+                    const rect = video.getBoundingClientRect();
+                    const rw = Number(rect.width || 0);
+                    const rh = Number(rect.height || 0);
+                    if (rw > 1 && rh > 1 && isFinite(rw) && isFinite(rh)) {
+                        return [Math.max(1, Math.round(rw)), Math.max(1, Math.round(rh))];
+                    }
+                } catch (e) {}
+                return [video.videoWidth || 16, video.videoHeight || 9];
+            }
+
             function currentVideoSource(video) {
                 if (!video) return '';
                 return video.currentSrc || video.src || '';
