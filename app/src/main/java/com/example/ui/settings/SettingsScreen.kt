@@ -108,7 +108,6 @@ fun SettingsScreen(
         true
     }
 
-    var showBrowserSettingsDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
