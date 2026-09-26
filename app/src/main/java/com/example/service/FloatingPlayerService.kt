@@ -1,10 +1,5 @@
 package com.example.service
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import android.content.Context
@@ -29,7 +24,6 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.player.FloatingVideoPlayerComponent
@@ -215,35 +209,6 @@ class FloatingPlayerService : MediaSessionService() {
         }
 
         return START_STICKY
-    }
-
-    private fun startForegroundServiceNotification() {
-        val channelId = "elephant_floating_player"
-        val channelName = "大象全局悬浮播放"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val chan = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(chan)
-        }
-
-        val openIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(EXTRA_SELECT_TAB, originTabIndex)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("大象浏览器正在悬浮播放")
-            .setContentText(videoTitle.ifBlank { "点击返回大象浏览器标签页" })
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .build()
-
-        startForeground(1001, notification)
     }
 
     private fun showFloatingWindow() {
