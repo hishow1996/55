@@ -827,7 +827,7 @@ class MainActivity : ComponentActivity() {
         val vm = viewModelRef ?: return
         val video = vm.detectedVideo.value
         val isFloating = vm.isFloatingPlayerVisible.value
-        if ((isFloating || (video != null && video.isPlaying)) && video != null) {
+        if ((isFloating || (video != null && video.isPlaying)) && video != null && (isFloating || vm.repository.autoPip.value)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && FloatingVideoPlayerComponent.hasPipPermission(this)) {
                 try {
                     val pipParams = FloatingVideoPlayerComponent.buildPipParams(video)
