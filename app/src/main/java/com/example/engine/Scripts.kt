@@ -208,6 +208,23 @@ object Scripts {
 
     val VIDEO_SNIFFER_PROBE = """
         (function() {
+            // Use the video's on-page display box for floating-window geometry.
+            // A source can be encoded as 16:9 while the page actually displays/crops
+            // it in a 4:3 box. Native floating playback should follow what the user
+            // can see, not blindly reuse the encoded frame dimensions.
+            function displayedVideoDimensions(video) {
+                if (!video) return [16, 9];
+                try {
+                    const rect = video.getBoundingClientRect();
+                    const rw = Number(rect.width || 0);
+                    const rh = Number(rect.height || 0);
+                    if (rw > 1 && rh > 1 && isFinite(rw) && isFinite(rh)) {
+                        return [Math.max(1, Math.round(rw)), Math.max(1, Math.round(rh))];
+                    }
+                } catch (e) {}
+                return [video.videoWidth || 16, video.videoHeight || 9];
+            }
+
             const videos = document.querySelectorAll('video');
             for (let v of videos) {
                 if (v && !window._elephantLastVideoElement) {
@@ -232,8 +249,8 @@ object Scripts {
                             document.title || '网页视频',
                             v.duration || 0,
                             v.currentTime || 0,
-                            v.videoWidth || 16,
-                            v.videoHeight || 9
+                            displayedVideoDimensions(v)[0],
+                            displayedVideoDimensions(v)[1]
                         );
                         return;
                     }
@@ -479,8 +496,8 @@ object Scripts {
                                     document.title || '网页视频',
                                     Number(video.duration || 0),
                                     Number(video.currentTime || 0),
-                                    video.videoWidth || 16,
-                                    video.videoHeight || 9
+                                    displayedVideoDimensions(video)[0],
+                                    displayedVideoDimensions(video)[1]
                                 );
                             } catch(e) {}
                         }
@@ -493,8 +510,8 @@ object Scripts {
                                 '', document.title || '网页视频',
                                 Number(video.duration || 0),
                                 Number(video.currentTime || 0),
-                                video.videoWidth || 16,
-                                video.videoHeight || 9
+                                displayedVideoDimensions(video)[0],
+                                displayedVideoDimensions(video)[1]
                             );
                         } catch(e) {}
                     }
