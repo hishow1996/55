@@ -272,6 +272,7 @@ fun InAppFloatingPlayer(
             // entire activity without creating a second player or reloading video.
             modifier
                 .fillMaxSize()
+                .zIndex(100f)
                 .background(Color.Black)
         }
         else -> {
