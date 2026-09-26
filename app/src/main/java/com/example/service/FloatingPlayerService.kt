@@ -248,170 +248,43 @@ class FloatingPlayerService : Service() {
             isFocusable = false
             surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                    // TextureView may recreate its Surface while the service stays alive.
-                    // Preserve the latest position before rebuilding Media3.
-                    val preservedPosition = try {
-                        mediaPlayer?.currentPosition?.coerceAtLeast(0L)
-                    } catch (_: Exception) {
-                        null
-                    } ?: VideoPlaybackSessionManager.current()?.positionMs?.coerceAtLeast(0L)
-                    ?: initialPositionMs.coerceAtLeast(0L)
-                    initialPositionMs = preservedPosition
-                    VideoPlaybackSessionManager.updatePosition(preservedPosition)
-
-                    // Release the previous Media3 instance before binding the new Surface.
-                    try { nativePlayerController?.release() } catch (_: Exception) {}
-                    nativePlayerController = null
-                    mediaPlayer = null
-                    try { currentSurface?.release() } catch (_: Exception) {}
-                    currentSurface = null
-
-                    val surface = Surface(st)
-                    currentSurface = surface
-
-                    val activeInfo = FloatingVideoPlayerComponent.activeVideoInfo
-                    // The service intent is the authoritative handoff payload. Never
-                    // silently replace it with a stale global activeVideoInfo URL.
-                    // This prevents video B from falling back to video A after a
-                    // rapid source switch.
-                    val streamUrl = videoUrl.trim()
-
-                    if (streamUrl.isBlank() || streamUrl.startsWith("blob:")) {
-                        handler.post {
-                            Toast.makeText(
-                                this@FloatingPlayerService,
-                                "当前视频无法转换为原生播放地址",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                        return
-                    }
-
-                    val effectiveVideo = VideoMediaInfo(
-                        url = streamUrl,
-                        pageUrl = sourcePageUrl,
-                        title = videoTitle.ifBlank { activeInfo?.title ?: "网页视频" },
-                        currentTime = initialPositionMs / 1000.0,
-                        videoWidth = (videoRatio * 1000).toInt().coerceAtLeast(1),
-                        videoHeight = 1000,
-                        originTabIndex = originTabIndex,
-                        originTabId = originTabId
-                    )
-
-                    val controller = Media3VideoPlayerController(this@FloatingPlayerService)
-                    nativePlayerController = controller
-                    val player = controller.rawPlayer()
-                    mediaPlayer = player
-                    controller.setSurface(surface)
-                    controller.addListener(object : Player.Listener {
-                        override fun onPlaybackStateChanged(playbackState: Int) {
-                            if (playbackState == Player.STATE_READY) {
-                                durationMs = player.duration.coerceAtLeast(0L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                                if (initialPositionMs > 0L) {
-                                    player.seekTo(initialPositionMs)
-                                    currentPositionMs = initialPositionMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                                }
-                                player.repeatMode = Player.REPEAT_MODE_ONE
-                                val sessionPlaying = VideoPlaybackSessionManager.current()?.isPlaying ?: isPlaying
-                                this@FloatingPlayerService.isPlaying = sessionPlaying
-                                if (sessionPlaying) player.play() else player.pause()
-                                playPauseBtn?.setImageResource(
-                                    if (sessionPlaying) android.R.drawable.ic_media_pause
-                                    else android.R.drawable.ic_media_play
-                                )
-                            }
-                        }
-
-                        override fun onPlayerError(error: PlaybackException) {
-                            // Media3 errors are terminal for this native instance;
-                            // return ownership to WebView through the same close path.
-                            if (closing) return
-                            android.util.Log.e(
-                                "FloatingPlayerService",
-                                "Media3 playback error: code=${error.errorCode} url=$streamUrl",
-                                error
-                            )
-                            val positionSeconds = try {
-                                player.currentPosition.coerceAtLeast(0L) / 1000.0
-                            } catch (_: Exception) {
-                                initialPositionMs.coerceAtLeast(0L) / 1000.0
-                            }
-                            handler.post {
-                                Toast.makeText(
-                                    this@FloatingPlayerService,
-                                    "原生悬浮播放器无法播放，已返回网页播放器",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                                closeFloatingWindowOrResumeBrowser(positionSeconds)
-                            }
-                        }
-
-                        override fun onIsPlayingChanged(playing: Boolean) {
-                            this@FloatingPlayerService.isPlaying = playing
-                            VideoPlaybackSessionManager.updatePlaying(playing)
-                            playPauseBtn?.setImageResource(
-                                if (playing) android.R.drawable.ic_media_pause
-                                else android.R.drawable.ic_media_play
-                            )
-                            resetHideTimer()
-                        }
-                    })
+                    currentSurface = Surface(st)
                     try {
-                        controller.load(effectiveVideo, initialPositionMs)
+                        NativeVideoPlaybackManager.attachSurface(currentSurface)
                         val session = VideoPlaybackSessionManager.current()
-                        val playbackRate = session?.playbackRate ?: requestedPlaybackRate
-                        controller.rawPlayer().setPlaybackSpeed(playbackRate)
-                        val shouldPlay = session?.isPlaying ?: requestedShouldPlay
-                        if (shouldPlay) controller.play() else controller.pause()
-                    } catch (e: Exception) {
-                        android.util.Log.e(
-                            "FloatingPlayerService",
-                            "Failed to load Media3 source: $streamUrl",
-                            e
+                        NativeVideoPlaybackManager.setPlaybackRate(
+                            session?.playbackRate ?: requestedPlaybackRate
                         )
-                        handler.post {
-                            Toast.makeText(
-                                this@FloatingPlayerService,
-                                "悬浮视频加载失败",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
+                        val position = session?.positionMs ?: initialPositionMs
+                        if (position > 0L) NativeVideoPlaybackManager.seekTo(position)
+                        isPlaying = session?.isPlaying ?: requestedShouldPlay
+                        if (isPlaying) NativeVideoPlaybackManager.play()
+                        else NativeVideoPlaybackManager.pause()
+                        currentPositionMs = NativeVideoPlaybackManager.currentPositionMs()
+                            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                        durationMs = NativeVideoPlaybackManager.durationMs()
+                            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                    } catch (e: Exception) {
+                        android.util.Log.e("FloatingPlayerService", "Failed to attach shared Native Media3 player", e)
                     }
                 }
 
                 override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
+
                 override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-                    // Save the authoritative Media3 state before destroying the surface.
-                    // Releasing the player prevents headless playback; a recreated
-                    // surface will rebuild the player from VideoPlaybackSessionManager.
                     try {
-                        mediaPlayer?.let { player ->
-                            val pos = player.currentPosition.coerceAtLeast(0L)
-                            initialPositionMs = pos
-                            currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                            isPlaying = player.isPlaying
-                            VideoPlaybackSessionManager.updatePosition(pos)
-                            VideoPlaybackSessionManager.updatePlaying(player.isPlaying)
-                            player.setVideoSurface(null)
-                        }
-                    } catch (e: Exception) {}
-
-                    try {
-                        nativePlayerController?.release()
-                    } catch (e: Exception) {}
-
-                    nativePlayerController = null
-                    mediaPlayer = null
-
-                    try {
-                        currentSurface?.release()
-                    } catch (e: Exception) {}
+                        val pos = NativeVideoPlaybackManager.currentPositionMs()
+                        VideoPlaybackSessionManager.updatePosition(pos)
+                        VideoPlaybackSessionManager.updatePlaying(NativeVideoPlaybackManager.isPlaying())
+                        NativeVideoPlaybackManager.detachSurface()
+                    } catch (_: Exception) {}
+                    try { currentSurface?.release() } catch (_: Exception) {}
                     currentSurface = null
                     return true
                 }
+
                 override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
             }
-        }
         root.addView(tv)
         textureView = tv
 
