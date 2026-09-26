@@ -24,6 +24,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
@@ -43,6 +47,7 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -65,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.launch
 import com.example.data.BrowserRepository
 import com.example.data.BrowserBackupManager
 import com.example.engine.BrowserPerformanceManager
@@ -675,7 +681,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    }
 
     override fun onPause() {
         if (activeInstance === this) activeInstance = null
@@ -1051,7 +1056,7 @@ fun ChromiumWebViewContainer(
                             viewModel.onWebVideoPlaybackState(currentTime, isPlaying)
                         },
                         onDrmDetected = { licenseUri, scheme, headers ->
-                            runOnUiThread {
+                            (context as? ComponentActivity)?.runOnUiThread {
                                 viewModel.onDrmLicenseDetected(licenseUri, scheme, headers)
                             }
                         },
@@ -1104,10 +1109,10 @@ fun ChromiumWebViewContainer(
                         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
                             viewModel.repository.extensionManager.installUrl(url)
                                 .onSuccess {
-                                    Toast.makeText(this@MainActivity, "已安装扩展：" + it.name, Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "已安装扩展：" + it.name, Toast.LENGTH_SHORT).show()
                                 }
                                 .onFailure {
-                                    Toast.makeText(this@MainActivity, "扩展安装失败：" + (it.message ?: "扩展包无效"), Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "扩展安装失败：" + (it.message ?: "扩展包无效"), Toast.LENGTH_LONG).show()
                                 }
                         }
                     },
@@ -1115,16 +1120,16 @@ fun ChromiumWebViewContainer(
                         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
                             viewModel.repository.userScriptManager.installUrl(url)
                                 .onSuccess {
-                                    Toast.makeText(this@MainActivity, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show()
                                 }
                                 .onFailure {
-                                    Toast.makeText(this@MainActivity, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show()
                                 }
                         }
                     },
                     onDrmLicenseRequest = { licenseUri, scheme, headers ->
                         // shouldInterceptRequest runs off the UI thread.
-                        runOnUiThread {
+                        (context as? ComponentActivity)?.runOnUiThread {
                             viewModel.onDrmLicenseDetected(licenseUri, scheme, headers)
                         }
                     }

@@ -611,10 +611,10 @@ private fun UserScriptsScreen(
             }
             item {
                 Surface(
-                    Modifier.fillMaxWidth(),
+                    onClick = onAdd,
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    onClick = onAdd
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("＋", style = MaterialTheme.typography.titleLarge)
