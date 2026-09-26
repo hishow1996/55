@@ -346,6 +346,111 @@ fun PluginManagerScreen(
 }
 
 @Composable
+private fun ExtensionCard(
+    name: String,
+    iconPath: String?,
+    version: String,
+    description: String,
+    manifestVersion: Int,
+    enabled: Boolean,
+    hasPopup: Boolean,
+    hasOptions: Boolean,
+    cardColor: Color,
+    secondary: Color,
+    onToggle: (Boolean) -> Unit,
+    onPopup: () -> Unit,
+    onOptions: () -> Unit,
+    onAbout: () -> Unit,
+    onUninstall: () -> Unit
+) {
+    var menu by remember { mutableStateOf(false) }
+    Surface(shape = RoundedCornerShape(18.dp), color = cardColor) {
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ExtensionIcon(iconPath, name, 52.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(name, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text(
+                        "v$version · Manifest V$manifestVersion",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = secondary
+                    )
+                }
+                Switch(checked = enabled, onCheckedChange = onToggle)
+                Box {
+                    IconButton(onClick = { menu = true }) {
+                        Icon(Icons.Default.MoreVert, "更多")
+                    }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        if (hasPopup) DropdownMenuItem(
+                            text = { Text("打开扩展") },
+                            leadingIcon = { Icon(Icons.Default.Extension, null) },
+                            onClick = { menu = false; onPopup() }
+                        )
+                        if (hasOptions) DropdownMenuItem(
+                            text = { Text("扩展设置") },
+                            leadingIcon = { Icon(Icons.Default.Settings, null) },
+                            onClick = { menu = false; onOptions() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("扩展信息") },
+                            leadingIcon = { Icon(Icons.Default.Info, null) },
+                            onClick = { menu = false; onAbout() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("卸载") },
+                            leadingIcon = { Icon(Icons.Default.DeleteOutline, null) },
+                            onClick = { menu = false; onUninstall() }
+                        )
+                    }
+                }
+            }
+            if (description.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Text(description, style = MaterialTheme.typography.bodySmall, color = secondary, maxLines = 2)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExtensionPageDialog(
+    repository: BrowserRepository,
+    extensionId: String,
+    titleSuffix: String,
+    urlProvider: (String) -> String?,
+    onDismiss: () -> Unit
+) {
+    val url = remember(extensionId) { urlProvider(extensionId) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text((repository.extensionManager.extension(extensionId)?.name ?: "扩展") + titleSuffix) },
+        text = {
+            if (url == null) {
+                Text("此扩展页面不可用。")
+            } else {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth().height(420.dp),
+                    factory = { context ->
+                        WebView(context).apply {
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            webViewClient = WebViewClient()
+                            repository.extensionManager.prepareExtensionPage(
+                                this, extensionId, "plugin-dialog"
+                            )
+                            loadUrl(url)
+                        }
+                    }
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } }
+    )
+}
+
+@Composable
 private fun ExtensionDetailsDialog(
     ext: com.example.extension.BrowserExtension,
     iconPath: String?,
