@@ -42,6 +42,7 @@ Use:
 
 ```
 scripts/prepare_kiwi_chromium.sh
+scripts/preflight_local_chromium.sh
 scripts/configure_kiwi_extensions.sh third_party/kiwi/src.next/out/android_arm64
 scripts/port_55_native_features.sh
 scripts/verify_55_native_java_api.sh
