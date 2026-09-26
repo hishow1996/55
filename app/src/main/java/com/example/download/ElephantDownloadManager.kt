@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.media.MediaMuxer
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -294,13 +297,18 @@ class ElephantDownloadManager(private val context: Context) {
                 val segmentUrls = parseHlsSegments(mediaUrl, mediaPlaylist)
                 if (segmentUrls.isEmpty()) throw Exception("HLS 播放列表没有可下载的视频分片")
 
-                val output = File(item.filePath)
-                output.parentFile?.mkdirs()
-                if (output.exists()) output.delete()
+                // Assemble HLS segments into a temporary TS file, then remux it
+                // into MP4 so the finished download is a normal MP4 video.
+                val original = File(item.filePath)
+                val finalFile = File(original.parentFile, original.nameWithoutExtension + ".mp4")
+                finalFile.parentFile?.mkdirs()
+                val tempTs = File(finalFile.parentFile, "." + finalFile.nameWithoutExtension + "_" + item.id + ".download.ts")
+                if (tempTs.exists()) tempTs.delete()
+                if (finalFile.exists()) finalFile.delete()
 
                 var downloaded = 0L
                 updateItemProgress(item.id, 0L, 0L, 0L)
-                FileOutputStream(output, false).use { out ->
+                FileOutputStream(tempTs, false).use { out ->
                     segmentUrls.forEach { segmentUrl ->
                         if (!isActive) throw CancellationException("Download cancelled or paused")
                         val data = fetchBytes(segmentUrl, referer ?: mediaUrl, userAgent)
@@ -311,7 +319,11 @@ class ElephantDownloadManager(private val context: Context) {
                     }
                     out.flush()
                 }
-                updateItemCompleted(item.id, downloaded)
+
+                remuxTransportStreamToMp4(tempTs, finalFile)
+                tempTs.delete()
+                updateItemFile(item.id, finalFile.absolutePath, finalFile.name, "video/mp4")
+                updateItemCompleted(item.id, finalFile.length())
                 saveDownloads()
             } catch (e: CancellationException) {
                 updateItemStatus(item.id, DownloadStatus.PAUSED, speed = 0L)
@@ -325,6 +337,60 @@ class ElephantDownloadManager(private val context: Context) {
             }
         }
         activeJobs[item.id] = job
+    }
+
+    /**
+     * Container remux only: no video re-encoding, so it is much faster than transcoding.
+     */
+    private fun remuxTransportStreamToMp4(input: File, output: File) {
+        val extractor = MediaExtractor()
+        var muxer: MediaMuxer? = null
+        try {
+            extractor.setDataSource(input.absolutePath)
+            muxer = MediaMuxer(output.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+
+            val trackMap = IntArray(extractor.trackCount) { -1 }
+            for (index in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(index)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
+                if (mime.startsWith("video/") || mime.startsWith("audio/")) {
+                    extractor.selectTrack(index)
+                    trackMap[index] = muxer.addTrack(format)
+                }
+            }
+            if (trackMap.none { it >= 0 }) {
+                throw IllegalStateException("无法识别 HLS 音视频轨道")
+            }
+
+            muxer.start()
+            val buffer = java.nio.ByteBuffer.allocate(1024 * 1024)
+            val info = android.media.MediaCodec.BufferInfo()
+            while (true) {
+                val sourceTrack = extractor.sampleTrackIndex
+                if (sourceTrack < 0) break
+                val targetTrack = trackMap.getOrNull(sourceTrack) ?: -1
+                val sampleSize = extractor.sampleSize
+                if (targetTrack >= 0 && sampleSize > 0) {
+                    if (sampleSize > buffer.capacity()) {
+                        throw IllegalStateException("HLS 单个媒体帧过大")
+                    }
+                    buffer.clear()
+                    val read = extractor.readSampleData(buffer, 0)
+                    if (read > 0) {
+                        info.offset = 0
+                        info.size = read
+                        info.presentationTimeUs = extractor.sampleTime
+                        info.flags = extractor.sampleFlags
+                        muxer.writeSampleData(targetTrack, buffer, info)
+                    }
+                }
+                extractor.advance()
+            }
+        } finally {
+            try { extractor.release() } catch (_: Exception) {}
+            try { muxer?.stop() } catch (_: Exception) {}
+            try { muxer?.release() } catch (_: Exception) {}
+        }
     }
 
     private fun resolveFinalUrl(startUrl: String, referer: String? = null, userAgent: String? = null): String {
@@ -487,6 +553,19 @@ class ElephantDownloadManager(private val context: Context) {
             current[index] = prev.copy(
                 status = status,
                 speedBytesPerSec = speed
+            )
+            _downloads.value = current
+        }
+    }
+
+    private fun updateItemFile(id: String, path: String, name: String, mimeType: String) {
+        val current = _downloads.value.toMutableList()
+        val index = current.indexOfFirst { it.id == id }
+        if (index != -1) {
+            current[index] = current[index].copy(
+                filePath = path,
+                fileName = name,
+                mimeType = mimeType
             )
             _downloads.value = current
         }
