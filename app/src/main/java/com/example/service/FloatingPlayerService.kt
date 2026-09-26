@@ -21,7 +21,6 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import com.example.MainActivity
@@ -49,7 +48,6 @@ class FloatingPlayerService : MediaSessionService() {
     private var lockOverlay: FrameLayout? = null
     private var playPauseBtn: ImageButton? = null
     private var timeTv: TextView? = null
-    private var seekBar: SeekBar? = null
     private var progressTrack: View? = null
     private var progressFill: View? = null
 
@@ -137,8 +135,6 @@ class FloatingPlayerService : MediaSessionService() {
                 VideoPlaybackSessionManager.updatePosition(cur)
                 VideoPlaybackSessionManager.updateDuration(dur)
                 FloatingVideoPlayerComponent.syncProgress(cur / 1000.0)
-                seekBar?.max = durationMs
-                seekBar?.progress = currentPositionMs
                 timeTv?.text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}"
                 val ratio = if (durationMs > 0) (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
                 progressFill?.let { fill ->
@@ -862,7 +858,7 @@ class FloatingPlayerService : MediaSessionService() {
         val totalSeconds = (ms / 1000).coerceAtLeast(0)
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
-        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+        return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
     }
 
     private fun removeFloatingWindow() {
