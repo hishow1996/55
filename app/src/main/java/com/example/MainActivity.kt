@@ -191,6 +191,11 @@ class MainActivity : ComponentActivity() {
             val searchHistory by viewModel.repository.searchHistory.collectAsState()
             val pendingDownload by viewModel.pendingDownload.collectAsState()
             val inPipMode by remember { isPipModeState }
+            var isSplashVisible by remember { mutableStateOf(true) }
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(600)
+                isSplashVisible = false
+            }
             var aiPageContext by remember { mutableStateOf("") }
             var aiPageTitle by remember { mutableStateOf("") }
 
@@ -198,12 +203,12 @@ class MainActivity : ComponentActivity() {
                 aiPageTitle = currentTab.title
                 aiPageContext = ""
                 viewModel.activeWebView?.evaluateJavascript(
-                    "(function(){return document.body ? document.body.innerText : "";})()"
+                    "(function(){return document.body ? document.body.innerText : '';})()"
                 ) { raw ->
-                    aiPageContext = raw
-                        .removePrefix(""").removeSuffix(""")
+                    aiPageContext = (raw ?: "")
+                        .removePrefix("\"").removeSuffix("\"")
                         .replace("\\n", "\n")
-                        .replace("\\"", """)
+                        .replace("\\\"", "\"")
                         .take(12000)
                     viewModel.setAiChatVisible(true)
                 } ?: viewModel.setAiChatVisible(true)

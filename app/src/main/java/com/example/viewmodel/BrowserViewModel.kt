@@ -181,8 +181,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
      */
     fun unlockWebVideoForTab(tabId: String?) {
         if (tabId.isNullOrBlank()) return
-        tabWebViews[tabId]?.post {
-            it.evaluateJavascript(Scripts.UNLOCK_WEB_VIDEO_LOCK, null)
+        tabWebViews[tabId]?.let { wv ->
+            wv.post {
+                wv.evaluateJavascript(Scripts.UNLOCK_WEB_VIDEO_LOCK, null)
+            }
         }
     }
 
@@ -486,7 +488,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             activeWebView = tabWebViews[newTab.id]
         }
         persistSession()
-        }
     }
 
     fun updateExtensionTab(extensionTabId: Int, url: String?) {
@@ -497,7 +498,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _tabs.value = _tabs.value.mapIndexed { i, tab ->
             if (i == index) tab.copy(url = url, isLoading = true, progress = 10) else tab
         }
-        targetId?.let { tabWebViews[it]?.post { it.loadUrl(url) } }
+        targetId?.let { id -> tabWebViews[id]?.let { wv -> wv.post { wv.loadUrl(url) } } }
         if (index == _currentTabIndex.value) _urlInput.value = url
     }
 

@@ -3,7 +3,10 @@ package com.example.extension
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ExtensionStorageHostTest {
     @Test
     fun storage_contract_is_independent_of_extension_manager() {

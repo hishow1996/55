@@ -46,25 +46,27 @@ class BrowserBackupManager(private val context: Context) {
         return root.toString(2)
     }
 
-    fun extractTabs(json: String): Pair<List<BrowserTab>, Int>? = try {
-        val root = JSONObject(json)
-        if (root.optString("format") != "elephant-browser-backup") return null
-        val array = root.optJSONArray("tabs") ?: return null
-        val tabs = buildList {
-            for (i in 0 until array.length()) {
-                val o = array.optJSONObject(i) ?: continue
-                val url = o.optString("url")
-                add(BrowserTab(
-                    url = url,
-                    title = o.optString("title").ifBlank { "恢复的标签页" },
-                    isDesktopMode = o.optBoolean("isDesktopMode", false),
-                    isNightMode = o.optBoolean("isNightMode", false)
-                ))
-            }
-        }.ifEmpty { listOf(BrowserTab()) }
-        tabs to root.optInt("currentTabIndex", 0).coerceIn(0, tabs.lastIndex)
-    } catch (_: Exception) {
-        null
+    fun extractTabs(json: String): Pair<List<BrowserTab>, Int>? {
+        return try {
+            val root = JSONObject(json)
+            if (root.optString("format") != "elephant-browser-backup") return null
+            val array = root.optJSONArray("tabs") ?: return null
+            val tabs = buildList {
+                for (i in 0 until array.length()) {
+                    val o = array.optJSONObject(i) ?: continue
+                    val url = o.optString("url")
+                    add(BrowserTab(
+                        url = url,
+                        title = o.optString("title").ifBlank { "恢复的标签页" },
+                        isDesktopMode = o.optBoolean("isDesktopMode", false),
+                        isNightMode = o.optBoolean("isNightMode", false)
+                    ))
+                }
+            }.ifEmpty { listOf(BrowserTab()) }
+            tabs to root.optInt("currentTabIndex", 0).coerceIn(0, tabs.lastIndex)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun write(uri: Uri, json: String): Boolean = try {
@@ -85,24 +87,26 @@ class BrowserBackupManager(private val context: Context) {
      * Restore only data represented by the public BrowserRepository API.
      * Existing user data is replaced, not merged, to keep the result deterministic.
      */
-    fun restore(repository: BrowserRepository, json: String): Boolean = try {
-        val root = JSONObject(json)
-        if (root.optString("format") != "elephant-browser-backup") return false
-        val settings = root.optJSONObject("settings")
-        settings?.let {
-            repository.setNightMode(it.optBoolean("nightMode", false))
-            repository.setDesktopMode(it.optBoolean("desktopMode", false))
-            repository.setDesktopUaType(it.optString("desktopUaType", "windows"))
-            repository.setCustomUserAgent(it.optString("customUserAgent", ""))
-            repository.setSearchEngine(it.optString("searchEngine", "google"))
+    fun restore(repository: BrowserRepository, json: String): Boolean {
+        return try {
+            val root = JSONObject(json)
+            if (root.optString("format") != "elephant-browser-backup") return false
+            val settings = root.optJSONObject("settings")
+            settings?.let {
+                repository.setNightMode(it.optBoolean("nightMode", false))
+                repository.setDesktopMode(it.optBoolean("desktopMode", false))
+                repository.setDesktopUaType(it.optString("desktopUaType", "windows"))
+                repository.setCustomUserAgent(it.optString("customUserAgent", ""))
+                repository.setSearchEngine(it.optString("searchEngine", "google"))
+            }
+            repository.importBookmarks(root.optJSONArray("bookmarks"))
+            repository.importHistory(root.optJSONArray("history"))
+            repository.importSearchHistory(root.optJSONArray("searchHistory"))
+            repository.importQuickSites(root.optJSONArray("quickSites"))
+            true
+        } catch (_: Exception) {
+            false
         }
-        repository.importBookmarks(root.optJSONArray("bookmarks"))
-        repository.importHistory(root.optJSONArray("history"))
-        repository.importSearchHistory(root.optJSONArray("searchHistory"))
-        repository.importQuickSites(root.optJSONArray("quickSites"))
-        true
-    } catch (_: Exception) {
-        false
     }
 
     private object JSONArrayCompat {

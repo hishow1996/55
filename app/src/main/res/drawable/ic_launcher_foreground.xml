@@ -1,82 +1,313 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
 
-    <!-- Elephant Main Body Outline -->
-    <path
-        android:pathData="M 19,71
-            C 16,71 14,67 17,63
-            C 20,60 24,61 26,53
-            C 28,44 31,34 39,27
-            C 47,21 72,22 81,37
-            C 88,48 88,62 86,74
-            C 86,76 85,78 83,78
-            L 69,78
-            C 67,78 66,76 66,74
-            L 66,69
-            L 55,69
-            L 55,74
-            C 55,76 54,78 52,78
-            L 38,78
-            C 36,78 35,76 35,74
-            L 35,62
-            C 35,57 32,56 31,56
-            C 29,56 29,62 27,67
-            C 25,72 22,72 19,71 Z"
-        android:strokeColor="#1E242B"
-        android:strokeWidth="3.6"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:fillColor="#00000000" />
+    <!-- Scaled and centered to fit within the 66dp adaptive icon safe zone -->
+    <group
+        android:pivotX="490"
+        android:pivotY="490"
+        android:scaleX="0.68"
+        android:scaleY="0.68"
+        android:translateX="22"
+        android:translateY="22">
 
-    <!-- Inner Leg Lines to show 4 legs like Image 1 -->
-    <path
-        android:pathData="M 45,78 L 45,69"
-        android:strokeColor="#1E242B"
-        android:strokeWidth="3.6"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
+        <!-- LAYER 1: Ambient White Halo / Glow (Triple-pass falloff for realistic diffusion) -->
+        <path
+            android:pathData="M 125,690
+                C 95,690 85,640 115,595
+                C 140,540 175,560 190,470
+                C 205,370 235,270 315,215
+                C 395,165 625,175 735,300
+                C 835,410 885,550 855,690
+                C 850,730 840,805 795,805
+                L 710,805
+                C 670,805 660,765 660,735
+                L 660,695
+                L 540,695
+                L 540,735
+                C 540,765 530,805 485,805
+                L 400,805
+                C 360,805 350,765 350,735
+                L 350,590
+                C 350,545 315,535 295,535
+                C 275,535 275,595 250,655
+                C 225,705 175,705 125,690 Z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="90"
+            android:strokeAlpha="0.25"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
 
-    <path
-        android:pathData="M 75,78 L 75,69"
-        android:strokeColor="#1E242B"
-        android:strokeWidth="3.6"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
+        <path
+            android:pathData="M 125,690
+                C 95,690 85,640 115,595
+                C 140,540 175,560 190,470
+                C 205,370 235,270 315,215
+                C 395,165 625,175 735,300
+                C 835,410 885,550 855,690
+                C 850,730 840,805 795,805
+                L 710,805
+                C 670,805 660,765 660,735
+                L 660,695
+                L 540,695
+                L 540,735
+                C 540,765 530,805 485,805
+                L 400,805
+                C 360,805 350,765 350,735
+                L 350,590
+                C 350,545 315,535 295,535
+                C 275,535 275,595 250,655
+                C 225,705 175,705 125,690 Z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="50"
+            android:strokeAlpha="0.60"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
 
-    <!-- Cute Big Ear -->
-    <path
-        android:pathData="M 49,27
-            C 61,31 63,44 61,51
-            C 58,57 48,58 42,54
-            C 39,52 39,47 42,44"
-        android:strokeColor="#1E242B"
-        android:strokeWidth="3.6"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:fillColor="#00000000" />
+        <!-- Tail ambient glow -->
+        <path
+            android:pathData="M 810,460 C 870,540 885,635 865,695"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="55"
+            android:strokeAlpha="0.45"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
 
-    <!-- Smiling Dot Eye -->
-    <path
-        android:pathData="M 33,42
-            A 3.2,3.2 0 1,0 33,42.01 Z"
-        android:fillColor="#1E242B" />
+        <path
+            android:pathData="M 868,725 A 32,32 0 1,0 868,725.01 Z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.45" />
 
-    <!-- Cute Tail with round pom-pom -->
-    <path
-        android:pathData="M 83,50
-            C 88,57 88,66 87,71"
-        android:strokeColor="#1E242B"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
+        <!-- LAYER 2: Far Legs (Behind front legs, shaded darker) -->
+        <path
+            android:pathData="M 445,695 L 540,695 L 540,750 C 540,780 530,805 495,805 L 465,805 C 445,805 440,780 440,750 Z"
+            android:strokeColor="#14171A"
+            android:strokeWidth="26"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="490"
+                    android:startY="695"
+                    android:endX="490"
+                    android:endY="805"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#CEBF9F" />
+                    <item android:offset="1.0" android:color="#B8A782" />
+                </gradient>
+            </aapt:attr>
+        </path>
 
-    <path
-        android:pathData="M 87,74
-            A 2.5,2.5 0 1,0 87,74.01 Z"
-        android:fillColor="#1E242B" />
+        <path
+            android:pathData="M 740,695 L 830,695 L 830,750 C 830,780 820,805 790,805 L 760,805 C 740,805 735,780 735,750 Z"
+            android:strokeColor="#14171A"
+            android:strokeWidth="26"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="785"
+                    android:startY="695"
+                    android:endX="785"
+                    android:endY="805"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#CEBF9F" />
+                    <item android:offset="1.0" android:color="#B8A782" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- LAYER 3: Main Body Fill & 3D Shading -->
+        <path
+            android:pathData="M 125,690
+                C 95,690 85,640 115,595
+                C 140,540 175,560 190,470
+                C 205,370 235,270 315,215
+                C 395,165 625,175 735,300
+                C 835,410 885,550 855,690
+                C 850,730 840,805 795,805
+                L 710,805
+                C 670,805 660,765 660,735
+                L 660,695
+                L 540,695
+                L 540,735
+                C 540,765 530,805 485,805
+                L 400,805
+                C 360,805 350,765 350,735
+                L 350,590
+                C 350,545 315,535 295,535
+                C 275,535 275,595 250,655
+                C 225,705 175,705 125,690 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="280"
+                    android:startY="200"
+                    android:endX="650"
+                    android:endY="780"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFFFFF" />
+                    <item android:offset="0.25" android:color="#FAF7EC" />
+                    <item android:offset="0.65" android:color="#F2EBDA" />
+                    <item android:offset="0.90" android:color="#E2D6BC" />
+                    <item android:offset="1.0" android:color="#D3C5A5" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Forehead & Back Specular Curved Highlight -->
+        <path
+            android:pathData="M 330,230 C 430,195 615,205 715,315"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="28"
+            android:strokeAlpha="0.75"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+
+        <!-- Trunk Specular Highlight -->
+        <path
+            android:pathData="M 180,440 C 155,530 140,595 125,680"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="20"
+            android:strokeAlpha="0.65"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+
+        <!-- LAYER 4: Outer Black Contour of Body -->
+        <path
+            android:pathData="M 125,690
+                C 95,690 85,640 115,595
+                C 140,540 175,560 190,470
+                C 205,370 235,270 315,215
+                C 395,165 625,175 735,300
+                C 835,410 885,550 855,690
+                C 850,730 840,805 795,805
+                L 710,805
+                C 670,805 660,765 660,735
+                L 660,695
+                L 540,695
+                L 540,735
+                C 540,765 530,805 485,805
+                L 400,805
+                C 360,805 350,765 350,735
+                L 350,590
+                C 350,545 315,535 295,535
+                C 275,535 275,595 250,655
+                C 225,705 175,705 125,690 Z"
+            android:strokeColor="#14171A"
+            android:strokeWidth="28"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+
+        <!-- Leg dividers -->
+        <path
+            android:pathData="M 445,805 L 445,695"
+            android:strokeColor="#14171A"
+            android:strokeWidth="28"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+
+        <path
+            android:pathData="M 745,805 L 745,695"
+            android:strokeColor="#14171A"
+            android:strokeWidth="28"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+
+        <!-- LAYER 5: THE EAR (Large, Puffy C-shape) -->
+        <path
+            android:pathData="M 380,260
+                C 430,195 510,190 575,250
+                C 640,310 635,455 575,515
+                C 515,575 420,550 390,490
+                C 370,450 380,370 420,335
+                C 450,310 445,280 380,260 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="400"
+                    android:startY="200"
+                    android:endX="560"
+                    android:endY="540"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFFFFF" />
+                    <item android:offset="0.30" android:color="#FAF6E9" />
+                    <item android:offset="0.70" android:color="#EEE4CD" />
+                    <item android:offset="1.0" android:color="#D8C9A8" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Ear top ridge highlight -->
+        <path
+            android:pathData="M 415,240 C 475,205 535,210 575,275"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="24"
+            android:strokeAlpha="0.8"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+
+        <!-- Ear inner crease highlight -->
+        <path
+            android:pathData="M 420,490 C 450,520 515,525 550,480"
+            android:strokeColor="#DFCFA8"
+            android:strokeWidth="16"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+
+        <!-- Ear outer contour -->
+        <path
+            android:pathData="M 380,260
+                C 430,195 510,190 575,250
+                C 640,310 635,455 575,515
+                C 515,575 420,550 390,490
+                C 370,450 380,370 420,335"
+            android:strokeColor="#14171A"
+            android:strokeWidth="28"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+
+        <!-- Ear inner fold black contour (Signature curve) -->
+        <path
+            android:pathData="M 400,488 C 435,528 505,530 545,470"
+            android:strokeColor="#14171A"
+            android:strokeWidth="24"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+
+        <!-- LAYER 6: EYE -->
+        <path
+            android:pathData="M 290,405 A 26,26 0 1,0 290,405.01 Z"
+            android:fillColor="#14171A" />
+
+        <path
+            android:pathData="M 283,398 A 4.5,4.5 0 1,0 283,398.01 Z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.85" />
+
+        <!-- LAYER 7: TAIL -->
+        <path
+            android:pathData="M 810,460 C 870,540 885,635 865,695"
+            android:strokeColor="#14171A"
+            android:strokeWidth="24"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+
+        <path
+            android:pathData="M 868,725 A 24,24 0 1,0 868,725.01 Z"
+            android:fillColor="#14171A" />
+
+        <path
+            android:pathData="M 862,719 A 6,6 0 1,0 862,719.01 Z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.85" />
+
+    </group>
 
 </vector>

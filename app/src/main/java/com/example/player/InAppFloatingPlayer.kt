@@ -277,6 +277,7 @@ fun InAppFloatingPlayer(
                                 .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                             isBuffering = NativeVideoPlaybackManager.playbackState() == androidx.media3.common.Player.STATE_BUFFERING
                             isVideoReady = NativeVideoPlaybackManager.player() != null
+                        }
 
                         override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
                         override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
@@ -428,7 +429,7 @@ fun InAppFloatingPlayer(
                                 val target = (NativeVideoPlaybackManager.currentPositionMs() - 10000L).coerceAtLeast(0L)
                                 NativeVideoPlaybackManager.seekTo(target)
                                 currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                            }
+                            } catch (_: Exception) {}
                         },
                         modifier = Modifier.size(if (isDesktopPiP) 32.dp else 42.dp)
                     ) {
@@ -467,7 +468,7 @@ fun InAppFloatingPlayer(
                                     .coerceAtMost(durationMs.toLong())
                                 NativeVideoPlaybackManager.seekTo(target)
                                 currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                            }
+                            } catch (_: Exception) {}
                         },
                         modifier = Modifier.size(if (isDesktopPiP) 32.dp else 42.dp)
                     ) {

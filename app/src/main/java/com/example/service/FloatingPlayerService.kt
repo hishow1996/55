@@ -55,7 +55,11 @@ class FloatingPlayerService : MediaSessionService() {
     private var videoRatio: Float = 16f / 9f
     private var initialPositionMs: Long = 0L
     private var originTabIndex: Int = 0
+    private var originTabId: String? = null
     private var sourcePageUrl: String = ""
+
+    private var requestedShouldPlay: Boolean = true
+    private var requestedPlaybackRate: Float = 1.0f
 
     private val handler = Handler(Looper.getMainLooper())
     private var isPlaying = true
@@ -171,8 +175,8 @@ class FloatingPlayerService : MediaSessionService() {
         videoTitle = intent.getStringExtra(EXTRA_VIDEO_TITLE) ?: "网页视频"
         videoRatio = intent.getFloatExtra(EXTRA_VIDEO_RATIO, 16f / 9f).coerceIn(0.5f, 3.0f)
         initialPositionMs = intent.getLongExtra(EXTRA_VIDEO_POSITION, 0L)
-        val requestedShouldPlay = intent.getBooleanExtra(EXTRA_VIDEO_SHOULD_PLAY, true)
-        val requestedPlaybackRate = intent.getFloatExtra(EXTRA_VIDEO_PLAYBACK_RATE, 1.0f).coerceIn(0.25f, 4.0f)
+        requestedShouldPlay = intent.getBooleanExtra(EXTRA_VIDEO_SHOULD_PLAY, true)
+        requestedPlaybackRate = intent.getFloatExtra(EXTRA_VIDEO_PLAYBACK_RATE, 1.0f).coerceIn(0.25f, 4.0f)
         originTabIndex = intent.getIntExtra(EXTRA_ORIGIN_TAB_INDEX, 0)
         originTabId = intent.getStringExtra(EXTRA_ORIGIN_TAB_ID)
         sourcePageUrl = intent.getStringExtra(EXTRA_VIDEO_PAGE_URL) ?: ""
@@ -284,7 +288,9 @@ class FloatingPlayerService : MediaSessionService() {
 
         val screenWidth = resources.displayMetrics.widthPixels
         val preferredW = (sizePresets[currentSizeIndex] * density).toInt()
-        // Keep the floating window in the same orientation and aspect ratio as the actual video.\n        // Do not force portrait/vertical media back to 16:9. Android overlay windows\n        // can use the full valid video ratio here; only reject obviously invalid data.\n        val effectiveRatio = videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)\n        val heightPx = (defaultW / effectiveRatio).toInt().coerceAtLeast((100 * density).toInt())
+        val defaultW = preferredW.coerceAtMost((screenWidth * 0.95f).toInt())
+        val effectiveRatio = videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)
+        val heightPx = (defaultW / effectiveRatio).toInt().coerceAtLeast((100 * density).toInt())
 
         val params = WindowManager.LayoutParams(
             defaultW,
@@ -357,6 +363,7 @@ class FloatingPlayerService : MediaSessionService() {
 
                 override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
             }
+        }
         root.addView(tv)
         textureView = tv
 
@@ -503,7 +510,7 @@ class FloatingPlayerService : MediaSessionService() {
                     sb?.progress?.let { pos ->
                         NativeVideoPlaybackManager.seekTo(pos.toLong())
                         currentPositionMs = pos
-                        VideoPlaybackSessionManager.updatePosition(pos)
+                        VideoPlaybackSessionManager.updatePosition(pos.toLong())
                     }
                     resetHideTimer()
                 }

@@ -16,7 +16,8 @@ class BrowserExtensionTabHost(
     private val createTab: ((String, Boolean) -> Unit)? = null,
     private val controlTab: ((Int, String, Boolean) -> Unit)? = null,
     private val updateTab: ((Int, String?) -> Unit)? = null,
-    private var legacyCreateTab: ((String, Boolean) -> Unit)? = createTab
+    private val selectTab: ((Int) -> Unit)? = null,
+    private var legacyCreateTab: ((String, Boolean) -> Unit)? = createTab,
     private var legacyControlTab: ((Int, String, Boolean) -> Unit)? = controlTab,
     private var legacyUpdateTab: ((Int, String?) -> Unit)? = updateTab,
     private var legacySelectTab: ((Int) -> Unit)? = selectTab
