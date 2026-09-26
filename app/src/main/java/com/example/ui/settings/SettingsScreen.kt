@@ -92,7 +92,6 @@ fun SettingsScreen(
     var showCloudDialog by remember { mutableStateOf(false) }
     var showSearchEngineDialog by remember { mutableStateOf(false) }
     var showUaDialog by remember { mutableStateOf(false) }
-    var showUaDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
 
     val bg = if (isNightMode) Color(0xFF111418) else Color(0xFFFFFFFF)
