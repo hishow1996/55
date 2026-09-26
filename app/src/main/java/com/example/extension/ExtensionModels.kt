@@ -66,6 +66,10 @@ data class ExtensionManifest(
                     }
                 }
             }
+            // Prefer the standard top-level "icons" map used by Chrome extensions.
+            // If it is missing, fall back to action/browser_action.default_icon so
+            // extensions that only declare their toolbar icon still get a visible
+            // icon in the manager UI.
             val icon = o.optJSONObject("icons")?.let { icons ->
                 var found: String? = null
                 for (size in listOf("128", "96", "64", "48", "32", "16")) {
@@ -73,7 +77,7 @@ data class ExtensionManifest(
                     if (value.isNotBlank()) { found = value; break }
                 }
                 found
-            }
+            } ?: action?.optString("default_icon", "")?.takeIf { it.isNotBlank() }
             return ExtensionManifest(
                 mv, o.optString("name", "未命名扩展"), o.optString("version", "1.0"),
                 o.optString("description", ""), perms.distinct(), hosts.distinct(), cs,
