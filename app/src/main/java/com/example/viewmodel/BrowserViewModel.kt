@@ -306,6 +306,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val q = queryOrUrl.trim()
         if (q.isBlank()) return
         _isSearchOverlayVisible.value = false
+        val looksLikeUrl = q.startsWith("http://", true) || q.startsWith("https://", true) || (!q.contains(" ") && q.contains("."))
+        if (!looksLikeUrl && !currentTab.isIncognito) repository.addSearchQuery(q)
         val finalUrl = repository.getSearchUrl(q)
         _urlInput.value = finalUrl
 
