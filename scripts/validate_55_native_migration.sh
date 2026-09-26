@@ -18,8 +18,8 @@ test -d "$KIWI/components/bookmarks" || fail "Chromium bookmarks service missing
 test -f "$KIWI/extensions/browser/extension_service.cc" || fail "Chromium extension runtime missing"
 
 JAVA_LIST="$KIWI/chrome/android/chrome_java_sources.gni"
-grep -Fqx '  "java/src/org/chromium/chrome/browser/Elephant55NativeSettings.java",' "$JAVA_LIST" || fail "55 settings source not registered"
-grep -Fqx '  "java/src/org/chromium/chrome/browser/Elephant55NativeFeatureController.java",' "$JAVA_LIST" || fail "55 feature controller source not registered"
+grep -Fq '"java/src/org/chromium/chrome/browser/Elephant55NativeSettings.java",' "$JAVA_LIST" || fail "55 settings source not registered"
+grep -Fq '"java/src/org/chromium/chrome/browser/Elephant55NativeFeatureController.java",' "$JAVA_LIST" || fail "55 feature controller source not registered"
 
 grep -Fq 'Elephant55NativeSettings.ensureDefaults(this);' "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java" || fail "55 settings lifecycle hook missing"
 grep -Fq 'Elephant55NativeFeatureController.applyToTab(this, getActivityTab());' "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java" || fail "55 native tab controller hook missing"
