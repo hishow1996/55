@@ -336,21 +336,82 @@ fun PluginManagerScreen(
         ExtensionPageDialog(repository, id, " 设置", { repository.extensionManager.optionsUrl(it) }) { optionsExtensionId = null }
     }
     aboutExtensionId?.let { id ->
-        val ext = repository.extensionManager.extension(id)
-        if (ext != null) {
-            AlertDialog(
-                onDismissRequest = { aboutExtensionId = null },
-                title = { Text(ext.name) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("版本 " + ext.version)
-                        Text("Manifest V" + ext.manifest.manifestVersion)
-                        if (ext.manifest.description.isNotBlank()) Text(ext.manifest.description)
-                        Text("权限：" + (ext.manifest.permissions + ext.manifest.hostPermissions).distinct().joinToString(", ").ifBlank { "无特殊权限" })
-                    }
-                },
-                confirmButton = { TextButton(onClick = { aboutExtensionId = null }) { Text("完成") } }
+        repository.extensionManager.extension(id)?.let { ext ->
+            ExtensionDetailsDialog(
+                ext = ext,
+                iconPath = repository.extensionManager.iconFile(id)?.absolutePath,
+                isNightMode = isNightMode,
+                onDismiss = { aboutExtensionId = null }
             )
+        }
+    }
+}
+
+@Composable
+private fun ExtensionDetailsDialog(
+    ext: com.example.extension.BrowserExtension,
+    iconPath: String?,
+    isNightMode: Boolean,
+    onDismiss: () -> Unit
+) {
+    val secondary = if (isNightMode) Color(0xFF9AA1AD) else Color(0xFF667085)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ExtensionIcon(iconPath, ext.name, 52.dp)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(ext.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text("v" + ext.version, style = MaterialTheme.typography.bodySmall, color = secondary)
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                if (ext.manifest.description.isNotBlank()) {
+                    Text(ext.manifest.description, color = secondary)
+                }
+                DetailRow("Manifest", "V" + ext.manifest.manifestVersion)
+                val permissions = (ext.manifest.permissions + ext.manifest.hostPermissions).distinct()
+                DetailRow("权限", permissions.joinToString(", ").ifBlank { "无特殊权限" })
+                DetailRow("内容脚本", ext.manifest.contentScripts.size.toString())
+                if (ext.manifest.popup != null) DetailRow("弹窗", "支持")
+                if (ext.manifest.optionsPage != null) DetailRow("设置页", "支持")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("完成") }
+        }
+    )
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun ExtensionIcon(iconPath: String?, name: String, size: androidx.compose.ui.unit.Dp) {
+    val bitmap = remember(iconPath) { iconPath?.let { BitmapFactory.decodeFile(it) } }
+    Surface(
+        modifier = Modifier.size(size),
+        shape = RoundedCornerShape(size * 0.26f),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = name,
+                modifier = Modifier.fillMaxSize().padding(size * 0.12f)
+            )
+        } else {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Extension, null, Modifier.size(size * 0.55f))
+            }
         }
     }
 }
