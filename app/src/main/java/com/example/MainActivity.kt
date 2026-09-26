@@ -68,6 +68,7 @@ import com.example.engine.ElephantWebChromeClient
 import com.example.engine.ElephantWebViewClient
 import com.example.model.VideoMediaInfo
 import com.example.player.VideoSourceResolver
+import com.example.player.NativeVideoPlaybackManager
 import com.example.player.FloatingVideoPlayerComponent
 import com.example.player.InAppFloatingPlayer
 import com.example.service.FloatingPlayerService
