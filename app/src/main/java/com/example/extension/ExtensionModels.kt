@@ -18,7 +18,7 @@ data class ExtensionManifest(
     val actionTitle: String? = null,
     val iconPath: String? = null,
     val key: String? = null,
-    val webAccessibleResources: List<String> = emptyList()
+    val webAccessibleResources: List<WebAccessibleResource> = emptyList()
 ) {
     companion object {
         fun parse(raw: String): ExtensionManifest {
@@ -44,11 +44,11 @@ data class ExtensionManifest(
             val hosts = mutableListOf<String>()
             o.optJSONArray("host_permissions")?.let { a -> for (i in 0 until a.length()) hosts += a.optString(i) }
             if (mv == 2) hosts += perms.filter { it.contains("://") || it == "<all_urls>" }
-            val war = mutableListOf<String>()
+            val war = mutableListOf<WebAccessibleResource>()
             o.optJSONArray("web_accessible_resources")?.let { a ->
                 for (i in 0 until a.length()) {
                     val item = a.optString(i, "")
-                    if (item.isNotBlank()) war += item
+                    if (item.isNotBlank()) war += WebAccessibleResource(listOf(item))
                 }
             }
             o.optJSONArray("web_accessible_resources")?.let { a ->
@@ -58,7 +58,7 @@ data class ExtensionManifest(
                     item.optJSONArray("resources")?.let { resources ->
                         for (j in 0 until resources.length()) {
                             val value = resources.optString(j, "")
-                            if (value.isNotBlank()) war += value
+                            if (value.isNotBlank()) war += WebAccessibleResource(listOf(value), (0 until (item.optJSONArray("matches")?.length() ?: 0)).map { k -> item.optJSONArray("matches")!!.optString(k) })
                         }
                     }
                 }
@@ -79,13 +79,18 @@ data class ExtensionManifest(
                 o.optString("options_page").takeIf { it.isNotBlank() },
                 action?.optString("default_title")?.takeIf { it.isNotBlank() }, icon,
                 o.optString("key").takeIf { it.isNotBlank() },
-                war.distinct()
+                war.distinctBy { it.resources to it.matches }
             )
         }
     }
 }
 
 data class ContentScriptSpec(val matches: List<String>, val jsFiles: List<String>, val runAt: String)
+
+data class WebAccessibleResource(
+    val resources: List<String>,
+    val matches: List<String> = emptyList()
+)
 
 data class BrowserExtension(
     val id: String = UUID.randomUUID().toString(),
