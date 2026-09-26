@@ -73,6 +73,8 @@ fun SettingsScreen(
     searchEngine: String,
     onBack: () -> Unit,
     onOpenPluginManager: () -> Unit,
+    onBackupData: () -> Unit = {},
+    onRestoreData: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -255,7 +257,17 @@ fun SettingsScreen(
                 }
             )
 
-            // 9. 清除记录
+            // 9. 数据备份与恢复
+            SettingsItem(
+                title = "数据备份与恢复",
+                detail = "",
+                textColor = textColor,
+                subTextColor = subTextColor,
+                dividerColor = dividerColor,
+                onClick = { showBrowserSettingsDialog = true }
+            )
+
+            // 10. 清除记录
             SettingsItem(
                 title = "清除记录",
                 detail = "",
@@ -265,7 +277,7 @@ fun SettingsScreen(
                 onClick = { showClearDialog = true }
             )
 
-            // 10. 关于大象
+            // 11. 关于大象
             SettingsItem(
                 title = "关于大象",
                 detail = "V1.0.0",
@@ -299,6 +311,32 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    if (showBrowserSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showBrowserSettingsDialog = false },
+            title = { Text("数据备份与恢复") },
+            text = {
+                Text(
+                    "可导出书签、历史、搜索记录、快捷网站、浏览器设置和已打开标签页的元数据。恢复会覆盖这些浏览器数据。",
+                    fontSize = 13.sp,
+                    color = subTextColor
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBrowserSettingsDialog = false
+                    onBackupData()
+                }) { Text("导出备份") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showBrowserSettingsDialog = false
+                    onRestoreData()
+                }) { Text("恢复备份") }
+            }
+        )
     }
 
     // Clear History Dialog
