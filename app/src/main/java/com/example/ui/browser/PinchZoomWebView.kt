@@ -84,6 +84,9 @@ class PinchZoomWebView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // Feed the detector first, then always let WebView receive the same
+        // stream. This keeps links/text/video controls functional while the
+        // custom pinch handler consumes only the scale/pan part it owns.
         scaleDetector.onTouchEvent(event)
 
         when (event.actionMasked) {
@@ -92,11 +95,23 @@ class PinchZoomWebView @JvmOverloads constructor(
                 lastPanY = event.y
                 panStarted = false
             }
+
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (event.pointerCount >= 2) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    // Start the one-finger pan baseline from the current gesture.
+                    lastPanX = event.getX(event.actionIndex)
+                    lastPanY = event.getY(event.actionIndex)
+                }
+            }
+
             MotionEvent.ACTION_MOVE -> {
-                if (!pinchActive && pageZoom > 1.01f && event.pointerCount == 1) {
+                if (event.pointerCount >= 2) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                } else if (!pinchActive && pageZoom > 1.01f && event.pointerCount == 1) {
                     val dx = event.x - lastPanX
                     val dy = event.y - lastPanY
-                    if (!panStarted && (dx * dx + dy * dy) > 16f) {
+                    if (!panStarted && (dx * dx + dy * dy) > 9f) {
                         panStarted = true
                     }
                     if (panStarted) {
@@ -106,12 +121,20 @@ class PinchZoomWebView @JvmOverloads constructor(
                         return true
                     }
                 }
-                if (event.pointerCount >= 2) {
-                    parent?.requestDisallowInterceptTouchEvent(true)
+                if (event.pointerCount == 1) {
                     lastPanX = event.x
                     lastPanY = event.y
                 }
             }
+
+            MotionEvent.ACTION_POINTER_UP -> {
+                // Do not clear pinchActive here: ScaleGestureDetector may still
+                // have one final scale callback before it ends the gesture.
+                if (event.pointerCount <= 2) {
+                    panStarted = false
+                }
+            }
+
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 panStarted = false
                 pinchActive = false
