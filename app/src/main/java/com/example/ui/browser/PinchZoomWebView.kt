@@ -21,6 +21,10 @@ class PinchZoomWebView @JvmOverloads constructor(
 ) : WebView(context, attrs, defStyleAttr) {
 
     private var pinchActive = false
+    private var pageZoom = 1f
+    private var lastPanX = 0f
+    private var lastPanY = 0f
+    private var panStarted = false
 
     private val scaleDetector = ScaleGestureDetector(
         context,
@@ -40,6 +44,7 @@ class PinchZoomWebView @JvmOverloads constructor(
                 val amplified = detector.scaleFactor.toDouble().coerceIn(0.5, 2.0).pow(1.20)
                 if (amplified.isFinite() && amplified > 0.0 && amplified != 1.0) {
                     zoomBy(amplified.toFloat())
+                    pageZoom = (pageZoom * amplified.toFloat()).coerceIn(0.5f, 5f)
                 }
                 return true
             }
@@ -61,9 +66,36 @@ class PinchZoomWebView @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         scaleDetector.onTouchEvent(event)
 
-        // Let WebView continue receiving the complete gesture stream so normal
-        // one-finger scrolling, links, text selection and page interaction
-        // remain unchanged.
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                lastPanX = event.x
+                lastPanY = event.y
+                panStarted = false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (!pinchActive && pageZoom > 1.01f && event.pointerCount == 1) {
+                    val dx = event.x - lastPanX
+                    val dy = event.y - lastPanY
+                    if (!panStarted && (dx * dx + dy * dy) > 16f) {
+                        panStarted = true
+                    }
+                    if (panStarted) {
+                        scrollBy((-dx).toInt(), (-dy).toInt())
+                        lastPanX = event.x
+                        lastPanY = event.y
+                        return true
+                    }
+                }
+                if (event.pointerCount >= 2) {
+                    lastPanX = event.x
+                    lastPanY = event.y
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                panStarted = false
+            }
+        }
+
         return super.onTouchEvent(event)
     }
 }
