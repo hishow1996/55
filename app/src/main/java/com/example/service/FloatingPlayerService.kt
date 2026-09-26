@@ -15,7 +15,6 @@ import com.example.player.NativeVideoPlaybackManager
 import com.example.player.VideoPlaybackSessionManager
 import com.example.player.VideoSourceResolver
 import com.example.model.VideoMediaInfo
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import kotlin.math.max
@@ -25,8 +24,7 @@ import org.json.JSONObject
 class FloatingPlayerService : MediaSessionService() {
 
     private var windowManager: WindowManager? = null
-    private var rootLayout: View? = null
-    private var composeView: androidx.compose.ui.platform.ComposeView? = null
+    private var rootLayout: androidx.compose.ui.platform.ComposeView? = null
     private var composeLifecycleOwner: FloatingComposeLifecycleOwner? = null
 
 
@@ -325,7 +323,6 @@ class FloatingPlayerService : MediaSessionService() {
         }
 
         rootLayout = compose
-        composeView = compose
         composeLifecycleOwner = owner
 
         try {
@@ -333,7 +330,6 @@ class FloatingPlayerService : MediaSessionService() {
         } catch (e: Exception) {
             composeLifecycleOwner?.destroy()
             composeLifecycleOwner = null
-            composeView = null
             rootLayout = null
             throw e
         }
