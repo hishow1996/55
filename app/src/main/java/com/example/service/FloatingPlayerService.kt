@@ -173,14 +173,27 @@ class FloatingPlayerService : Service() {
                 originTabId = originTabId,
                 isPlaying = isPlaying
             )
-            try {
+            val started = try {
                 NativeVideoPlaybackManager.start(this, nativeInfo, autoPlay = true)
-                NativeVideoPlaybackManager.setPlaybackRate(
-                    VideoPlaybackSessionManager.current()?.playbackRate ?: requestedPlaybackRate
-                )
             } catch (e: Exception) {
                 android.util.Log.e("FloatingPlayerService", "Failed to start shared Native Media3 player", e)
+                false
             }
+
+            if (!started) {
+                // Never expose an empty/black overlay when the native media source
+                // could not be loaded. Keep the WebView handoff state intact so
+                // the caller can recover instead of presenting a dead player UI.
+                VideoPlaybackSessionManager.updatePlaying(false)
+                FloatingVideoPlayerComponent.syncProgress(initialPositionMs / 1000.0)
+                Toast.makeText(this, "原生播放器无法打开当前视频", Toast.LENGTH_SHORT).show()
+                stopSelf(startId)
+                return START_NOT_STICKY
+            }
+
+            NativeVideoPlaybackManager.setPlaybackRate(
+                VideoPlaybackSessionManager.current()?.playbackRate ?: requestedPlaybackRate
+            )
             showFloatingWindow()
         }
 
