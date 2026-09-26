@@ -731,28 +731,23 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun onWebVideoPlaybackState(currentTime: Double, isPlaying: Boolean) {
         val video = _detectedVideo.value ?: return
         if (video.originTabId != null && video.originTabId != currentTab.id) return
-        val updated = video.copy(
+
+        // Once Native Media3 owns this source, WebView timeupdate/play/pause events
+        // are discovery metadata only. They must never overwrite the native clock.
+        val nativeSession = VideoPlaybackSessionManager.current()
+        val nativeOwnsSource = nativeSession != null &&
+            nativeSession.pageUrl == video.pageUrl &&
+            nativeSession.source == VideoSourceResolver.resolve(video) &&
+            (nativeSession.tabId == null || nativeSession.tabId == video.originTabId)
+
+        if (nativeOwnsSource && VideoSourceResolver.canUseNativePlayer(video)) {
+            return
+        }
+
+        _detectedVideo.value = video.copy(
             currentTime = currentTime.coerceAtLeast(0.0),
             isPlaying = isPlaying
         )
-        _detectedVideo.value = updated
-        VideoPlaybackSessionManager.current()?.let { session ->
-            // Ignore late WebView events from an older video. A/B switches can
-            // briefly deliver A's timeupdate after B has already been detected;
-            // updating the global session here would otherwise corrupt B's
-            // position/play state.
-            val currentSource = VideoSourceResolver.resolve(updated)
-            val sameSessionSource =
-                session.pageUrl == updated.pageUrl &&
-                    session.source == currentSource &&
-                    (session.tabId == null || session.tabId == updated.originTabId)
-            if (sameSessionSource) {
-                VideoPlaybackSessionManager.updatePosition(
-                    (currentTime * 1000.0).toLong().coerceAtLeast(0L)
-                )
-                VideoPlaybackSessionManager.updatePlaying(isPlaying)
-            }
-        }
     }
 
     fun startFloatingPlayer(customVideo: VideoMediaInfo? = null) {
