@@ -1054,6 +1054,16 @@ fun ChromiumWebViewContainer(
                     val safeUrl = url?.trim().orEmpty()
                     if (safeUrl.isBlank()) {
                         Toast.makeText(context, "无效的下载地址", Toast.LENGTH_SHORT).show()
+                    } else if (
+                        mimeType.equals("application/x-chrome-extension", true) ||
+                        safeUrl.contains("/service/update2/crx", true) ||
+                        safeUrl.substringBefore("?").endsWith(".crx", true)
+                    ) {
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                            viewModel.repository.extensionManager.installUrl(safeUrl)
+                                .onSuccess { Toast.makeText(context, "已安装扩展：" + it.name, Toast.LENGTH_SHORT).show() }
+                                .onFailure { Toast.makeText(context, "扩展安装失败：" + (it.message ?: "扩展包无效"), Toast.LENGTH_LONG).show() }
+                        }
                     } else if (safeUrl.startsWith("blob:", true) || safeUrl.startsWith("data:", true)) {
                         Toast.makeText(context, "当前网页视频使用浏览器内部数据流，正在尝试使用已捕获的视频地址", Toast.LENGTH_SHORT).show()
                         viewModel.onDownloadRequested(
