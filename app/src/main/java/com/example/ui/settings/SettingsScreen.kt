@@ -81,7 +81,6 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val desktopUaType by repository.desktopUaType.collectAsState()
-    val customUa by repository.customUserAgent.collectAsState()
     val autoTranslate by repository.autoTranslate.collectAsState()
     val cloudAcceleration by repository.cloudAcceleration.collectAsState()
     val autoPip by repository.autoPip.collectAsState()
@@ -486,7 +485,6 @@ fun SettingsScreen(
     if (showUaDialog) {
         var selectedType by remember { mutableStateOf(desktopUaType) }
         var enabled by remember { mutableStateOf(isDesktopMode) }
-        var customInput by remember { mutableStateOf(customUa) }
 
         AlertDialog(
             onDismissRequest = { showUaDialog = false },
@@ -508,8 +506,7 @@ fun SettingsScreen(
                             "windows" to "Windows",
                             "mac" to "Mac",
                             "ipad" to "iPad",
-                            "android" to "Android",
-                            "custom" to "自定义"
+                            "android" to "Android"
                         ).forEach { (typeKey, label) ->
                             Row(
                                 modifier = Modifier
@@ -525,16 +522,6 @@ fun SettingsScreen(
                                 Text(label, fontSize = 15.sp, color = textColor, modifier = Modifier.padding(start = 4.dp))
                             }
                         }
-                        if (selectedType == "custom") {
-                            OutlinedTextField(
-                                value = customInput,
-                                onValueChange = { customInput = it },
-                                label = { Text("User-Agent") },
-                                placeholder = { Text("输入自定义 User-Agent") },
-                                modifier = Modifier.fillMaxWidth(),
-                                maxLines = 3
-                            )
-                        }
                     }
                 }
             },
@@ -542,7 +529,6 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     repository.setDesktopMode(enabled)
                     repository.setDesktopUaType(selectedType)
-                    if (selectedType == "custom") repository.setCustomUserAgent(customInput.trim())
                     showUaDialog = false
                     Toast.makeText(
                         context,
