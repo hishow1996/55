@@ -253,7 +253,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
 
         val cleanTitle = title.trim()
-            .replace(Regex("[\\/:*?&quot;&lt;&gt;|\\r\\n]"), "_")
+            .replace(Regex("[\\\\/:*?\\"<>|\\\\r\\\\n]"), "_")
             .ifBlank { "video_" + System.currentTimeMillis() }
 
         if (effectiveUrl.isBlank()) {
