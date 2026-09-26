@@ -173,8 +173,12 @@ class ElephantWebViewClient(
         if (drmHint && request?.method.equals("POST", true)) {
             val headers = request?.requestHeaders.orEmpty()
                 .filterKeys { key ->
+                    // Media3 needs site-provided auth tokens when the license
+                    // server requires them. Cookie is handled separately by the
+                    // native HTTP factory from the current page/media URL.
                     !key.equals("Cookie", true) &&
-                    !key.equals("Authorization", true) &&
+                    !key.equals("Host", true) &&
+                    !key.equals("Content-Length", true) &&
                     !key.equals("Proxy-Authorization", true)
                 }
                 .toMap()
