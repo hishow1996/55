@@ -433,6 +433,14 @@ class ExtensionManager(
     }
 
     companion object {
+        fun matchesResourcePattern(pattern: String, path: String): Boolean {
+            val p = pattern.trim().replace('\\\\', '/').removePrefix("/")
+            val candidate = path.replace('\\\\', '/').removePrefix("/")
+            if (p == "*") return true
+            val regex = "^" + java.util.regex.Pattern.quote(p).replace("\\*", "\\\\E.*\\\\Q") + "$"
+            return try { java.util.regex.Pattern.matches(regex, candidate) } catch (_: Exception) { false }
+        }
+
         fun matches(patterns: List<String>, url: String): Boolean {
             if (patterns.isEmpty()) return false
             val uri = try { Uri.parse(url) } catch (_: Exception) { return false }
