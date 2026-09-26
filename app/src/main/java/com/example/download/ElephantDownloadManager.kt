@@ -156,7 +156,7 @@ class ElephantDownloadManager(private val context: Context) {
     private fun startDownloadJob(item: DownloadItem, referer: String? = null, userAgent: String? = null) {
         activeJobs[item.id]?.cancel()
         if (isHlsUrl(item.url)) {
-            startHlsDownloadJob(item)
+            startHlsDownloadJob(item, referer, userAgent)
             return
         }
 
@@ -283,14 +283,14 @@ class ElephantDownloadManager(private val context: Context) {
         return lower.contains(".m3u8") || lower.contains("application/vnd.apple.mpegurl")
     }
 
-    private fun startHlsDownloadJob(item: DownloadItem) {
+    private fun startHlsDownloadJob(item: DownloadItem, referer: String? = null, userAgent: String? = null) {
         val job = scope.launch {
             updateItemStatus(item.id, DownloadStatus.DOWNLOADING, speed = 0L)
             try {
-                val playlistUrl = resolveFinalUrl(item.url)
-                val playlist = fetchText(playlistUrl)
+                val playlistUrl = resolveFinalUrl(item.url, referer, userAgent)
+                val playlist = fetchText(playlistUrl, referer, userAgent)
                 val mediaUrl = chooseHlsMediaPlaylist(playlistUrl, playlist)
-                val mediaPlaylist = if (mediaUrl == playlistUrl) playlist else fetchText(mediaUrl)
+                val mediaPlaylist = if (mediaUrl == playlistUrl) playlist else fetchText(mediaUrl, referer ?: playlistUrl, userAgent)
                 val segmentUrls = parseHlsSegments(mediaUrl, mediaPlaylist)
                 if (segmentUrls.isEmpty()) throw Exception("HLS 播放列表没有可下载的视频分片")
 
@@ -303,7 +303,7 @@ class ElephantDownloadManager(private val context: Context) {
                 FileOutputStream(output, false).use { out ->
                     segmentUrls.forEach { segmentUrl ->
                         if (!isActive) throw CancellationException("Download cancelled or paused")
-                        val data = fetchBytes(segmentUrl)
+                        val data = fetchBytes(segmentUrl, referer ?: mediaUrl, userAgent)
                         if (data.isEmpty()) throw Exception("HLS 分片下载为空")
                         out.write(data)
                         downloaded += data.size
@@ -327,17 +327,17 @@ class ElephantDownloadManager(private val context: Context) {
         activeJobs[item.id] = job
     }
 
-    private fun resolveFinalUrl(startUrl: String): String {
+    private fun resolveFinalUrl(startUrl: String, referer: String? = null, userAgent: String? = null): String {
         var current = startUrl
         repeat(5) {
             val conn = (URL(current).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 15000
                 readTimeout = 20000
                 instanceFollowRedirects = false
-                setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36 Elephant/2.0")
+                setRequestProperty("User-Agent", userAgent ?: DEFAULT_USER_AGENT)
                 setRequestProperty("Accept", "*/*")
                 CookieManager.getInstance().getCookie(current)?.let { setRequestProperty("Cookie", it) }
-                setRequestProperty("Referer", current)
+                setRequestProperty("Referer", referer ?: current)
             }
             try {
                 val code = conn.responseCode
@@ -350,15 +350,15 @@ class ElephantDownloadManager(private val context: Context) {
         return current
     }
 
-    private fun fetchText(url: String): String {
+    private fun fetchText(url: String, referer: String? = null, userAgent: String? = null): String {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
             readTimeout = 20000
             instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36 Elephant/2.0")
+            setRequestProperty("User-Agent", userAgent ?: DEFAULT_USER_AGENT)
             setRequestProperty("Accept", "application/vnd.apple.mpegurl, application/x-mpegURL, */*")
             CookieManager.getInstance().getCookie(url)?.let { setRequestProperty("Cookie", it) }
-            setRequestProperty("Referer", url)
+            setRequestProperty("Referer", referer ?: url)
         }
         return try {
             if (conn.responseCode !in 200..299) throw Exception("HLS 播放列表 HTTP " + conn.responseCode)
@@ -366,15 +366,15 @@ class ElephantDownloadManager(private val context: Context) {
         } finally { conn.disconnect() }
     }
 
-    private fun fetchBytes(url: String): ByteArray {
+    private fun fetchBytes(url: String, referer: String? = null, userAgent: String? = null): ByteArray {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
             readTimeout = 30000
             instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36 Elephant/2.0")
+            setRequestProperty("User-Agent", userAgent ?: DEFAULT_USER_AGENT)
             setRequestProperty("Accept", "*/*")
             CookieManager.getInstance().getCookie(url)?.let { setRequestProperty("Cookie", it) }
-            setRequestProperty("Referer", url)
+            setRequestProperty("Referer", referer ?: url)
         }
         return try {
             if (conn.responseCode !in 200..299) throw Exception("视频分片 HTTP " + conn.responseCode)
