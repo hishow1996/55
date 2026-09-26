@@ -81,9 +81,9 @@ import kotlin.math.roundToInt
  * Provides identical UI and behavior for:
  * 1. In-App Floating Window: Draggable, resizable (top/bottom/left/right), rounded borders.
  * 2. Desktop Picture-in-Picture (PiP): Full-bleed layout with identical controls and buttons (Figure 1 UI).
- * 3. Video Engine: Uses TextureView + MediaPlayer with HTTP headers (Referer, User-Agent)
- *    to support HLS/m3u8, mp4, and live streaming smoothly without SurfaceView stuttering.
- * 4. Progress Sync: Resumes from webpage video currentTime and reports back to web video on close.
+ * 3. Video Engine: Uses the single application-wide Media3/ExoPlayer instance
+ *    with the webpage Referer/Cookie/UA request context.
+ * 4. Progress Sync: Reads and writes the shared native playback session.
  */
 @Composable
 fun InAppFloatingPlayer(
@@ -160,9 +160,8 @@ fun InAppFloatingPlayer(
 
     // The player is application-wide. This UI only attaches a surface and
     // controls the already-running native Media3 instance.
-    val mediaPlayer = NativeVideoPlaybackManager.player()
     var currentSurface by remember { mutableStateOf<Surface?>(null) }
-    var isVideoReady by remember { mutableStateOf(mediaPlayer != null) }
+    var isVideoReady by remember { mutableStateOf(NativeVideoPlaybackManager.player() != null) }
 
     // Auto-hide controls after 4 seconds of playback
     LaunchedEffect(showControls, isPlaying, isLocked) {
