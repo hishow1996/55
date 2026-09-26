@@ -30,7 +30,8 @@ object GeminiAiService {
 
     suspend fun sendMessage(
         history: List<ChatMessageItem>,
-        newUserPrompt: String
+        newUserPrompt: String,
+        pageContext: String = ""
     ): String = withContext(Dispatchers.IO) {
         val apiKey = try {
             BuildConfig.GEMINI_API_KEY
@@ -63,7 +64,7 @@ object GeminiAiService {
                 currentMsgObj.put("role", "user")
                 val currentParts = JSONArray()
                 val currentPart = JSONObject()
-                currentPart.put("text", newUserPrompt)
+                currentPart.put("text", if (pageContext.isBlank()) newUserPrompt else "当前网页内容：\\n" + pageContext.take(12000) + "\\n\\n用户问题：" + newUserPrompt)
                 currentParts.put(currentPart)
                 currentMsgObj.put("parts", currentParts)
                 contentsArray.put(currentMsgObj)
@@ -119,7 +120,7 @@ object GeminiAiService {
         }
 
         // Comprehensive, versatile local AI responder (General knowledge, independent of browser)
-        generateIntelligentGeneralResponse(newUserPrompt)
+        generateIntelligentGeneralResponse(if (pageContext.isBlank()) newUserPrompt else "当前网页内容：$pageContext\\n用户问题：$newUserPrompt")
     }
 
     private fun generateIntelligentGeneralResponse(prompt: String): String {
