@@ -95,6 +95,7 @@ dependencies {
   implementation(libs.media3.datasource)
   implementation(libs.media3.exoplayer.hls)
   implementation(libs.media3.exoplayer.dash)
+  implementation(libs.media3.session)
   // implementation(libs.androidx.datastore.preferences)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
