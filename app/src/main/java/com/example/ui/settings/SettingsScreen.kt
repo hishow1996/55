@@ -197,15 +197,12 @@ fun SettingsScreen(
             // 4. 电脑端模式：统一管理桌面网页模式与 User-Agent
             SettingsItem(
                 title = "电脑端模式",
-                detail = if (isDesktopMode) {
-                    when (desktopUaType) {
-                        "mac" -> "Mac"
-                        "ipad" -> "iPad"
-                        "custom" -> "自定义"
-                        else -> "Windows"
-                    }
-                } else {
-                    "关闭"
+                detail = when (desktopUaType) {
+                    "mac" -> "Mac"
+                    "ipad" -> "iPad"
+                    "android" -> "Android"
+                    "custom" -> "自定义"
+                    else -> "Windows"
                 },
                 textColor = textColor,
                 subTextColor = subTextColor,
@@ -511,6 +508,7 @@ fun SettingsScreen(
                             "windows" to "Windows",
                             "mac" to "Mac",
                             "ipad" to "iPad",
+                            "android" to "Android",
                             "custom" to "自定义"
                         ).forEach { (typeKey, label) ->
                             Row(
