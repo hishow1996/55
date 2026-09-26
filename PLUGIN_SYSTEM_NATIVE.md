@@ -36,6 +36,7 @@ Use:
 scripts/prepare_kiwi_chromium.sh
 scripts/configure_kiwi_extensions.sh third_party/kiwi/src.next/out/android_arm64
 scripts/port_55_native_features.sh
+scripts/verify_55_native_java_api.sh
 scripts/verify_kiwi_extension_runtime.sh
 scripts/verify_55_native_cutover.sh
 scripts/validate_55_native_migration.sh
@@ -81,4 +82,4 @@ Acceptance criteria:
 
 Kiwi's Chromium integration exposes the extension manager through the native Extensions WebUI (kiwi://extensions in the Kiwi source baseline). The final APK therefore does not need a Compose/WebView plugin manager. The page is backed by Chromium's extension resources and the native ExtensionService/Registry lifecycle.
 
-The local build verifier requires the Chromium extension resources and a native extension-management URL before GN/Ninja compilation proceeds.
+The local build verifier requires the Chromium extension resources before GN/Ninja compilation proceeds. The browser uses Chromium's native Extensions WebUI as the management surface; no second Kotlin/WebView manager is introduced.
