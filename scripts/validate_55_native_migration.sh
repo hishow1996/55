@@ -28,10 +28,10 @@ JAVA_LIST="$KIWI/chrome/android/java_sources.gni"
 grep -Fq '"java/src/org/chromium/chrome/browser/Elephant55NativeSettings.java",' "$JAVA_LIST" || fail "55 settings source not registered"
 grep -Fq '"java/src/org/chromium/chrome/browser/Elephant55NativeFeatureController.java",' "$JAVA_LIST" || fail "55 feature controller source not registered"
 
-grep -Fq 'Elephant55NativeSettings.ensureDefaults(this);' "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java" || fail "55 settings lifecycle hook missing"
-grep -Fq 'Elephant55NativeSettings.applyKiwiUiDefaults(this);' "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java" || fail "55 Kiwi UI defaults hook missing"
-grep -Fq 'Elephant55NativeSettings.ensureDefaults(this);' "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java" || fail "55 preference initialization hook missing"
-grep -Fq 'Elephant55NativeFeatureController.applyToTab(this, getActivityTab());' "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java" || fail "55 native tab controller hook missing"
+ACTIVITY="$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java"
+grep -Fq 'Elephant55NativeSettings.ensureDefaults(this);' "$ACTIVITY" || fail "55 settings lifecycle hook missing"
+grep -Fq 'Elephant55NativeSettings.applyKiwiUiDefaults(this);' "$ACTIVITY" || fail "55 Kiwi UI defaults hook missing"
+grep -Fq 'Elephant55NativeFeatureController.applyToTab(this, getActivityTab());' "$ACTIVITY" || fail "55 native tab controller hook missing"
 
 if grep -RqsE 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)|com\.example\.extension|ExtensionManager|KiwiExtensionApi|PluginManagerScreen' "$KIWI/chrome"; then
   fail "legacy WebView/custom extension code was copied into Chromium runtime"
