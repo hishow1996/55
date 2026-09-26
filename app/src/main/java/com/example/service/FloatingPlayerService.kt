@@ -161,6 +161,25 @@ class FloatingPlayerService : Service() {
         }
 
         if (videoUrl.isNotBlank()) {
+            val nativeInfo = VideoMediaInfo(
+                url = videoUrl,
+                pageUrl = sourcePageUrl,
+                title = videoTitle,
+                currentTime = initialPositionMs / 1000.0,
+                videoWidth = (videoRatio * 1000).toInt().coerceAtLeast(1),
+                videoHeight = 1000,
+                originTabIndex = originTabIndex,
+                originTabId = originTabId,
+                isPlaying = isPlaying
+            )
+            try {
+                NativeVideoPlaybackManager.start(this, nativeInfo, autoPlay = true)
+                NativeVideoPlaybackManager.setPlaybackRate(
+                    VideoPlaybackSessionManager.current()?.playbackRate ?: requestedPlaybackRate
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("FloatingPlayerService", "Failed to start shared Native Media3 player", e)
+            }
             showFloatingWindow()
         }
 
