@@ -789,12 +789,24 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         if (VideoSourceResolver.canUseNativePlayer(info)) {
             repository.setDetectedStreamUrl(currentTab.id, effectiveUrl)
         }
-        // Native Media3 is now the real playback owner. The WebView only discovers
-        // the current media source. For a native-playable URL, freeze HTML5 playback
-        // first, then start the single application-wide ExoPlayer. The callback is
-        // important because evaluateJavascript is asynchronous.
+        // Native Media3 is the real playback owner, but a network sniffer can
+        // observe an advertisement/manifest before the actual HTML5 video has
+        // finished loading. Those probe callbacks intentionally arrive with no
+        // duration/currentTime and fallback 16:9 dimensions. Do not let such a
+        // probe immediately take over the page, otherwise a pre-roll stream can
+        // become the native player and the real content is never reached.
+        //
+        // Once the video element reports real metadata (duration/currentTime or
+        // actual dimensions), the native takeover is allowed. The detected URL is
+        // still retained so the user can explicitly open the floating player.
         _detectedVideo.value = info
-        if (VideoSourceResolver.canUseNativePlayer(info)) {
+        val looksLikeUnresolvedNetworkProbe =
+            effectiveUrl.isNotBlank() &&
+                duration <= 0.0 &&
+                currentTime <= 0.0 &&
+                width <= 16 &&
+                height <= 9
+        if (VideoSourceResolver.canUseNativePlayer(info) && !looksLikeUnresolvedNetworkProbe) {
             activeWebView?.evaluateJavascript(Scripts.LOCK_WEB_VIDEOS) {
                 NativeVideoPlaybackManager.start(getApplication(), info, autoPlay = true)
             }
