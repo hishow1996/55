@@ -133,6 +133,10 @@ class ElephantWebViewClient(
         val reqUrl = request?.url?.toString() ?: return null
         val lowerUrl = reqUrl.lowercase()
 
+        if (repository.isContentBlocking.value && BrowserContentBlocker.shouldBlock(reqUrl)) {
+            return WebResourceResponse("text/plain", "UTF-8", 204, "No Content", emptyMap(), null)
+        }
+
         // Sniff real playable streaming media URLs (m3u8, mp4, flv, ts streams)
         if (lowerUrl.contains(".m3u8") || lowerUrl.contains(".mp4") || lowerUrl.contains(".flv") || 
             (lowerUrl.contains("mime=") && lowerUrl.contains("video")) || lowerUrl.contains("/video/") ||
