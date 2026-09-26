@@ -5,6 +5,7 @@ import android.webkit.JavascriptInterface
 class ElephantWebBridge(
     private val onVideoFound: (url: String, title: String, duration: Double, currentTime: Double, width: Int, height: Int) -> Unit,
     private val onVideoPlaybackState: ((currentTime: Double, isPlaying: Boolean) -> Unit)? = null,
+    private val onDrmDetected: ((licenseUri: String, scheme: String, headers: Map<String, String>) -> Unit)? = null,
     private val onTranslationFinished: (success: Boolean, count: Int) -> Unit,
     private val onTextSelected: (text: String) -> Unit = {},
     private val onAdjustBrightness: ((delta: Float) -> Float)? = null,
@@ -23,6 +24,12 @@ class ElephantWebBridge(
     @JavascriptInterface
     fun onVideoPlaybackState(currentTime: Double, isPlaying: Boolean) {
         onVideoPlaybackState?.invoke(currentTime, isPlaying)
+    }
+
+    @JavascriptInterface
+    fun onDrmDetected(licenseUri: String, scheme: String) {
+        if (licenseUri.isBlank()) return
+        onDrmDetected?.invoke(licenseUri.trim(), scheme.ifBlank { "widevine" }.lowercase(), emptyMap())
     }
 
     @JavascriptInterface
