@@ -1124,6 +1124,17 @@ fun ChromiumWebViewContainer(
                     displayZoomControls = false
                     useWideViewPort = tab.isDesktopMode
                     loadWithOverviewMode = tab.isDesktopMode
+                    // Desktop mode must render a real desktop CSS viewport and then
+                    // scale that wide layout down to the phone's physical WebView.
+                    // Without an explicit auto initial scale, some WebView versions
+                    // keep the 980px desktop layout at 1:1, causing the right side
+                    // of desktop sites to fall outside the phone screen.
+                    setInitialScale(0)
+                    layoutAlgorithm = if (tab.isDesktopMode) {
+                        WebSettings.LayoutAlgorithm.NORMAL
+                    } else {
+                        WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+                    }
                     userAgentString = viewModel.repository.getUserAgent(tab.isDesktopMode)
                     cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
@@ -1330,12 +1341,16 @@ fun ChromiumWebViewContainer(
                 webView.settings.userAgentString = targetUa
                 webView.settings.useWideViewPort = tab.isDesktopMode
                 webView.settings.loadWithOverviewMode = tab.isDesktopMode
+                webView.settings.setSupportZoom(false)
+                webView.settings.builtInZoomControls = false
+                webView.settings.displayZoomControls = false
                 webView.settings.layoutAlgorithm = if (tab.isDesktopMode) {
                     WebSettings.LayoutAlgorithm.NORMAL
                 } else {
                     WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
                 }
                 webView.settings.textZoom = 100
+                webView.setInitialScale(0)
                 webView.reload()
             }
             if (!tab.isAtHome && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {
