@@ -365,7 +365,7 @@ fun InAppFloatingPlayer(
         )
 
         // --- 3. Fluid In-App Drag Gesture when Controls are Hidden ---
-        if (!isDesktopPiP && !showControls) {
+        if (!isDesktopPiP && !showControls && !fullscreenLocked) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -379,7 +379,7 @@ fun InAppFloatingPlayer(
 
         // --- 4. Floating Video Player Controls Overlay (Figure 1 UI in both PiP & In-App) ---
         AnimatedVisibility(
-            visible = showControls,
+            visible = showControls && !fullscreenLocked,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
@@ -694,18 +694,6 @@ fun InAppFloatingPlayer(
                 }
 
             }
-        }
-
-        // When fullscreen is locked, consume touches everywhere except the lock
-        // button below. This remains correct after portrait/landscape rotation.
-        if (isFullscreen && fullscreenLocked) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures { }
-                    }
-            )
         }
 
         // Lock control is intentionally available only in native fullscreen.
