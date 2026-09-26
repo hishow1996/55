@@ -61,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -287,20 +288,6 @@ fun InAppFloatingPlayer(
         offsetY = offsetY.coerceIn(0f, maxOffsetY)
     }
 
-    // Orientation/fullscreen can resize the TextureView without destroying its
-    // SurfaceTexture. Rebind the existing surface after the new layout is committed.
-    LaunchedEffect(isFullscreen, isLandscape) {
-        delay(180)
-        currentSurface?.let { surface ->
-            runCatching {
-                NativeVideoPlaybackManager.refreshSurfaceAfterPresentation(
-                    surface,
-                    NativeVideoPlaybackManager.currentPositionMs()
-                )
-            }
-        }
-    }
-
     // --- Container Box Modifier ---
     val rootModifier = when {
         isGlobalFloating || isDesktopPiP || isFullscreen -> {
@@ -359,21 +346,7 @@ fun InAppFloatingPlayer(
                             isVideoReady = NativeVideoPlaybackManager.player() != null
                         }
 
-                        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
-                            // Fullscreen changes the TextureView buffer size while the
-                            // same ExoPlayer instance remains alive. Rebind the exact
-                            // same Surface so the decoder is not left rendering into the
-                            // old portrait buffer (a common cause of a frozen fullscreen
-                            // frame after the orientation transition).
-                            try {
-                                currentSurface?.let { surface ->
-                                    NativeVideoPlaybackManager.refreshSurfaceAfterPresentation(
-                                        surface,
-                                        NativeVideoPlaybackManager.currentPositionMs()
-                                    )
-                                }
-                            } catch (_: Exception) {}
-                        }
+                        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
                         override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
                             try {
                                 // Surface destruction is a rendering lifecycle event,
@@ -754,7 +727,7 @@ fun InAppFloatingPlayer(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 7.dp, bottom = 0.dp)
+                    .padding(start = 7.dp, end = 7.dp, bottom = 0.dp)
             ) {
                 Text(
                     text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",

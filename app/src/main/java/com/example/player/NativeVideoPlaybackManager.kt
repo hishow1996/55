@@ -93,7 +93,7 @@ object NativeVideoPlaybackManager {
                         VideoPlaybackSessionManager.updateDuration(created.durationMs())
                         // The Surface may have been recreated while ExoPlayer was preparing.
                         // Restore the explicit playback intent once the new pipeline is ready.
-                        if (playIntent && !created.isPlaying) {
+                        if (playIntent && !created.isPlaying()) {
                             created.play()
                         }
                     }
@@ -137,7 +137,7 @@ object NativeVideoPlaybackManager {
     fun detachSurface() {
         assertMainThread()
         val currentPlayer = controller
-        resumeAfterSurfaceReattach = currentPlayer?.isPlaying == true ||
+        resumeAfterSurfaceReattach = currentPlayer?.isPlaying() == true ||
             VideoPlaybackSessionManager.current()?.isPlaying == true
         currentPlayer?.setSurface(null)
     }
@@ -214,29 +214,6 @@ object NativeVideoPlaybackManager {
         assertMainThread()
         if (playIntent) {
             controller?.play()
-            VideoPlaybackSessionManager.updatePlaying(true)
-        }
-    }
-
-    /**
-     * Reconnect the existing video surface after a presentation/size transition.
-     * Some Android 9/vendor MediaCodec implementations can keep the decoder clock
-     * alive while the current frame stops updating after a TextureView resize.
-     * A tiny seek to the authoritative native clock forces a fresh decoded frame
-     * without reloading the media item or resetting the playback session.
-     */
-    fun refreshSurfaceAfterPresentation(surface: Surface?, positionMs: Long) {
-        assertMainThread()
-        val playerController = controller ?: return
-        if (surface == null) return
-
-        playerController.setSurface(surface)
-        val target = positionMs.coerceAtLeast(0L)
-        if (target > 0L) {
-            playerController.seekTo(target)
-        }
-        if (playIntent) {
-            playerController.play()
             VideoPlaybackSessionManager.updatePlaying(true)
         }
     }

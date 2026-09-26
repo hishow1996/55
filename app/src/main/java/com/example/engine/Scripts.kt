@@ -792,24 +792,25 @@ object Scripts {
     val DESKTOP_MODE_INJECT = """
         (function() {
             try {
-                // Desktop mode should use a real desktop CSS viewport, while
-                // Android WebView performs the final fit-to-phone scaling.
-                // Do not spoof physical screen.width/height: that can make
-                // responsive frameworks calculate a desktop canvas that is
-                // larger than the actual visual viewport.
+                // Do not spoof screen.width/height. The previous 1920x1080
+                // override made the page see a desktop-sized screen while the
+                // actual WebView visual viewport was still phone-sized. Sites
+                // that combine screen metrics with CSS breakpoints could then
+                // choose incompatible layouts and stack controls/columns.
                 if (navigator) {
-                    try { Object.defineProperty(navigator, 'platform', { get: () => 'Win32' }); } catch(e) {}
-                    try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 0 }); } catch(e) {}
+                    try { Object.defineProperty(navigator, 'platform', { get: () => 'Win32' }); } catch(e){}
+                    try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 0 }); } catch(e){}
                 }
 
-                // 1280px is a safer desktop baseline than 980px: many sites
-                // switch from tablet to their full desktop grid at 1024/1200px.
-                // useWideViewPort + loadWithOverviewMode in WebView then scales
-                // that CSS canvas down to the phone's physical width.
-                const desktopViewportWidth = 1280;
-                const desktopViewportContent =
-                    'width=' + desktopViewportWidth +
-                    ', initial-scale=1, minimum-scale=0.25, maximum-scale=5, user-scalable=yes';
+                // Chrome Android desktop mode uses a wide virtual viewport.
+                // WebView needs the viewport meta tag to be widened explicitly
+                // on pages that declare width=device-width. Use at least the
+                // Chromium desktop baseline of 980 CSS px, while allowing
+                // genuinely wider displays to use their real CSS width.
+                const desktopViewportWidth = Math.max(
+                    980,
+                    Math.round(Number(window.screen && window.screen.width) || 980)
+                );
 
                 function forceDesktopViewport() {
                     try {
@@ -823,25 +824,18 @@ object Scripts {
                             head.appendChild(meta);
                         }
 
-                        if (meta.getAttribute('content') !== desktopViewportContent) {
-                            meta.setAttribute('content', desktopViewportContent);
-                        }
-
-                        // Remove only accidental fixed mobile-width constraints
-                        // created by common site wrappers. Never rewrite width on
-                        // arbitrary elements, because desktop sites legitimately
-                        // use fixed-width panels and grids.
-                        const root = document.documentElement;
-                        if (root) {
-                            root.style.removeProperty('max-width');
+                        const desired = 'width=' + desktopViewportWidth;
+                        if (meta.getAttribute('content') !== desired) {
+                            meta.setAttribute('content', desired);
                         }
                     } catch(e) {}
                 }
 
                 forceDesktopViewport();
 
-                // SPA sites frequently recreate the viewport meta tag after
-                // navigation/rendering. Keep the desktop viewport stable.
+                // Some modern sites recreate/replace their viewport meta tag
+                // after the initial document load. Keep the desktop viewport
+                // stable instead of falling back to device-width mid-render.
                 if (window._elephantDesktopViewportObserver) {
                     try { window._elephantDesktopViewportObserver.disconnect(); } catch(e) {}
                 }
@@ -851,7 +845,7 @@ object Scripts {
                     });
                     window._elephantDesktopViewportObserver.observe(
                         document.documentElement || document,
-                        { childList: true, subtree: true, attributes: true, attributeFilter: ['content', 'name'] }
+                        { childList: true, subtree: true }
                     );
                 }
             } catch(e) {}
@@ -1452,7 +1446,6 @@ object Scripts {
                                 '<button class="uc-btn-circle uc-pip-btn" title="小窗">' + SVG_PIP + '</button>' +
                             '</div>' +
                         '</div>' +
-                        '<button class="uc-lock-side-btn" title="锁屏">' + SVG_LOCK_OPEN + '</button>' +
                         '<div class="uc-center-play-wrap">' +
                             '<button class="uc-center-play-btn" title="播放/暂停">' + SVG_CENTER_PLAY + '</button>' +
                         '</div>' +
@@ -1679,9 +1672,11 @@ object Scripts {
                     });
                 }
 
-                fastTap(lockSideBtn, () => {
-                    lockPlayer();
-                });
+                if (lockSideBtn) {
+                    fastTap(lockSideBtn, () => {
+                        lockPlayer();
+                    });
+                }
 
                 fastTap(downloadSideBtn, () => {
                     // Resolve the media URL for THIS video first. Never reuse a

@@ -1,5 +1,8 @@
 package com.example.service
 
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.compose.runtime.getValue
@@ -278,9 +281,9 @@ class FloatingPlayerService : MediaSessionService() {
         }
         // The Compose tree must use the dedicated overlay owner, not the Service
         // itself, so its composition has a stable lifecycle and saved-state owner.
-        androidx.lifecycle.setViewTreeLifecycleOwner(compose, owner)
-        androidx.lifecycle.setViewTreeViewModelStoreOwner(compose, owner)
-        androidx.savedstate.setViewTreeSavedStateRegistryOwner(compose, owner)
+        compose.setViewTreeLifecycleOwner(owner)
+        compose.setViewTreeViewModelStoreOwner(owner)
+        compose.setViewTreeSavedStateRegistryOwner(owner)
 
         compose.setContent {
             androidx.compose.material3.MaterialTheme {
