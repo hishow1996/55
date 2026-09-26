@@ -14,6 +14,8 @@ data class VideoSession(
     val tabId: String? = null,
     val title: String,
     val source: VideoSource,
+    val drmScheme: String? = null,
+    val drmLicenseUri: String? = null,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val isPlaying: Boolean = false,
