@@ -168,6 +168,7 @@ class MainActivity : ComponentActivity() {
             val quickSites by viewModel.repository.quickSites.collectAsState()
             val bookmarks by viewModel.repository.bookmarks.collectAsState()
             val dataSavedMb by viewModel.repository.dataSavedMb.collectAsState()
+            val isContentBlocking by viewModel.repository.isContentBlocking.collectAsState()
 
             val tabs by viewModel.tabs.collectAsState()
             val currentTabIndex by viewModel.currentTabIndex.collectAsState()
@@ -464,8 +465,10 @@ class MainActivity : ComponentActivity() {
                             isNightMode = isNightMode,
                             isDesktopMode = currentTab.isDesktopMode,
                             searchEngine = searchEngine,
+                            isContentBlocking = isContentBlocking,
                             onBack = { viewModel.setSettingsVisible(false) },
                             onOpenPluginManager = { viewModel.setPluginManagerVisible(true) },
+                            onToggleContentBlocking = { viewModel.repository.setContentBlocking(!viewModel.repository.isContentBlocking.value) },
                             onBackupData = {
                                 try {
                                     val manager = BrowserBackupManager(this@MainActivity)
