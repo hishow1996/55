@@ -985,7 +985,9 @@ fun ChromiumWebViewContainer(
                             viewModel.onWebVideoPlaybackState(currentTime, isPlaying)
                         },
                         onDrmDetected = { licenseUri, scheme, headers ->
-                            viewModel.onDrmLicenseDetected(licenseUri, scheme, headers)
+                            runOnUiThread {
+                                viewModel.onDrmLicenseDetected(licenseUri, scheme, headers)
+                            }
                         },
                         onTranslationFinished = { success, count ->
                             // Handled in ViewModel
@@ -1055,7 +1057,10 @@ fun ChromiumWebViewContainer(
                         }
                     },
                     onDrmLicenseRequest = { licenseUri, scheme, headers ->
-                        viewModel.onDrmLicenseDetected(licenseUri, scheme, headers)
+                        // shouldInterceptRequest runs off the UI thread.
+                        runOnUiThread {
+                            viewModel.onDrmLicenseDetected(licenseUri, scheme, headers)
+                        }
                     }
                 )
 
