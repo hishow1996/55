@@ -110,6 +110,9 @@ fun PluginManagerScreen(
                 Text("扩展", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Text(extensions.size.toString() + " 个已安装扩展", style = MaterialTheme.typography.bodySmall, color = secondary)
             }
+            TextButton(onClick = onOpenChromeWebStore) {
+                Text("Chrome 商店")
+            }
             TextButton(onClick = { showUrlDialog = true }) {
                 Icon(Icons.Default.OpenInNew, null, Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
