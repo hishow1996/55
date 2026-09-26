@@ -94,6 +94,8 @@ fun InAppFloatingPlayer(
     modifier: Modifier = Modifier,
     isDesktopPiP: Boolean = false,
     isFullscreen: Boolean = false,
+    isGlobalFloating: Boolean = false,
+    onGlobalDrag: ((Float, Float) -> Unit)? = null,
     currentTabIndex: Int = 0,
     onReturnToOriginTab: ((Int) -> Unit)? = null,
     onDownloadVideo: ((url: String, title: String) -> Unit)? = null
@@ -264,7 +266,7 @@ fun InAppFloatingPlayer(
 
     // --- Container Box Modifier ---
     val rootModifier = when {
-        isDesktopPiP || isFullscreen -> {
+        isGlobalFloating || isDesktopPiP || isFullscreen -> {
             // Fullscreen native player: the same Media3 surface expands to the
             // entire activity without creating a second player or reloading video.
             modifier
@@ -376,14 +378,18 @@ fun InAppFloatingPlayer(
                             val curH = with(density) { windowHeightDp.dp.toPx() }
                             val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
                             val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
-                            offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxOffsetX)
-                            offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxOffsetY)
+                            if (isGlobalFloating) {
+                                onGlobalDrag?.invoke(dragAmount.x, dragAmount.y)
+                            } else {
+                                offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxOffsetX)
+                                offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxOffsetY)
+                            }
                         }
                     }
             }
 
             Box(modifier = overlayModifier) {
-                // Top Header (Only Close button on top-right, clean and minimal)
+                // Unified player header controls
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -405,7 +411,7 @@ fun InAppFloatingPlayer(
                             )
                         }
                     }
-                    if (!isDesktopPiP && !isFullscreen) {
+                    if (!isDesktopPiP && !isGlobalFloating && !isFullscreen) {
                         IconButton(
                             onClick = { onEnterGlobalPiP() },
                             modifier = Modifier.size(34.dp)
@@ -579,10 +585,9 @@ fun InAppFloatingPlayer(
             }
         }
 
-        // The thin live red progress line is exclusive to the global
-        // floating-window presentation. It is not part of the in-app
-        // player page or native fullscreen player.
-        if (isDesktopPiP) {
+        // The thin live red progress line is exclusive to the Android global
+        // floating-window presentation. System PiP and the browser player do not show it.
+        if (isGlobalFloating) {
             val progress = if (durationMs > 0) {
                 (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
             } else 0f
@@ -617,7 +622,7 @@ fun InAppFloatingPlayer(
 
         // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
         // Resizing cannot exceed screen width or move/expand outside phone screen
-        if (!isDesktopPiP && !isFullscreen) {
+        if (!isGlobalFloating && !isDesktopPiP && !isFullscreen) {
             // TOP EDGE RESIZE
             Box(
                 modifier = Modifier
