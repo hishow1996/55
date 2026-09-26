@@ -112,9 +112,19 @@ fun InAppFloatingPlayer(
     var nativeVideoHeight by remember(videoInfo.videoHeight) {
         mutableIntStateOf(videoInfo.videoHeight)
     }
-    val baseRatio = remember(nativeVideoWidth, nativeVideoHeight) {
+    var nativePixelAspectRatio by remember { mutableFloatStateOf(1f) }
+
+    // The decoded frame dimensions plus pixel aspect ratio are the authoritative
+    // display geometry. This keeps a 4:3 picture at 4:3 even when the transport
+    // or WebView container was 16:9.
+    val baseRatio = remember(
+        nativeVideoWidth,
+        nativeVideoHeight,
+        nativePixelAspectRatio
+    ) {
         if (nativeVideoWidth > 0 && nativeVideoHeight > 0) {
-            (nativeVideoWidth.toFloat() / nativeVideoHeight.toFloat()).coerceIn(0.5f, 3.0f)
+            (nativeVideoWidth.toFloat() * nativePixelAspectRatio / nativeVideoHeight.toFloat())
+                .coerceIn(0.42f, 2.38f)
         } else {
             16f / 9f
         }
@@ -212,6 +222,9 @@ fun InAppFloatingPlayer(
                 if (decodedSize != null && decodedSize.width > 0 && decodedSize.height > 0) {
                     nativeVideoWidth = decodedSize.width
                     nativeVideoHeight = decodedSize.height
+                    nativePixelAspectRatio = decodedSize.pixelWidthHeightRatio
+                        .takeIf { it.isFinite() && it > 0f }
+                        ?: 1f
                 }
                 currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 if (dur > 0L) durationMs = dur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
