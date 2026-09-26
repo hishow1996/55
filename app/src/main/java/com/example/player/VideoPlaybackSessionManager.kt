@@ -27,7 +27,7 @@ object VideoPlaybackSessionManager {
         }
         val sameVideo = current != null &&
             sameSourceTab &&
-            current.pageUrl == video.pageUrl &&
+            urlsEquivalent(current.pageUrl, video.pageUrl) &&
             current.source == resolvedSource &&
             current.drmScheme == video.drmScheme &&
             current.drmLicenseUri == video.drmLicenseUri &&
@@ -107,6 +107,16 @@ object VideoPlaybackSessionManager {
 
     fun positionMsOr(fallbackMs: Long): Long =
         session?.positionMs?.coerceAtLeast(0L) ?: fallbackMs.coerceAtLeast(0L)
+
+    private fun urlsEquivalent(first: String, second: String): Boolean {
+        if (first.isBlank() || second.isBlank()) return first == second
+        return try {
+            java.net.URI(first).normalize().toString().trimEnd('/') ==
+                java.net.URI(second).normalize().toString().trimEnd('/')
+        } catch (_: Exception) {
+            first.trimEnd('/') == second.trimEnd('/')
+        }
+    }
 
     @Synchronized
     fun clear() {
