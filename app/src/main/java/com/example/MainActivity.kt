@@ -238,7 +238,10 @@ class MainActivity : ComponentActivity() {
                 )
                 if (nativePlayerFullscreen) {
                     orientationBeforeNativeFullscreen = activity.requestedOrientation
-                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                    // Enter native-player fullscreen in landscape immediately.
+                    // FULL_SENSOR alone leaves portrait devices in portrait until
+                    // the user physically rotates the phone.
+                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                     WindowCompat.setDecorFitsSystemWindows(activity.window, false)
                     activity.window.statusBarColor = android.graphics.Color.BLACK
                     activity.window.navigationBarColor = android.graphics.Color.BLACK
@@ -279,8 +282,11 @@ class MainActivity : ComponentActivity() {
                 when {
                     isSearchOverlayVisible -> viewModel.setSearchOverlayVisible(false)
                     isAiChatVisible -> viewModel.setAiChatVisible(false)
+                    nativePlayerFullscreen -> {
+                        nativePlayerFullscreen = false
+                        fullscreenVideoLocked = false
+                    }
                     customVideoView != null -> viewModel.hideCustomVideoView()
-                    nativePlayerFullscreen -> nativePlayerFullscreen = false
                     isFloatingPlayerVisible -> viewModel.closeFloatingPlayer()
                     isDownloadManagerVisible -> viewModel.setDownloadManagerVisible(false)
                     isPluginManagerVisible -> viewModel.setPluginManagerVisible(false)
@@ -497,7 +503,17 @@ class MainActivity : ComponentActivity() {
                                 triggerGlobalFloatingOrPiP(detectedVideo!!)
                             },
                             onEnterFullscreen = {
-                                nativePlayerFullscreen = !nativePlayerFullscreen
+                                if (!nativePlayerFullscreen) {
+                                    // Do not keep a WebChrome fullscreen surface underneath
+                                    // the native player; otherwise its lock overlay can remain
+                                    // visible after the orientation change.
+                                    viewModel.hideCustomVideoView()
+                                    fullscreenVideoLocked = false
+                                    nativePlayerFullscreen = true
+                                } else {
+                                    nativePlayerFullscreen = false
+                                    fullscreenVideoLocked = false
+                                }
                             },
                             onRotateScreen = if (nativePlayerFullscreen) {
                                 {
