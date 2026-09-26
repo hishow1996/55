@@ -491,7 +491,11 @@ class MainActivity : ComponentActivity() {
                         PluginManagerScreen(
                             repository = viewModel.repository,
                             isNightMode = isNightMode,
-                            onBack = { viewModel.setPluginManagerVisible(false) }
+                            onBack = { viewModel.setPluginManagerVisible(false) },
+                            onOpenChromeWebStore = {
+                                viewModel.addNewTab(initialUrl = "https://chromewebstore.google.com/")
+                                viewModel.setPluginManagerVisible(false)
+                            }
                         )
                     }
 
