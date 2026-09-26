@@ -209,12 +209,6 @@ class MainActivity : ComponentActivity() {
                 } ?: viewModel.setAiChatVisible(true)
             }
 
-            var isSplashVisible by remember { mutableStateOf(true) }
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(600)
-                isSplashVisible = false
-            }
-
             // Back Press Handling
             BackHandler(enabled = true) {
                 when {
