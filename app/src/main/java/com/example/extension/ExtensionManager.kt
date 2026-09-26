@@ -66,6 +66,21 @@ class ExtensionManager(
         installBytes(input.use { it.readBytes() })
     }
 
+    suspend fun installUrl(url: String): Result<BrowserExtension> = runCatching {
+        val normalized = url.trim()
+        require(normalized.startsWith("https://", true) || normalized.startsWith("http://", true)) { "扩展地址无效" }
+        val connection = java.net.URL(normalized).openConnection() as java.net.HttpURLConnection
+        connection.instanceFollowRedirects = true
+        connection.connectTimeout = 15000
+        connection.readTimeout = 30000
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 9) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36")
+        connection.connect()
+        require(connection.responseCode in 200..299) { "下载扩展失败：HTTP " + connection.responseCode }
+        val bytes = connection.inputStream.use { it.readBytes() }
+        require(bytes.isNotEmpty()) { "扩展文件为空" }
+        installBytes(bytes)
+    }
+
     fun installBytes(bytes: ByteArray): BrowserExtension {
         val archive = normalizeArchive(bytes)
         val temp = File(context.cacheDir, "ext_" + System.nanoTime()).apply { mkdirs() }
