@@ -293,8 +293,10 @@ fun InAppFloatingPlayer(
         delay(180)
         currentSurface?.let { surface ->
             runCatching {
-                NativeVideoPlaybackManager.attachSurface(surface)
-                NativeVideoPlaybackManager.resumeIfNeeded()
+                NativeVideoPlaybackManager.refreshSurfaceAfterPresentation(
+                    surface,
+                    NativeVideoPlaybackManager.currentPositionMs()
+                )
             }
         }
     }
@@ -364,10 +366,11 @@ fun InAppFloatingPlayer(
                             // old portrait buffer (a common cause of a frozen fullscreen
                             // frame after the orientation transition).
                             try {
-                                st.setDefaultBufferSize(w, h)
                                 currentSurface?.let { surface ->
-                                    NativeVideoPlaybackManager.attachSurface(surface)
-                                    NativeVideoPlaybackManager.resumeIfNeeded()
+                                    NativeVideoPlaybackManager.refreshSurfaceAfterPresentation(
+                                        surface,
+                                        NativeVideoPlaybackManager.currentPositionMs()
+                                    )
                                 }
                             } catch (_: Exception) {}
                         }
