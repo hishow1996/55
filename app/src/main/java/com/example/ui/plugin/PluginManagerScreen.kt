@@ -71,6 +71,7 @@ fun PluginManagerScreen(
     repository: BrowserRepository,
     isNightMode: Boolean,
     onBack: () -> Unit,
+    onOpenChromeWebStore: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -79,6 +80,8 @@ fun PluginManagerScreen(
     var popupExtensionId by remember { mutableStateOf<String?>(null) }
     var optionsExtensionId by remember { mutableStateOf<String?>(null) }
     var aboutExtensionId by remember { mutableStateOf<String?>(null) }
+    var showUrlDialog by remember { mutableStateOf(false) }
+    var extensionUrl by remember { mutableStateOf("") }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -106,6 +109,11 @@ fun PluginManagerScreen(
             Column(Modifier.weight(1f)) {
                 Text("扩展", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Text(extensions.size.toString() + " 个已安装扩展", style = MaterialTheme.typography.bodySmall, color = secondary)
+            }
+            TextButton(onClick = { showUrlDialog = true }) {
+                Icon(Icons.Default.OpenInNew, null, Modifier.size(17.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("链接安装")
             }
             TextButton(onClick = {
                 launcher.launch(arrayOf("application/zip", "application/x-chrome-extension", "application/octet-stream", "*/*"))
@@ -193,6 +201,39 @@ fun PluginManagerScreen(
                 }
             }
         }
+    }
+
+    if (showUrlDialog) {
+        AlertDialog(
+            onDismissRequest = { showUrlDialog = false },
+            title = { Text("安装扩展") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("粘贴 CRX/ZIP 扩展的直接下载地址。Chrome 网上应用店触发的 CRX 下载也会自动交给扩展安装器。", color = secondary)
+                    androidx.compose.material3.OutlinedTextField(
+                        value = extensionUrl,
+                        onValueChange = { extensionUrl = it },
+                        singleLine = true,
+                        placeholder = { Text("https://…/extension.crx") }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = extensionUrl.isNotBlank(),
+                    onClick = {
+                        val url = extensionUrl.trim()
+                        showUrlDialog = false
+                        scope.launch {
+                            repository.extensionManager.installUrl(url)
+                                .onSuccess { Toast.makeText(context, "已安装：" + it.name, Toast.LENGTH_SHORT).show() }
+                                .onFailure { Toast.makeText(context, "安装失败：" + (it.message ?: "扩展地址无效"), Toast.LENGTH_LONG).show() }
+                        }
+                    }
+                ) { Text("安装") }
+            },
+            dismissButton = { TextButton(onClick = { showUrlDialog = false }) { Text("取消") } }
+        )
     }
 
     ExtensionPageDialog(repository, popupExtensionId, "", { repository.extensionManager.popupUrl(it) }) {
