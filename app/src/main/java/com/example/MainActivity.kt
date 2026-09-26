@@ -1165,6 +1165,19 @@ fun ChromiumWebViewContainer(
                     },
                     onPageFinish = { url, title ->
                         viewModel.onPageFinished(url, title)
+
+                        // Re-apply the desktop virtual viewport after every
+                        // navigation. This is especially important for SPA/
+                        // iframe-heavy stores that replace their viewport meta
+                        // tag during startup.
+                        if (tab.isDesktopMode) {
+                            this@apply.post {
+                                evaluateJavascript(
+                                    com.example.engine.Scripts.DESKTOP_MODE_INJECT,
+                                    null
+                                )
+                            }
+                        }
                     },
                     onExtensionDownload = { url ->
                         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
