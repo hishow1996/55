@@ -15,7 +15,6 @@ import android.graphics.SurfaceTexture
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
-import android.os.IBinder
 import android.os.Looper
 import android.view.Gravity
 import android.view.MotionEvent
@@ -96,10 +95,6 @@ class FloatingPlayerService : MediaSessionService() {
             } catch (_: Exception) {}
             handler.postDelayed(this, 500)
         }
-    }
-
-    override fun onBind(intent: Intent?): IBinder? {
-        return super.onBind(intent)
     }
 
     override fun onCreate() {
@@ -799,6 +794,7 @@ class FloatingPlayerService : MediaSessionService() {
 
     override fun onDestroy() {
         NativeVideoPlaybackManager.setPlaybackErrorListener(null)
+        NativeVideoPlaybackManager.releaseMediaSession()
         super.onDestroy()
         removeFloatingWindow()
     }
