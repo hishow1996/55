@@ -506,8 +506,10 @@ fun InAppFloatingPlayer(
                     IconButton(
                         onClick = {
                             try {
-                                val target = (NativeVideoPlaybackManager.currentPositionMs() - 10000L).coerceAtLeast(0L)
+                                val current = NativeVideoPlaybackManager.currentPositionMs().coerceAtLeast(0L)
+                                val target = (current - 10_000L).coerceAtLeast(0L)
                                 NativeVideoPlaybackManager.seekTo(target)
+                                VideoPlaybackSessionManager.updatePosition(target)
                                 currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                             } catch (_: Exception) {}
                         },
@@ -544,9 +546,14 @@ fun InAppFloatingPlayer(
                     IconButton(
                         onClick = {
                             try {
-                                val target = (NativeVideoPlaybackManager.currentPositionMs() + 10000L)
-                                    .coerceAtMost(durationMs.toLong())
+                                val current = NativeVideoPlaybackManager.currentPositionMs().coerceAtLeast(0L)
+                                val nativeDuration = NativeVideoPlaybackManager.durationMs()
+                                val effectiveDuration = nativeDuration.takeIf { it > 0L }
+                                    ?: durationMs.toLong().takeIf { it > 0L }
+                                    ?: Long.MAX_VALUE
+                                val target = (current + 10_000L).coerceAtMost(effectiveDuration)
                                 NativeVideoPlaybackManager.seekTo(target)
+                                VideoPlaybackSessionManager.updatePosition(target)
                                 currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                             } catch (_: Exception) {}
                         },
