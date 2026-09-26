@@ -16,7 +16,7 @@ fi
 export PATH="$DEPOT_TOOLS:$PATH"
 cd "$KIWI"
 
-"$ROOT/scripts/preflight_local_chromium.sh"
+bash "$ROOT/scripts/preflight_local_chromium.sh"
 
 mkdir -p out/android_arm64
 
