@@ -77,6 +77,7 @@ fun PluginManagerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val extensions by repository.extensionManager.extensions.collectAsState()
+    var userScripts by remember { mutableStateOf(repository.userScriptManager.all()) }
     var popupExtensionId by remember { mutableStateOf<String?>(null) }
     var optionsExtensionId by remember { mutableStateOf<String?>(null) }
     var aboutExtensionId by remember { mutableStateOf<String?>(null) }
@@ -97,7 +98,10 @@ fun PluginManagerScreen(
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             repository.userScriptManager.install(uri)
-                .onSuccess { Toast.makeText(context, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show() }
+                .onSuccess {
+                    userScripts = repository.userScriptManager.all()
+                    Toast.makeText(context, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show()
+                }
                 .onFailure { Toast.makeText(context, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show() }
         }
     }
@@ -209,6 +213,81 @@ fun PluginManagerScreen(
             }
 
             item {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("用户脚本", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isNightMode) Color(0xFF2A3039) else Color(0xFFE9EEF5)
+                    ) {
+                        Text(userScripts.size.toString(), Modifier.padding(horizontal = 9.dp, vertical = 3.dp), color = secondary)
+                    }
+                }
+            }
+            if (userScripts.isNotEmpty()) {
+                items(userScripts, key = { "script_" + it.id }) { script ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = cardColor),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(42.dp),
+                                shape = RoundedCornerShape(13.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        "JS",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    script.name,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    script.matches.size.toString() + " 个匹配规则",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = secondary
+                                )
+                            }
+                            Switch(
+                                checked = script.enabled,
+                                onCheckedChange = {
+                                    repository.userScriptManager.setEnabled(script.id, it)
+                                    userScripts = repository.userScriptManager.all()
+                                }
+                            )
+                            IconButton(
+                                onClick = {
+                                    repository.userScriptManager.uninstall(script.id)
+                                    userScripts = repository.userScriptManager.all()
+                                    Toast.makeText(context, "已卸载脚本 " + script.name, Toast.LENGTH_SHORT).show()
+                                }
+                            ) {
+                                Icon(Icons.Default.DeleteOutline, "卸载脚本")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            item {
                 Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(14.dp)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
                         Icon(Icons.Default.Info, null, Modifier.size(20.dp), tint = secondary)
@@ -247,7 +326,10 @@ fun PluginManagerScreen(
                         showUserScriptDialog = false
                         scope.launch {
                             repository.userScriptManager.installUrl(url)
-                                .onSuccess { Toast.makeText(context, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show() }
+                                .onSuccess {
+                                    userScripts = repository.userScriptManager.all()
+                                    Toast.makeText(context, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show()
+                                }
                                 .onFailure { Toast.makeText(context, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show() }
                         }
                     }
