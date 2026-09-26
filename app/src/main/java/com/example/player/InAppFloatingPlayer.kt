@@ -596,7 +596,7 @@ fun InAppFloatingPlayer(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 7.dp, bottom = 1.dp)
+                    .padding(horizontal = 7.dp, bottom = 0.dp)
             ) {
                 Text(
                     text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
@@ -604,7 +604,7 @@ fun InAppFloatingPlayer(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
-                    modifier = Modifier.padding(start = 1.dp, bottom = 1.dp)
+                    modifier = Modifier.padding(start = 1.dp, bottom = 0.dp)
                 )
                 Box(
                     modifier = Modifier
