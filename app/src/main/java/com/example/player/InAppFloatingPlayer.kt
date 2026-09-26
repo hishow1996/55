@@ -552,16 +552,17 @@ fun InAppFloatingPlayer(
             }
         }
 
-        // Persistent bottom progress: it stays attached to the window's bottom border
-        // even after the playback controls fade away.
-        val progress = if (durationMs > 0) {
-            (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-        } else 0f
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-        ) {
+        // The thin live red progress line belongs to the floating/in-app
+        // window UI, not the native fullscreen player.
+        if (!isFullscreen) {
+            val progress = if (durationMs > 0) {
+                (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+            } else 0f
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+            ) {
             Text(
                 text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
                 color = Color.White,
@@ -582,6 +583,9 @@ fun InAppFloatingPlayer(
                         .fillMaxHeight()
                         .background(Color.Red)
                 )
+            }
+        }
+
             }
         }
 
