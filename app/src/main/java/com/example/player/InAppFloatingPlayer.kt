@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
@@ -394,7 +395,7 @@ fun InAppFloatingPlayer(
                         modifier = Modifier.size(34.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Fullscreen,
+                            imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                             contentDescription = if (isFullscreen) "退出全屏" else "全屏",
                             tint = Color.White,
                             modifier = Modifier.size(22.dp)
@@ -555,7 +556,7 @@ fun InAppFloatingPlayer(
 
         // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
         // Resizing cannot exceed screen width or move/expand outside phone screen
-        if (!isDesktopPiP) {
+        if (!isDesktopPiP && !isFullscreen) {
             // TOP EDGE RESIZE
             Box(
                 modifier = Modifier
