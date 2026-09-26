@@ -193,35 +193,26 @@ fun SettingsScreen(
                 }
             )
 
-            // 4. 电脑端模式
+            // 4. 电脑端模式：统一管理桌面网页模式与 User-Agent
             SettingsItem(
                 title = "电脑端模式",
-                detail = "",
-                textColor = textColor,
-                subTextColor = subTextColor,
-                dividerColor = dividerColor,
-                onClick = {
-                    val newState = !isDesktopMode
-                    repository.setDesktopMode(newState)
-                    Toast.makeText(
-                        context,
-                        if (newState) "已开启电脑端模式" else "已恢复移动端模式",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            )
-
-            // 5. 电脑版 User-Agent
-            SettingsItem(
-                title = "电脑版 User-Agent",
-                detail = "",
+                detail = if (isDesktopMode) {
+                    when (desktopUaType) {
+                        "mac" -> "Mac"
+                        "ipad" -> "iPad"
+                        "custom" -> "自定义"
+                        else -> "Windows"
+                    }
+                } else {
+                    "关闭"
+                },
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = { showUaDialog = true }
             )
 
-            // 6. 搜索设置
+            // 5. 搜索设置
             SettingsItem(
                 title = "搜索设置",
                 detail = "",
@@ -493,105 +484,56 @@ fun SettingsScreen(
         )
     }
 
-    // User-Agent Selection & Customization Dialog
+    // 电脑端模式选择：桌面模式与 User-Agent 合并为一个设置入口
     if (showUaDialog) {
         var selectedType by remember { mutableStateOf(desktopUaType) }
+        var enabled by remember { mutableStateOf(isDesktopMode) }
         var customInput by remember { mutableStateOf(customUa) }
 
         AlertDialog(
             onDismissRequest = { showUaDialog = false },
-            title = {
-                Text("电脑版 User-Agent (用户代理) 设置")
-            },
+            title = { Text("电脑端模式") },
             text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Text(
-                        text = "切换为电脑版模式时，浏览器向网站发送的 User-Agent 标头。网站将根据此标头返回完整的电脑端桌面布局。",
-                        fontSize = 12.sp,
-                        color = subTextColor,
-                        lineHeight = 16.sp
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    SettingSwitchRow(
+                        title = "电脑端模式",
+                        detail = "以桌面网页方式访问网站",
+                        checked = enabled,
+                        onCheckedChange = { enabled = it },
+                        textColor = textColor,
+                        subTextColor = subTextColor
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    val options = listOf(
-                        Triple("windows", "Windows Chrome (推荐)", BrowserRepository.DESKTOP_WINDOWS_UA),
-                        Triple("mac", "Mac Safari / Chrome (苹果电脑)", BrowserRepository.DESKTOP_MAC_UA),
-                        Triple("ipad", "iPad / 平板电脑版", BrowserRepository.DESKTOP_IPAD_UA),
-                        Triple("custom", "自定义 User-Agent", if (customInput.isNotBlank()) customInput else "输入自定义 UA 字符串")
-                    )
-
-                    options.forEach { (typeKey, title, sampleUa) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedType = typeKey }
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = selectedType == typeKey,
-                                onClick = { selectedType = typeKey }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = title,
-                                    fontSize = 14.sp,
-                                    fontWeight = if (selectedType == typeKey) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedType == typeKey) Color(0xFF2563EB) else textColor
+                    if (enabled) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("User-Agent", fontSize = 13.sp, color = subTextColor)
+                        listOf(
+                            "windows" to "Windows",
+                            "mac" to "Mac",
+                            "ipad" to "iPad",
+                            "custom" to "自定义"
+                        ).forEach { (typeKey, label) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedType = typeKey }
+                                    .padding(vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedType == typeKey,
+                                    onClick = { selectedType = typeKey }
                                 )
-                                Text(
-                                    text = sampleUa,
-                                    fontSize = 10.sp,
-                                    color = subTextColor,
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                )
+                                Text(label, fontSize = 15.sp, color = textColor, modifier = Modifier.padding(start = 4.dp))
                             }
                         }
-                    }
-
-                    if (selectedType == "custom") {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = customInput,
-                            onValueChange = { customInput = it },
-                            label = { Text("自定义 User-Agent 字符串", fontSize = 12.sp) },
-                            placeholder = { Text("例如：Mozilla/5.0 ...", fontSize = 12.sp) },
-                            modifier = Modifier.fillMaxWidth(),
-                            maxLines = 3
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF2563EB).copy(alpha = 0.08f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = "当前选定 User-Agent：",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2563EB)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            val activeUaString = when (selectedType) {
-                                "mac" -> BrowserRepository.DESKTOP_MAC_UA
-                                "ipad" -> BrowserRepository.DESKTOP_IPAD_UA
-                                "custom" -> customInput.ifBlank { BrowserRepository.DESKTOP_WINDOWS_UA }
-                                else -> BrowserRepository.DESKTOP_WINDOWS_UA
-                            }
-                            Text(
-                                text = activeUaString,
-                                fontSize = 10.sp,
-                                color = subTextColor,
-                                lineHeight = 13.sp
+                        if (selectedType == "custom") {
+                            OutlinedTextField(
+                                value = customInput,
+                                onValueChange = { customInput = it },
+                                label = { Text("User-Agent") },
+                                placeholder = { Text("输入自定义 User-Agent") },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 3
                             )
                         }
                     }
@@ -599,20 +541,19 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
+                    repository.setDesktopMode(enabled)
                     repository.setDesktopUaType(selectedType)
-                    if (selectedType == "custom") {
-                        repository.setCustomUserAgent(customInput.trim())
-                    }
+                    if (selectedType == "custom") repository.setCustomUserAgent(customInput.trim())
                     showUaDialog = false
-                    Toast.makeText(context, "电脑版 User-Agent 已保存", Toast.LENGTH_SHORT).show()
-                }) {
-                    Text("保存", color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
-                }
+                    Toast.makeText(
+                        context,
+                        if (enabled) "电脑端模式已开启" else "电脑端模式已关闭",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }) { Text("完成") }
             },
             dismissButton = {
-                TextButton(onClick = { showUaDialog = false }) {
-                    Text("取消")
-                }
+                TextButton(onClick = { showUaDialog = false }) { Text("取消") }
             }
         )
     }
