@@ -824,8 +824,7 @@ object Scripts {
                             head.appendChild(meta);
                         }
 
-                        const desired = 'width=' + desktopViewportWidth +
-                            ', initial-scale=1, user-scalable=yes';
+                        const desired = 'width=' + desktopViewportWidth;
                         if (meta.getAttribute('content') !== desired) {
                             meta.setAttribute('content', desired);
                         }
