@@ -16,6 +16,7 @@ import com.example.model.HistoryItem
 import com.example.model.VideoMediaInfo
 import com.example.player.VideoSourceResolver
 import com.example.player.VideoPlaybackSessionManager
+import com.example.player.NativeVideoPlaybackManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
