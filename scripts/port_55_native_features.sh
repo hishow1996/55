@@ -10,11 +10,6 @@ TAB_ACTIVITY="$JAVA_ROOT/ChromeTabbedActivity.java"
 test -d "$KIWI/chrome/android" || { echo "Kiwi Chromium source is not prepared: $KIWI" >&2; exit 2; }
 mkdir -p "$JAVA_ROOT"
 
-# Install the repo-55 native preference/controller classes into the Chromium
-# Android source tree. These are the only repo-55 runtime classes copied into
-# the final Chromium APK; the old Gradle/WebView runtime is never packaged.
-# The top-level java_sources.gni is the Kiwi integration point that appends
-# additional sources to chrome_java_sources.
 cp "$ROOT/patches/55/Elephant55NativeSettings.java" "$JAVA_ROOT/Elephant55NativeSettings.java"
 cp "$ROOT/patches/55/Elephant55NativeFeatureController.java" "$JAVA_ROOT/Elephant55NativeFeatureController.java"
 
@@ -62,27 +57,22 @@ settings_call = "\n".join([
     "        Elephant55NativeSettings.applyKiwiUiDefaults(this);",
 ])
 if settings_call not in s:
-    compositor = "        super.initializeCompositor();"
-    if compositor in s:
-        s = s.replace(compositor, compositor + "\n\n" + settings_call, 1)
-    else:
-        raise SystemExit("Cannot find initializeCompositor anchor")
+    pattern = r"(\s*super\.onCreate\(savedInstanceState\);)"
+    m = re.search(pattern, s)
+    if not m:
+        pattern = r"(\s*super\.onCreate\([^\n]*\);)"
+        m = re.search(pattern, s)
+    if not m:
+        raise SystemExit("Cannot find ChromeTabbedActivity onCreate lifecycle anchor")
+    s = s[:m.end()] + "\n\n" + settings_call + s[m.end():]
 
 controller_call = "        Elephant55NativeFeatureController.applyToTab(this, getActivityTab());"
 if controller_call not in s:
-    # Prefer the native lifecycle hook. Fall back to onResume if this Kiwi
-    # revision does not expose onResumeWithNative.
-    pattern = r"(protected void onResumeWithNative\(\)\s*\{\s*\n)(\s*super\.onResumeWithNative\(\);)"
+    pattern = r"(\s*super\.onResume\(\);)"
     m = re.search(pattern, s)
-    if m:
-        s = s[:m.end()] + "\n" + controller_call + s[m.end():]
-    else:
-        pattern = r"(protected void onResume\(\)\s*\{\s*\n)(\s*super\.onResume\(\);)"
-        m = re.search(pattern, s)
-        if m:
-            s = s[:m.end()] + "\n" + controller_call + s[m.end():]
-        else:
-            raise SystemExit("Cannot find a Chromium resume lifecycle hook")
+    if not m:
+        raise SystemExit("Cannot find ChromeTabbedActivity onResume lifecycle anchor")
+    s = s[:m.end()] + "\n" + controller_call + s[m.end():]
 
 p.write_text(s)
 PY
@@ -90,6 +80,7 @@ PY
 grep -Fqx '    "java/src/org/chromium/chrome/browser/Elephant55NativeSettings.java",' "$JAVA_LIST"
 grep -Fqx '    "java/src/org/chromium/chrome/browser/Elephant55NativeFeatureController.java",' "$JAVA_LIST"
 grep -Fq "Elephant55NativeSettings.ensureDefaults(this);" "$TAB_ACTIVITY"
+grep -Fq "Elephant55NativeSettings.applyKiwiUiDefaults(this);" "$TAB_ACTIVITY"
 grep -Fq "Elephant55NativeFeatureController.applyToTab(this, getActivityTab());" "$TAB_ACTIVITY"
 
 echo "55 native Chromium settings, desktop-UA integration, and lifecycle wiring installed."
