@@ -1301,6 +1301,12 @@ fun ChromiumWebViewContainer(
                 webView.settings.userAgentString = targetUa
                 webView.settings.useWideViewPort = tab.isDesktopMode
                 webView.settings.loadWithOverviewMode = tab.isDesktopMode
+                webView.settings.layoutAlgorithm = if (tab.isDesktopMode) {
+                    WebSettings.LayoutAlgorithm.NORMAL
+                } else {
+                    WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+                }
+                webView.settings.textZoom = 100
                 webView.reload()
             }
             if (!tab.isAtHome && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {
