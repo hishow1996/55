@@ -21,7 +21,6 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import com.example.MainActivity
@@ -49,7 +48,8 @@ class FloatingPlayerService : MediaSessionService() {
     private var lockOverlay: FrameLayout? = null
     private var playPauseBtn: ImageButton? = null
     private var timeTv: TextView? = null
-    private var seekBar: SeekBar? = null
+    private var progressTrack: View? = null
+    private var progressFill: View? = null
 
     private var videoUrl: String = ""
     private var videoTitle: String = "网页视频"
@@ -497,67 +497,53 @@ class FloatingPlayerService : MediaSessionService() {
         centerBar.addView(ffBtn)
         controls.addView(centerBar)
 
-        // 3.5 Bottom Bar (Time, SeekBar, Return to Tab button)
-        val bottomBar = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        // 3.5 Bottom Bar: thin real-time progress line + time + return-to-tab
+        val bottomBar = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
+                (28 * density).toInt()
+            ).apply { gravity = Gravity.BOTTOM }
+            setBackgroundColor(0x66000000)
+        }
+
+        val progressTrack = View(this).apply {
+            setBackgroundColor(0x66FFFFFF)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                (2 * density).toInt()
             ).apply {
-                gravity = Gravity.BOTTOM
+                gravity = Gravity.TOP
+                leftMargin = (8 * density).toInt()
+                rightMargin = (8 * density).toInt()
             }
-            setBackgroundColor(0x88000000.toInt())
-            setPadding((8 * density).toInt(), (2 * density).toInt(), (24 * density).toInt(), (4 * density).toInt())
         }
+        bottomBar.addView(progressTrack)
 
-        val sk = SeekBar(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser) {
-                        timeTv?.text = "${formatTime(progress)} / ${formatTime(durationMs)}"
-                    }
-                }
-                override fun onStartTrackingTouch(sb: SeekBar?) {
-                    handler.removeCallbacks(hideControlsRunnable)
-                }
-                override fun onStopTrackingTouch(sb: SeekBar?) {
-                    sb?.progress?.let { pos ->
-                        NativeVideoPlaybackManager.seekTo(pos.toLong())
-                        currentPositionMs = pos
-                        VideoPlaybackSessionManager.updatePosition(pos.toLong())
-                    }
-                    resetHideTimer()
-                }
-            })
+        val progressFill = View(this).apply {
+            setBackgroundColor(0xFFFF3030.toInt())
+            layoutParams = FrameLayout.LayoutParams(
+                0,
+                (2 * density).toInt()
+            ).apply { gravity = Gravity.TOP }
         }
-        seekBar = sk
-        bottomBar.addView(sk)
+        bottomBar.addView(progressFill)
 
-        val bottomRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val tTv = TextView(this).apply {
-            text = "00:00 / 00:00"
-            setTextColor(Color.WHITE)
+        val timeTv = TextView(this).apply {
+            setTextColor(0xFFFFFFFF.toInt())
             textSize = 10f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            text = "0:00/0:00"
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((8 * density).toInt(), 0, 0, 0)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply { gravity = Gravity.START or Gravity.BOTTOM }
         }
-        timeTv = tTv
-        bottomRow.addView(tTv)
-        bottomBar.addView(bottomRow)
+        this@FloatingPlayerService.timeTv = timeTv
+        this@FloatingPlayerService.progressTrack = progressTrack
+        this@FloatingPlayerService.progressFill = progressFill
+        bottomBar.addView(timeTv)
+
         controls.addView(bottomBar)
 
         root.addView(controls)
