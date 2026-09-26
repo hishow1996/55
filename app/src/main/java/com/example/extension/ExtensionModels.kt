@@ -17,7 +17,8 @@ data class ExtensionManifest(
     val optionsPage: String? = null,
     val actionTitle: String? = null,
     val iconPath: String? = null,
-    val key: String? = null
+    val key: String? = null,
+    val webAccessibleResources: List<String> = emptyList()
 ) {
     companion object {
         fun parse(raw: String): ExtensionManifest {
@@ -43,6 +44,25 @@ data class ExtensionManifest(
             val hosts = mutableListOf<String>()
             o.optJSONArray("host_permissions")?.let { a -> for (i in 0 until a.length()) hosts += a.optString(i) }
             if (mv == 2) hosts += perms.filter { it.contains("://") || it == "<all_urls>" }
+            val war = mutableListOf<String>()
+            o.optJSONArray("web_accessible_resources")?.let { a ->
+                for (i in 0 until a.length()) {
+                    val item = a.optString(i, "")
+                    if (item.isNotBlank()) war += item
+                }
+            }
+            o.optJSONArray("web_accessible_resources")?.let { a ->
+                // MV3 may use objects: {resources:[...], matches:[...]}
+                for (i in 0 until a.length()) {
+                    val item = a.optJSONObject(i) ?: continue
+                    item.optJSONArray("resources")?.let { resources ->
+                        for (j in 0 until resources.length()) {
+                            val value = resources.optString(j, "")
+                            if (value.isNotBlank()) war += value
+                        }
+                    }
+                }
+            }
             val icon = o.optJSONObject("icons")?.let { icons ->
                 var found: String? = null
                 for (size in listOf("128", "96", "64", "48", "32", "16")) {
@@ -58,7 +78,8 @@ data class ExtensionManifest(
                 action?.optString("default_popup")?.takeIf { it.isNotBlank() },
                 o.optString("options_page").takeIf { it.isNotBlank() },
                 action?.optString("default_title")?.takeIf { it.isNotBlank() }, icon,
-                o.optString("key").takeIf { it.isNotBlank() }
+                o.optString("key").takeIf { it.isNotBlank() },
+                war.distinct()
             )
         }
     }
