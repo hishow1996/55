@@ -93,6 +93,14 @@ fun PluginManagerScreen(
                 .onFailure { Toast.makeText(context, "安装失败：" + (it.message ?: "扩展包无效"), Toast.LENGTH_LONG).show() }
         }
     }
+    val userScriptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            repository.userScriptManager.install(uri)
+                .onSuccess { Toast.makeText(context, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show() }
+                .onFailure { Toast.makeText(context, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show() }
+        }
+    }
 
     val background = if (isNightMode) Color(0xFF101318) else Color(0xFFF6F7F9)
     val cardColor = if (isNightMode) Color(0xFF1B2028) else Color.White
@@ -122,6 +130,11 @@ fun PluginManagerScreen(
             }
             TextButton(onClick = { showUserScriptDialog = true }) {
                 Text("用户脚本")
+            }
+            TextButton(onClick = {
+                userScriptLauncher.launch(arrayOf("text/javascript", "application/javascript", "*/*"))
+            }) {
+                Text("导入脚本")
             }
             TextButton(onClick = {
                 launcher.launch(arrayOf("application/zip", "application/x-chrome-extension", "application/octet-stream", "*/*"))
