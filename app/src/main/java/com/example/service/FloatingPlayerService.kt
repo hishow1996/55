@@ -319,7 +319,7 @@ class FloatingPlayerService : Service() {
             setColorFilter(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt())
             setOnClickListener {
-                val position = try { mediaPlayer?.currentPosition?.toDouble()?.div(1000.0) ?: FloatingVideoPlayerComponent.lastPlaybackPositionSeconds } catch (e: Exception) { FloatingVideoPlayerComponent.lastPlaybackPositionSeconds }
+                val position = try { NativeVideoPlaybackManager.currentPositionMs().toDouble() / 1000.0 } catch (e: Exception) { FloatingVideoPlayerComponent.lastPlaybackPositionSeconds }
                 closeFloatingWindowOrResumeBrowser(position)
             }
         }
@@ -715,15 +715,13 @@ class FloatingPlayerService : Service() {
         try {
             handler.removeCallbacks(progressUpdater)
             handler.removeCallbacks(hideControlsRunnable)
-            mediaPlayer?.let { mp ->
-                try {
-                    FloatingVideoPlayerComponent.syncProgress(mp.currentPosition / 1000.0)
-                } catch (e: Exception) {}
-            }
-            try { nativePlayerController?.release() } catch (e: Exception) {}
-            nativePlayerController = null
-            mediaPlayer = null
-            currentSurface?.release()
+            try {
+                FloatingVideoPlayerComponent.syncProgress(
+                    NativeVideoPlaybackManager.currentPositionMs() / 1000.0
+                )
+                NativeVideoPlaybackManager.detachSurface()
+            } catch (_: Exception) {}
+            try { currentSurface?.release() } catch (_: Exception) {}
             currentSurface = null
             rootLayout?.let { windowManager?.removeView(it) }
         } catch (e: Exception) {
