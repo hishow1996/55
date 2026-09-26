@@ -107,10 +107,10 @@ fun PluginManagerScreen(
                 Text("扩展", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Text(extensions.size.toString() + " 个已安装扩展", style = MaterialTheme.typography.bodySmall, color = secondary)
             }
-            OutlinedButton(onClick = {
+            TextButton(onClick = {
                 launcher.launch(arrayOf("application/zip", "application/x-chrome-extension", "application/octet-stream", "*/*"))
             }) {
-                Icon(Icons.Default.FileOpen, null, Modifier.size(18.dp))
+                Icon(Icons.Default.FileOpen, null, Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("导入")
             }
@@ -120,41 +120,15 @@ fun PluginManagerScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            item {
-                Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(18.dp)) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            modifier = Modifier.size(46.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Extension, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                            }
-                        }
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("浏览器扩展", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                "支持 CRX / ZIP，以及 Manifest V2 / V3。安装后可在网页中运行内容脚本。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = secondary
-                            )
-                        }
-                    }
-                }
-            }
-
             item {
                 Row(
                     Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("已安装", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("已安装", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(20.dp),
@@ -167,7 +141,7 @@ fun PluginManagerScreen(
 
             if (extensions.isEmpty()) {
                 item {
-                    Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(18.dp)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(14.dp)) {
                         Column(
                             Modifier.fillMaxWidth().padding(vertical = 42.dp, horizontal = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -272,10 +246,10 @@ private fun ExtensionCard(
     var menuExpanded by remember { mutableStateOf(false) }
 
     Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(14.dp)) {
+        Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
-                    modifier = Modifier.size(50.dp),
+                    modifier = Modifier.size(44.dp),
                     shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
@@ -299,7 +273,7 @@ private fun ExtensionCard(
                         }
                     }
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
                     Spacer(Modifier.height(2.dp))
