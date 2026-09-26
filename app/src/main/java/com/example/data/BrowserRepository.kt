@@ -42,6 +42,43 @@ class BrowserRepository(private val context: Context) {
         prefs.edit().putBoolean(KEY_CONTENT_BLOCKING, enabled).apply()
     }
 
+    // Settings: translation, cloud acceleration, and automatic PiP preferences.
+    private val _autoTranslate = MutableStateFlow(prefs.getBoolean(KEY_AUTO_TRANSLATE, false))
+    val autoTranslate: StateFlow<Boolean> = _autoTranslate.asStateFlow()
+
+    private val _cloudAcceleration = MutableStateFlow(prefs.getBoolean(KEY_CLOUD_ACCELERATION, false))
+    val cloudAcceleration: StateFlow<Boolean> = _cloudAcceleration.asStateFlow()
+
+    private val _autoPip = MutableStateFlow(prefs.getBoolean(KEY_AUTO_PIP, false))
+    val autoPip: StateFlow<Boolean> = _autoPip.asStateFlow()
+
+    fun setAutoTranslate(enabled: Boolean) {
+        _autoTranslate.value = enabled
+        prefs.edit().putBoolean(KEY_AUTO_TRANSLATE, enabled).apply()
+    }
+
+    fun setCloudAcceleration(enabled: Boolean) {
+        _cloudAcceleration.value = enabled
+        prefs.edit().putBoolean(KEY_CLOUD_ACCELERATION, enabled).apply()
+    }
+
+    fun setAutoPip(enabled: Boolean) {
+        _autoPip.value = enabled
+        prefs.edit().putBoolean(KEY_AUTO_PIP, enabled).apply()
+    }
+
+    fun resetBrowserPreferences() {
+        setNightMode(false)
+        setDesktopMode(false)
+        setDesktopUaType("windows")
+        setCustomUserAgent("")
+        setContentBlocking(true)
+        setSearchEngine("google")
+        setAutoTranslate(false)
+        setCloudAcceleration(false)
+        setAutoPip(false)
+    }
+
     // Flow for Incognito Mode
     private val _isIncognito = MutableStateFlow(false)
     val isIncognito: StateFlow<Boolean> = _isIncognito.asStateFlow()
@@ -612,6 +649,9 @@ class BrowserRepository(private val context: Context) {
         private const val KEY_CUSTOM_UA = "pref_custom_ua"
         private const val KEY_SEARCH_ENGINE = "pref_search_engine"
         private const val KEY_DATA_SAVED = "pref_data_saved"
+        private const val KEY_AUTO_TRANSLATE = "pref_auto_translate"
+        private const val KEY_CLOUD_ACCELERATION = "pref_cloud_acceleration"
+        private const val KEY_AUTO_PIP = "pref_auto_pip"
         private const val KEY_BOOKMARKS = "pref_bookmarks"
         private const val KEY_HISTORY = "pref_history"
         private const val KEY_SEARCH_HISTORY = "pref_search_history"
