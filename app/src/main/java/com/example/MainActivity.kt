@@ -315,8 +315,9 @@ class MainActivity : ComponentActivity() {
                         isDesktopPiP = true,
                         currentTabIndex = currentTabIndex,
                         onClose = { currentPos ->
+                            // Closing PiP/floating playback must close only the
+                            // player surface. The browser Activity stays alive.
                             viewModel.closeFloatingPlayer(currentPos)
-                            finish()
                         },
                         onEnterGlobalPiP = {},
                         onEnterFullscreen = {},
@@ -727,7 +728,11 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
-        if (activeInstance === this) activeInstance = null
+        // Do not clear activeInstance here. Opening a system PiP/overlay window
+        // temporarily pauses the Activity; clearing it makes the floating
+        // window close path think the browser no longer exists and can leave
+        // the app looking as if it exited. The reference is cleared in
+        // onDestroy() instead.
         super.onPause()
     }
 
@@ -942,6 +947,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (activeInstance === this) activeInstance = null
         super.onDestroy()
         try {
             unregisterReceiver(downloadReceiver)
