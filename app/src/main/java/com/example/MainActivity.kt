@@ -984,6 +984,9 @@ fun ChromiumWebViewContainer(
                         onVideoPlaybackState = { currentTime, isPlaying ->
                             viewModel.onWebVideoPlaybackState(currentTime, isPlaying)
                         },
+                        onDrmDetected = { licenseUri, scheme, headers ->
+                            viewModel.onDrmLicenseDetected(licenseUri, scheme, headers)
+                        },
                         onTranslationFinished = { success, count ->
                             // Handled in ViewModel
                         },
@@ -1050,6 +1053,9 @@ fun ChromiumWebViewContainer(
                                     Toast.makeText(this@MainActivity, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show()
                                 }
                         }
+                    },
+                    onDrmLicenseRequest = { licenseUri, scheme, headers ->
+                        viewModel.onDrmLicenseDetected(licenseUri, scheme, headers)
                     }
                 )
 
