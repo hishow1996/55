@@ -340,6 +340,19 @@ object Scripts {
                 document.querySelectorAll('video').forEach(function(v) {
                     try { v.pause(); } catch(e) {}
                     try {
+                        // Native Media3 owns the picture now. Hide the original
+                        // HTML5 video and its poster/loading frame.
+                        if (!v._elephantNativeHidden) {
+                            v._elephantNativeOriginalVisibility = v.style.visibility;
+                            v._elephantNativeOriginalOpacity = v.style.opacity;
+                            v._elephantNativeOriginalPointerEvents = v.style.pointerEvents;
+                            v._elephantNativeHidden = true;
+                        }
+                        v.style.visibility = 'hidden';
+                        v.style.opacity = '0';
+                        v.style.pointerEvents = 'none';
+                    } catch(e) {}
+                    try {
                         if (!v._elephantFloatingPlayBound) {
                             v.addEventListener('play', window._elephantFloatingPlayHandler);
                             v._elephantFloatingPlayBound = true;
@@ -347,21 +360,6 @@ object Scripts {
                     } catch(e) {}
                 });
             };
-            pauseAll();
-
-            // Lock newly-created <video> elements immediately. The timer below
-            // remains as a safety net for players that mutate themselves.
-            if (window._elephantFloatingVideoObserver) {
-                try { window._elephantFloatingVideoObserver.disconnect(); } catch(e) {}
-            }
-            if (window.MutationObserver && document.documentElement) {
-                window._elephantFloatingVideoObserver = new MutationObserver(function() {
-                    if (window._elephantFloatingLock) pauseAll();
-                });
-                window._elephantFloatingVideoObserver.observe(document.documentElement, {
-                    childList: true, subtree: true
-                });
-            }
 
             window._elephantFloatingLockTimer = setInterval(pauseAll, 250);
         })();
@@ -380,6 +378,12 @@ object Scripts {
                     if (v._elephantFloatingPlayBound && window._elephantFloatingPlayHandler) {
                         v.removeEventListener('play', window._elephantFloatingPlayHandler);
                         v._elephantFloatingPlayBound = false;
+                    }
+                    if (v._elephantNativeHidden) {
+                        v.style.visibility = v._elephantNativeOriginalVisibility || '';
+                        v.style.opacity = v._elephantNativeOriginalOpacity || '';
+                        v.style.pointerEvents = v._elephantNativeOriginalPointerEvents || '';
+                        v._elephantNativeHidden = false;
                     }
                     if (${seconds} >= 0) v.currentTime = ${seconds};
                 } catch(e) {}
@@ -421,9 +425,14 @@ object Scripts {
                         v.removeEventListener('play', window._elephantFloatingPlayHandler);
                         v._elephantFloatingPlayBound = false;
                     }
+                    if (v._elephantNativeHidden) {
+                        v.style.visibility = v._elephantNativeOriginalVisibility || '';
+                        v.style.opacity = v._elephantNativeOriginalOpacity || '';
+                        v.style.pointerEvents = v._elephantNativeOriginalPointerEvents || '';
+                        v._elephantNativeHidden = false;
+                    }
                 } catch(e) {}
-            });
-        })();
+            });        })();
     """.trimIndent()
 
     val RESUME_WEB_VIDEOS = """
