@@ -155,6 +155,21 @@ class MainActivity : ComponentActivity() {
                 handleTabIntent(intent)
             }
 
+            // Native playback is an optimization/takeover layer. If Media3
+            // cannot play a source (DRM auth, unsupported codec, expired URL,
+            // etc.), immediately return control to the exact WebView source
+            // instead of leaving the user on a black/error player.
+            DisposableEffect(viewModel) {
+                NativeVideoPlaybackManager.setPlaybackErrorListener {
+                    runOnUiThread {
+                        viewModel.onNativePlaybackError()
+                    }
+                }
+                onDispose {
+                    NativeVideoPlaybackManager.setPlaybackErrorListener(null)
+                }
+            }
+
             val isNightMode by viewModel.repository.isNightMode.collectAsState()
             val isDesktopMode by viewModel.repository.isDesktopMode.collectAsState()
             val isIncognito by viewModel.repository.isIncognito.collectAsState()
