@@ -82,6 +82,8 @@ fun PluginManagerScreen(
     var aboutExtensionId by remember { mutableStateOf<String?>(null) }
     var showUrlDialog by remember { mutableStateOf(false) }
     var extensionUrl by remember { mutableStateOf("") }
+    var showUserScriptDialog by remember { mutableStateOf(false) }
+    var userScriptUrl by remember { mutableStateOf("") }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -117,6 +119,9 @@ fun PluginManagerScreen(
                 Icon(Icons.Default.OpenInNew, null, Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("链接安装")
+            }
+            TextButton(onClick = { showUserScriptDialog = true }) {
+                Text("用户脚本")
             }
             TextButton(onClick = {
                 launcher.launch(arrayOf("application/zip", "application/x-chrome-extension", "application/octet-stream", "*/*"))
@@ -204,6 +209,39 @@ fun PluginManagerScreen(
                 }
             }
         }
+    }
+
+    if (showUserScriptDialog) {
+        AlertDialog(
+            onDismissRequest = { showUserScriptDialog = false },
+            title = { Text("安装用户脚本") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("支持 Greasy Fork 等站点提供的 .user.js 脚本。安装后只会在脚本声明的匹配网址执行。", color = secondary)
+                    androidx.compose.material3.OutlinedTextField(
+                        value = userScriptUrl,
+                        onValueChange = { userScriptUrl = it },
+                        singleLine = true,
+                        placeholder = { Text("https://…/script.user.js") }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = userScriptUrl.isNotBlank(),
+                    onClick = {
+                        val url = userScriptUrl.trim()
+                        showUserScriptDialog = false
+                        scope.launch {
+                            repository.userScriptManager.installUrl(url)
+                                .onSuccess { Toast.makeText(context, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show() }
+                                .onFailure { Toast.makeText(context, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show() }
+                        }
+                    }
+                ) { Text("安装") }
+            },
+            dismissButton = { TextButton(onClick = { showUserScriptDialog = false }) { Text("取消") } }
+        )
     }
 
     if (showUrlDialog) {
