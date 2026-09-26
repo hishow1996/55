@@ -75,3 +75,10 @@ Acceptance criteria:
 4. Extension permissions are read from the native manifest/permission system.
 5. Content scripts and background/service-worker execution remain native.
 6. No Kotlin `ExtensionManager` or JavaScript compatibility API is introduced.
+
+
+## Native management surface
+
+Kiwi's Chromium integration exposes the extension manager through the native Extensions WebUI (kiwi://extensions in the Kiwi source baseline). The final APK therefore does not need a Compose/WebView plugin manager. The page is backed by Chromium's extension resources and the native ExtensionService/Registry lifecycle.
+
+The local build verifier requires the Chromium extension resources and a native extension-management URL before GN/Ninja compilation proceeds.
