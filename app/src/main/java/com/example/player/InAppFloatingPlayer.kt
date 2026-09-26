@@ -143,9 +143,8 @@ fun InAppFloatingPlayer(
     val minWidthDp = 160f.coerceAtMost(screenWidthDp * 0.5f)
     val minHeightDp = 90f.coerceAtMost(screenHeightDp * 0.4f)
 
-    val initialWidthDp = remember(screenWidthDp, baseRatio, maxHeightDp) {
-        val ratioLimitedMaxWidth = minOf(maxWidthDp, maxHeightDp * baseRatio)
-        (screenWidthDp * 0.75f).coerceIn(minWidthDp, ratioLimitedMaxWidth.coerceAtLeast(minWidthDp))
+    val initialWidthDp = remember(screenWidthDp) {
+        (screenWidthDp * 0.75f).coerceIn(minWidthDp, maxWidthDp)
     }
     val initialHeightDp = remember(initialWidthDp, baseRatio) {
         (initialWidthDp / baseRatio).coerceIn(minHeightDp, maxHeightDp)
@@ -156,16 +155,7 @@ fun InAppFloatingPlayer(
     var windowHeightDp by remember { mutableFloatStateOf(initialHeightDp) }
 
     // Lock aspect ratio during resizing
-    var lockAspectRatio by remember { mutableStateOf(true) }
-
-    LaunchedEffect(baseRatio, isDesktopPiP, isFullscreen) {
-        if (!isDesktopPiP && !isFullscreen && baseRatio > 0f) {
-            val targetHeight = (windowWidthDp / baseRatio).coerceIn(minHeightDp, maxHeightDp)
-            val targetWidth = (targetHeight * baseRatio).coerceIn(minWidthDp, maxWidthDp)
-            windowWidthDp = targetWidth
-            windowHeightDp = targetHeight
-        }
-    }
+    var lockAspectRatio by remember { mutableStateOf(false) }
 
     // Resizing visual feedback states
     var isActivelyResizing by remember { mutableStateOf(false) }
@@ -340,19 +330,24 @@ fun InAppFloatingPlayer(
 
         // --- 3. Fluid In-App Drag Gesture when Controls are Hidden ---
         if (!isDesktopPiP && !showControls) {
-            // Once controls auto-hide, the video surface must still accept a tap
-            // and restore the controls. Keep this as a dedicated tap layer instead
-            // of combining tap and drag detectors on the same pointer node; the
-            // latter could consume the gesture before detectTapGestures receives it.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = {
-                                showControls = true
-                            }
-                        )
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            val curW = with(density) { windowWidthDp.dp.toPx() }
+                            val curH = with(density) { windowHeightDp.dp.toPx() }
+                            val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
+                            val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
+                            offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxOffsetX)
+                            offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxOffsetY)
+                        }
+                    }
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            showControls = true
+                        }
                     }
             )
         }
@@ -398,19 +393,6 @@ fun InAppFloatingPlayer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
-                    if (!isDesktopPiP && onDownloadVideo != null) {
-                        IconButton(
-                            onClick = { onDownloadVideo(videoInfo.url, videoInfo.title.ifBlank { "网页视频" }) },
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.ArrowDownward, contentDescription = "下载当前视频", tint = Color.White, modifier = Modifier.size(22.dp))
-                        }
-                    }
-                    if (!isDesktopPiP && !isFullscreen) {
-                        IconButton(onClick = { onEnterGlobalPiP() }, modifier = Modifier.size(34.dp)) {
-                            Icon(imageVector = Icons.Default.PictureInPictureAlt, contentDescription = "全局悬浮播放", tint = Color.White, modifier = Modifier.size(22.dp))
-                        }
-                    }
                     IconButton(
                         onClick = { onEnterFullscreen() },
                         modifier = Modifier.size(34.dp)
@@ -569,6 +551,42 @@ fun InAppFloatingPlayer(
                 )
             }
         }
+
+        // The thin live red progress line is exclusive to the global
+        // floating-window presentation. It is not part of the in-app
+        // player page or native fullscreen player.
+        if (isDesktopPiP) {
+            val progress = if (durationMs > 0) {
+                (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+            } else 0f
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+            ) {
+            Text(
+                text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
+                color = Color.White,
+                fontSize = if (isDesktopPiP) 10.sp else 11.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(Color.Transparent)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .fillMaxHeight()
+                        .background(Color.Red)
+                )
+            }
+        }
+    }
 
         // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
         // Resizing cannot exceed screen width or move/expand outside phone screen
