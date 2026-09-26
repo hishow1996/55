@@ -606,6 +606,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         persistSession()
     }
 
+    fun restoreTabsFromBackup(tabs: List<BrowserTab>, currentIndex: Int) {
+        tabWebViews.clear()
+        _tabs.value = tabs.ifEmpty { listOf(BrowserTab()) }
+        _currentTabIndex.value = currentIndex.coerceIn(0, _tabs.value.lastIndex)
+        _urlInput.value = currentTab.url
+        _isTabManagerVisible.value = false
+        activeWebView = null
+        persistSession()
+    }
+
     fun restoreRecentlyClosedTab() {
         val restored = sessionStore.popRecentlyClosed() ?: return
         val list = _tabs.value + restored
