@@ -153,6 +153,8 @@ fun InAppFloatingPlayer(
     var isPlaying by remember { mutableStateOf(true) }
     var currentPositionMs by remember { mutableIntStateOf((videoInfo.currentTime * 1000).toInt()) }
     var durationMs by remember { mutableIntStateOf((videoInfo.duration * 1000).toInt().coerceAtLeast(1000)) }
+    var bufferedPositionMs by remember { mutableIntStateOf(0) }
+    var isBuffering by remember { mutableStateOf(false) }
     var playbackSpeed by remember { mutableFloatStateOf(VideoPlaybackSessionManager.current()?.playbackRate ?: 1.0f) }
     var showControls by remember { mutableStateOf(true) }
     var isLocked by remember { mutableStateOf(false) }
@@ -186,9 +188,12 @@ fun InAppFloatingPlayer(
             try {
                 val pos = NativeVideoPlaybackManager.currentPositionMs()
                 val dur = NativeVideoPlaybackManager.durationMs()
+                val buffered = NativeVideoPlaybackManager.bufferedPositionMs()
                 currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 if (dur > 0L) durationMs = dur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                bufferedPositionMs = buffered.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 isPlaying = NativeVideoPlaybackManager.isPlaying()
+                isBuffering = NativeVideoPlaybackManager.playbackState() == androidx.media3.common.Player.STATE_BUFFERING
                 VideoPlaybackSessionManager.updatePosition(pos)
             } catch (_: Exception) {}
             delay(250)
@@ -266,6 +271,9 @@ fun InAppFloatingPlayer(
                             durationMs = NativeVideoPlaybackManager.durationMs()
                                 .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                                 .coerceAtLeast(durationMs)
+                            bufferedPositionMs = NativeVideoPlaybackManager.bufferedPositionMs()
+                                .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                            isBuffering = NativeVideoPlaybackManager.playbackState() == androidx.media3.common.Player.STATE_BUFFERING
                             isVideoReady = NativeVideoPlaybackManager.player() != null
 
                         override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
@@ -504,6 +512,17 @@ fun InAppFloatingPlayer(
                 }
 
                 // Bottom Progress Bar, Speed Pill & Time Labels
+                // Buffering is rendered in the existing player UI instead of
+                // replacing the surface with another player view.
+                if (isBuffering) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(if (isDesktopPiP) 28.dp else 36.dp),
+                        strokeWidth = 3.dp
+                    )
+                }
+
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
