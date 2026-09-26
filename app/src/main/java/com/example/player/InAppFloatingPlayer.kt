@@ -392,16 +392,44 @@ fun InAppFloatingPlayer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
-                    IconButton(
-                        onClick = { onEnterFullscreen() },
-                        modifier = Modifier.size(34.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                            contentDescription = if (isFullscreen) "退出全屏" else "全屏",
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
+                    if (!isDesktopPiP && onDownloadVideo != null) {
+                        IconButton(
+                            onClick = { onDownloadVideo(videoInfo.url, videoInfo.title.ifBlank { "网页视频" }) },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDownward,
+                                contentDescription = "下载当前视频",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    if (!isDesktopPiP && !isFullscreen) {
+                        IconButton(
+                            onClick = { onEnterGlobalPiP() },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PictureInPictureAlt,
+                                contentDescription = "全局悬浮播放",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    if (!isDesktopPiP) {
+                        IconButton(
+                            onClick = { onEnterFullscreen() },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                contentDescription = if (isFullscreen) "退出全屏" else "全屏",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                     // Close button (passes back current progress to sync with webpage video)
                     IconButton(
