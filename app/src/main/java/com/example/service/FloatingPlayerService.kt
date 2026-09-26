@@ -525,6 +525,20 @@ class FloatingPlayerService : MediaSessionService() {
                 rightMargin = (8 * density).toInt()
             }
         }
+        progressTrack.setOnTouchListener { view, event ->
+            if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE || event.action == MotionEvent.ACTION_UP) {
+                val width = view.width.coerceAtLeast(1)
+                val ratio = (event.x / width.toFloat()).coerceIn(0f, 1f)
+                val position = (durationMs * ratio).toInt().toLong().coerceAtLeast(0L)
+                NativeVideoPlaybackManager.seekTo(position)
+                currentPositionMs = position.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                VideoPlaybackSessionManager.updatePosition(position)
+                timeTv?.text = formatTime(currentPositionMs) + "/" + formatTime(durationMs)
+                true
+            } else {
+                false
+            }
+        }
         bottomBar.addView(progressTrack)
 
         val progressFill = View(this).apply {
