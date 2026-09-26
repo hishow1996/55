@@ -643,16 +643,8 @@ fun InAppFloatingPlayer(
             }
         }
 
-        if (isFullscreen && fullscreenLocked) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures { /* keep fullscreen controls locked */ }
-                    }
-            )
-        }
-
+        // Lock control is intentionally available only in native fullscreen.
+        // Non-fullscreen player and floating window must never show a lock button.
         if (isFullscreen) {
             IconButton(
                 onClick = { fullscreenLocked = !fullscreenLocked },
