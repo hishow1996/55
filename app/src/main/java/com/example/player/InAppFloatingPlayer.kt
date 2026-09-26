@@ -1,7 +1,6 @@
 package com.example.player
 
 import android.graphics.SurfaceTexture
-import android.net.Uri
 import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup
@@ -75,7 +74,6 @@ import android.widget.Toast
 import com.example.R
 import com.example.model.VideoMediaInfo
 import kotlinx.coroutines.delay
-import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
@@ -101,10 +99,6 @@ fun InAppFloatingPlayer(
 ) {
     val density = LocalDensity.current
     val context = LocalContext.current
-
-    LaunchedEffect(videoInfo.url, videoInfo.pageUrl, videoInfo.originTabIndex) {
-        VideoPlaybackSessionManager.start(videoInfo)
-    }
 
     // Video aspect ratio calculation
     val baseRatio = remember(videoInfo.videoWidth, videoInfo.videoHeight) {
