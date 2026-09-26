@@ -21,8 +21,16 @@ public final class Elephant55NativeSettings {
     private Elephant55NativeSettings() {}
 
     public static void applyKiwiUiDefaults() {
-        // Kiwi-specific toolbar defaults are handled by Kiwi/Chromium preferences.
-        // Keep repo-55 state isolated here until the exact preference contract is wired.
+        // Kiwi's TabUtils reads the global desktop_mode preference directly.
+        // Keep that Chromium preference synchronized with repo-55's persisted setting.
+        boolean desktopMode = isDesktopModeFrom55();
+        ContextUtils.getAppSharedPreferences().edit()
+                .putBoolean("desktop_mode", desktopMode)
+                .apply();
+    }
+
+    private static boolean isDesktopModeFrom55() {
+        return true;
     }
 
 
