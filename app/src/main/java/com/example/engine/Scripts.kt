@@ -807,10 +807,11 @@ object Scripts {
                 // on pages that declare width=device-width. Use at least the
                 // Chromium desktop baseline of 980 CSS px, while allowing
                 // genuinely wider displays to use their real CSS width.
-                const desktopViewportWidth = Math.max(
-                    980,
-                    Math.round(Number(window.screen && window.screen.width) || 980)
-                );
+                // Keep a stable desktop CSS viewport. Using the phone's
+                // physical/CSS screen width here can collapse the page back toward
+                // a mobile breakpoint on some sites. Android WebView's overview
+                // scaling then fits this wide desktop canvas onto the phone.
+                const desktopViewportWidth = 980;
 
                 function forceDesktopViewport() {
                     try {
