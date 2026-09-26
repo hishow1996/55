@@ -24,11 +24,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,7 +54,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -191,11 +185,6 @@ class MainActivity : ComponentActivity() {
             val searchHistory by viewModel.repository.searchHistory.collectAsState()
             val pendingDownload by viewModel.pendingDownload.collectAsState()
             val inPipMode by remember { isPipModeState }
-            var isSplashVisible by remember { mutableStateOf(true) }
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(600)
-                isSplashVisible = false
-            }
             var aiPageContext by remember { mutableStateOf("") }
             var aiPageTitle by remember { mutableStateOf("") }
 
@@ -611,24 +600,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // --- STARTUP SPLASH SCREEN (White Background with Elephant Icon) ---
-                    AnimatedVisibility(
-                        visible = isSplashVisible,
-                        enter = fadeIn(),
-                        exit = fadeOut(animationSpec = tween(350))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.White),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_splash_elephant),
-                                contentDescription = "大象浏览器启动图标",
-                                modifier = Modifier.size(130.dp)
-                            )
-                        }
                     }
                 }
             }
