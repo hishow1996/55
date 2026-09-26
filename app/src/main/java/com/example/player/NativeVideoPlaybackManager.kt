@@ -34,7 +34,7 @@ object NativeVideoPlaybackManager {
             return try {
                 playerController.load(video, session.positionMs)
                 playerController.rawPlayer().setPlaybackSpeed(session.playbackRate)
-                if (autoPlay && session.isPlaying) playerController.play()
+                if (autoPlay) playerController.play()
                 else playerController.pause()
                 true
             } catch (_: Exception) {
@@ -44,7 +44,8 @@ object NativeVideoPlaybackManager {
         }
 
         playerController.rawPlayer().setPlaybackSpeed(session.playbackRate)
-        if (autoPlay && session.isPlaying) playerController.play()
+        if (autoPlay) playerController.play()
+        else playerController.pause()
         return true
     }
 
