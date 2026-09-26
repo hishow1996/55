@@ -24,6 +24,7 @@ mkdir -p out/android_arm64
 # generated Chromium Java targets include the injected native sources.
 "$ROOT/scripts/port_55_native_features.sh"
 "$ROOT/scripts/prepare_55_chromium_overlay.sh"
+"$ROOT/scripts/verify_55_native_java_api.sh"
 
 gn gen out/android_arm64
 GN_ARGS="$(gn args out/android_arm64 --list 2>/dev/null || true)"
