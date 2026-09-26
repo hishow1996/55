@@ -906,6 +906,36 @@ class MainActivity : ComponentActivity() {
         }
 
         @JvmStatic
+        fun resumeWebVideoFromFloatingClose(
+            originTabId: String?,
+            originTabIndex: Int,
+            positionSeconds: Double,
+            shouldPlay: Boolean
+        ): Boolean {
+            val activity = activeInstance ?: return false
+            val vm = activity.viewModelRef ?: return false
+            val targetIndex = if (originTabIndex >= 0) {
+                originTabIndex
+            } else {
+                vm.currentTabIndex.value
+            }
+            val targetTab = vm.tabs.value.getOrNull(targetIndex) ?: return false
+            val targetTabId = originTabId ?: targetTab.id
+
+            // The browser Activity is already alive behind the overlay. Queue the
+            // WebView resume directly instead of starting/recreating MainActivity.
+            vm.queueWebVideoResume(
+                targetIndex,
+                targetTabId,
+                targetTab.url,
+                positionSeconds.coerceAtLeast(0.0),
+                shouldPlay
+            )
+            vm.selectTab(targetIndex)
+            return true
+        }
+
+        @JvmStatic
         fun unlockFloatingSourceTab(originTabId: String?, originTabIndex: Int = -1) {
             val activity = activeInstance ?: return
             activity.viewModelRef?.let { vm ->
