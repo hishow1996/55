@@ -218,6 +218,29 @@ object NativeVideoPlaybackManager {
         }
     }
 
+    /**
+     * Reconnect the existing video surface after a presentation/size transition.
+     * Some Android 9/vendor MediaCodec implementations can keep the decoder clock
+     * alive while the current frame stops updating after a TextureView resize.
+     * A tiny seek to the authoritative native clock forces a fresh decoded frame
+     * without reloading the media item or resetting the playback session.
+     */
+    fun refreshSurfaceAfterPresentation(surface: Surface?, positionMs: Long) {
+        assertMainThread()
+        val playerController = controller ?: return
+        if (surface == null) return
+
+        playerController.setSurface(surface)
+        val target = positionMs.coerceAtLeast(0L)
+        if (target > 0L) {
+            playerController.seekTo(target)
+        }
+        if (playIntent) {
+            playerController.play()
+            VideoPlaybackSessionManager.updatePlaying(true)
+        }
+    }
+
     fun isPlaying(): Boolean {
         assertMainThread()
         return controller?.isPlaying() ?: false
