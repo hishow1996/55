@@ -58,7 +58,7 @@ class UserScriptManager(private val context: Context) {
         prefs.edit().putString("meta_$id", org.json.JSONObject().apply {
             put("id", id); put("name", name); put("matches", org.json.JSONArray(matches)); put("runAt", runAt); put("enabled", true)
         }.toString()).apply()
-        return UserScript(id, name, matches, code, true)
+        return UserScript(id, name, matches, code, runAt, true)
     }
 
     fun injectForPage(webView: WebView, url: String, runAt: String = "document_idle") {
