@@ -4,8 +4,9 @@ import android.net.Uri
 
 /**
  * Lightweight network-level blocker for common advertising/tracking endpoints.
- * It deliberately uses conservative host/path rules so ordinary site assets
- * are not accidentally intercepted.
+ * Host rules are preferred; only highly specific ad/pixel paths are blocked.
+ * Generic paths such as /analytics/, /tracking/ and /tracker/ are intentionally
+ * allowed because video sites often use those paths for required API requests.
  */
 object BrowserContentBlocker {
     private val blockedHosts = setOf(
@@ -28,11 +29,6 @@ object BrowserContentBlocker {
     private val blockedPathTokens = listOf(
         "/ads/",
         "/adserver/",
-        "/advert/",
-        "/advertising/",
-        "/tracking/",
-        "/tracker/",
-        "/analytics/",
         "/pixel.gif",
         "/pixel.png"
     )
