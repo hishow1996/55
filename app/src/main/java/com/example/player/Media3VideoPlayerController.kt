@@ -120,6 +120,28 @@ class Media3VideoPlayerController(context: Context) {
             itemBuilder.setMimeType(mimeType)
         }
 
+        // Use Android MediaDrm/Media3 for authorized protected streams. The
+        // license endpoint and request headers come from the page's own DRM
+        // request; the browser never handles or stores decrypted keys.
+        val drmUri = video.drmLicenseUri?.trim().orEmpty()
+        if (drmUri.isNotBlank()) {
+            val scheme = video.drmScheme?.lowercase()
+            val drmUuid = when (scheme) {
+                "playready" -> C.PLAYREADY_UUID
+                "clearkey" -> C.CLEARKEY_UUID
+                else -> C.WIDEVINE_UUID
+            }
+            val drmBuilder = MediaItem.DrmConfiguration.Builder(drmUuid)
+                .setLicenseUri(drmUri)
+                .setMultiSession(true)
+                .setForceDefaultLicenseUri(true)
+
+            if (video.drmLicenseHeaders.isNotEmpty()) {
+                drmBuilder.setLicenseRequestHeaders(video.drmLicenseHeaders)
+            }
+            itemBuilder.setDrmConfiguration(drmBuilder.build())
+        }
+
         player.setMediaItem(itemBuilder.build())
         player.repeatMode = Player.REPEAT_MODE_OFF
         player.prepare()
