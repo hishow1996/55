@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
@@ -143,8 +142,9 @@ fun InAppFloatingPlayer(
     val minWidthDp = 160f.coerceAtMost(screenWidthDp * 0.5f)
     val minHeightDp = 90f.coerceAtMost(screenHeightDp * 0.4f)
 
-    val initialWidthDp = remember(screenWidthDp) {
-        (screenWidthDp * 0.75f).coerceIn(minWidthDp, maxWidthDp)
+    val initialWidthDp = remember(screenWidthDp, baseRatio, maxHeightDp) {
+        val ratioLimitedMaxWidth = minOf(maxWidthDp, maxHeightDp * baseRatio)
+        (screenWidthDp * 0.75f).coerceIn(minWidthDp, ratioLimitedMaxWidth.coerceAtLeast(minWidthDp))
     }
     val initialHeightDp = remember(initialWidthDp, baseRatio) {
         (initialWidthDp / baseRatio).coerceIn(minHeightDp, maxHeightDp)
@@ -155,7 +155,7 @@ fun InAppFloatingPlayer(
     var windowHeightDp by remember { mutableFloatStateOf(initialHeightDp) }
 
     // Lock aspect ratio during resizing
-    var lockAspectRatio by remember { mutableStateOf(false) }
+    var lockAspectRatio by remember { mutableStateOf(true) }
 
     // Resizing visual feedback states
     var isActivelyResizing by remember { mutableStateOf(false) }
@@ -388,6 +388,19 @@ fun InAppFloatingPlayer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
+                    if (!isDesktopPiP && onDownloadVideo != null) {
+                        IconButton(
+                            onClick = { onDownloadVideo(videoInfo.url, videoInfo.title.ifBlank { "网页视频" }) },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.ArrowDownward, contentDescription = "下载当前视频", tint = Color.White, modifier = Modifier.size(22.dp))
+                        }
+                    }
+                    if (!isDesktopPiP && !isFullscreen) {
+                        IconButton(onClick = { onEnterGlobalPiP() }, modifier = Modifier.size(34.dp)) {
+                            Icon(imageVector = Icons.Default.PictureInPictureAlt, contentDescription = "全局悬浮播放", tint = Color.White, modifier = Modifier.size(22.dp))
+                        }
+                    }
                     IconButton(
                         onClick = { onEnterFullscreen() },
                         modifier = Modifier.size(34.dp)
