@@ -245,6 +245,7 @@ class MainActivity : ComponentActivity() {
                     isSearchOverlayVisible -> viewModel.setSearchOverlayVisible(false)
                     isAiChatVisible -> viewModel.setAiChatVisible(false)
                     customVideoView != null -> viewModel.hideCustomVideoView()
+                    nativePlayerFullscreen -> nativePlayerFullscreen = false
                     isFloatingPlayerVisible -> viewModel.closeFloatingPlayer()
                     isDownloadManagerVisible -> viewModel.setDownloadManagerVisible(false)
                     isPluginManagerVisible -> viewModel.setPluginManagerVisible(false)
@@ -453,6 +454,7 @@ class MainActivity : ComponentActivity() {
                                 viewModel.selectTab(originIdx)
                             },
                             onClose = { currentPos ->
+                                nativePlayerFullscreen = false
                                 viewModel.closeFloatingPlayer(currentPos)
                             },
                             onEnterGlobalPiP = {
