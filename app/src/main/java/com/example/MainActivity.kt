@@ -971,31 +971,6 @@ fun ChromiumWebViewContainer(
                     }
                 }
 
-                // WebView download handoff. Without this listener normal file/image/PDF/APK
-                // links never reach ElephantDownloadManager because WebView does not
-                // automatically start our custom downloader.
-                setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
-                    val safeUrl = url?.trim().orEmpty()
-                    if (safeUrl.isBlank() || safeUrl.startsWith("blob:", true) || safeUrl.startsWith("data:", true)) {
-                        Toast.makeText(context, "此下载链接无法直接接管", Toast.LENGTH_SHORT).show()
-                    } else {
-                        val fileName = android.webkit.URLUtil.guessFileName(
-                            safeUrl,
-                            contentDisposition,
-                            mimeType
-                        )
-                        viewModel.downloadManager.enqueueDownload(
-                            url = safeUrl,
-                            suggestedFileName = fileName,
-                            mimeType = mimeType,
-                            contentLength = contentLength,
-                            referer = url?.let { webUrl -> this.url ?: webUrl },
-                            userAgent = userAgent
-                        )
-                        Toast.makeText(context, "已开始下载：$fileName", Toast.LENGTH_SHORT).show()
-                    }
-                }
-
                 // Attach JavaScript Bridge
                 addJavascriptInterface(
                     ElephantWebBridge(
@@ -1071,8 +1046,39 @@ fun ChromiumWebViewContainer(
                     }
                 )
 
-                setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
-                    viewModel.onDownloadRequested(url, userAgent, contentDisposition, mimetype, contentLength)
+                // One and only WebView download entry point. The previous implementation
+                // registered a second listener later in the same WebView setup, which silently
+                // replaced the real downloader listener. As a result ordinary downloads worked
+                // only as a pending-dialog path, while direct downloads could appear to do nothing.
+                setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
+                    val safeUrl = url?.trim().orEmpty()
+                    if (safeUrl.isBlank()) {
+                        Toast.makeText(context, "无效的下载地址", Toast.LENGTH_SHORT).show()
+                    } else if (safeUrl.startsWith("blob:", true) || safeUrl.startsWith("data:", true)) {
+                        Toast.makeText(context, "当前网页视频使用浏览器内部数据流，正在尝试使用已捕获的视频地址", Toast.LENGTH_SHORT).show()
+                        viewModel.onDownloadRequested(
+                            url = safeUrl,
+                            userAgent = userAgent,
+                            contentDisposition = contentDisposition,
+                            mimetype = mimeType,
+                            contentLength = contentLength
+                        )
+                    } else {
+                        val fileName = android.webkit.URLUtil.guessFileName(
+                            safeUrl,
+                            contentDisposition,
+                            mimeType
+                        )
+                        viewModel.downloadManager.enqueueDownload(
+                            url = safeUrl,
+                            suggestedFileName = fileName,
+                            mimeType = mimeType,
+                            contentLength = contentLength,
+                            referer = url?.let { pageUrl -> this.url ?: pageUrl },
+                            userAgent = userAgent
+                        )
+                        Toast.makeText(context, "已开始下载：$fileName", Toast.LENGTH_SHORT).show()
+                    }
                 }
 
                 viewModel.registerTabWebView(tab.id, this)
