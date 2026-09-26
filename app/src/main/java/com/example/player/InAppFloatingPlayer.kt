@@ -607,7 +607,7 @@ fun InAppFloatingPlayer(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
+                    .height(18.dp)
                     .background(Color.Transparent)
                     .pointerInput(durationMs) {
                         detectTapGestures { offset ->
@@ -620,8 +620,16 @@ fun InAppFloatingPlayer(
             ) {
                 Box(
                     modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .align(Alignment.BottomStart)
+                        .background(Color.Black.copy(alpha = 0.28f))
+                )
+                Box(
+                    modifier = Modifier
                         .fillMaxWidth(progress)
-                        .fillMaxHeight()
+                        .height(2.dp)
+                        .align(Alignment.BottomStart)
                         .background(Color.Red)
                 )
             }
