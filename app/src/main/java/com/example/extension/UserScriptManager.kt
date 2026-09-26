@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import android.webkit.WebView
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class UserScript(val id: String, val name: String, val matches: List<String>, val code: String, val enabled: Boolean = true)
 
@@ -17,7 +19,7 @@ class UserScriptManager(private val context: Context) {
         installText(text)
     }
 
-    fun installUrl(url: String): Result<UserScript> = runCatching {
+    suspend fun installUrl(url: String): Result<UserScript> = withContext(Dispatchers.IO) { runCatching {
         require(url.startsWith("http://", true) || url.startsWith("https://", true)) { "用户脚本地址无效" }
         val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
         c.instanceFollowRedirects = true; c.connectTimeout = 15000; c.readTimeout = 30000
@@ -25,7 +27,7 @@ class UserScriptManager(private val context: Context) {
         c.connect()
         require(c.responseCode in 200..299) { "下载用户脚本失败：HTTP " + c.responseCode }
         installText(c.inputStream.use { it.bufferedReader().readText() })
-    }
+    } }
 
     fun installText(text: String): UserScript {
         val meta = Regex("""//\s*==UserScript==([\s\S]*?)//\s*==/UserScript==""").find(text)?.groupValues?.get(1)
