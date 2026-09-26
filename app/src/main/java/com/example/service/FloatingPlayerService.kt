@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSessionService
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -41,7 +43,7 @@ import androidx.media3.common.Player
 import java.util.Locale
 import kotlin.math.max
 
-class FloatingPlayerService : Service() {
+class FloatingPlayerService : MediaSessionService() {
 
     private var windowManager: WindowManager? = null
     private var rootLayout: FrameLayout? = null
@@ -96,11 +98,19 @@ class FloatingPlayerService : Service() {
         }
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent?): IBinder? {
+        return super.onBind(intent)
+    }
 
     override fun onCreate() {
+
         super.onCreate()
+        NativeVideoPlaybackManager.ensureMediaSession(this)
         startForegroundServiceNotification()
+    }
+
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
+        return NativeVideoPlaybackManager.currentMediaSession()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -169,7 +179,7 @@ class FloatingPlayerService : Service() {
             } catch (_: Exception) {
                 VideoPlaybackSessionManager.current()?.positionMs?.toDouble()?.div(1000.0) ?: 0.0
             }
-            Toast.makeText(this, "原生播放器无法播放当前媒体，已尝试返回网页播放", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "原生播放器无法播放当前媒体", Toast.LENGTH_SHORT).show()
             closeFloatingWindowOrResumeBrowser(position)
         }
 
@@ -733,7 +743,7 @@ class FloatingPlayerService : Service() {
         VideoPlaybackSessionManager.updatePosition((effectivePosition * 1000.0).toLong())
         VideoPlaybackSessionManager.updatePlaying(shouldPlay)
         try { NativeVideoPlaybackManager.stopForUiClose() } catch (_: Exception) {}
-        val shouldResumeWeb = MainActivity.shouldResumeFloatingVideo(originTabIndex, originTabId, sourcePageUrl)
+        val shouldResumeWeb = false
         if (shouldResumeWeb) {
             // Only the original tab/source is unlocked. Other tabs must not have
             // their HTML5 video resumed or altered by closing this global player.
