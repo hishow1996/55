@@ -19,11 +19,15 @@ object BrowserPerformanceManager {
         settings.setSupportZoom(true)
         settings.builtInZoomControls = true
         settings.displayZoomControls = false
-        // Match Chromium/Chrome Android's wide-viewport text layout instead of
-        // WebView's legacy narrow-column layout. The latter can make desktop
-        // sites (especially Chrome Web Store) collapse multiple columns into
-        // the phone width and appear visually mixed together.
-        settings.layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+        // Desktop pages already provide their own responsive CSS. Keep the
+        // browser's CSS layout dimensions intact in desktop mode; text
+        // autosizing can change measured font boxes and make grid/flex layouts
+        // (notably the Chrome Web Store) overlap on a phone-sized WebView.
+        settings.layoutAlgorithm = if (desktop) {
+            WebSettings.LayoutAlgorithm.NORMAL
+        } else {
+            WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+        }
         settings.textZoom = 100
         settings.useWideViewPort = desktop
         settings.loadWithOverviewMode = desktop
