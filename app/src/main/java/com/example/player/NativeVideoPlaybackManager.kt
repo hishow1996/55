@@ -132,6 +132,22 @@ object NativeVideoPlaybackManager {
         return controller?.durationMs() ?: VideoPlaybackSessionManager.current()?.durationMs ?: 0L
     }
 
+    /**
+     * Returns the aspect ratio of the decoded native video frame when Media3 has
+     * reported it. This is deliberately read from ExoPlayer rather than from the
+     * WebView <video> element, because transport dimensions and displayed/decoded
+     * dimensions are not always the same.
+     */
+    fun videoAspectRatio(fallback: Float = 16f / 9f): Float {
+        assertMainThread()
+        val size = controller?.rawPlayer()?.videoSize
+        return if (size != null && size.width > 0 && size.height > 0) {
+            (size.width.toFloat() / size.height.toFloat()).coerceIn(0.42f, 2.38f)
+        } else {
+            fallback.coerceIn(0.42f, 2.38f)
+        }
+    }
+
     fun bufferedPositionMs(): Long {
         assertMainThread()
         return controller?.rawPlayer()?.bufferedPosition ?: 0L
