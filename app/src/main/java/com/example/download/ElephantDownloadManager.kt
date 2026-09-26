@@ -296,8 +296,8 @@ class ElephantDownloadManager(private val context: Context) {
                 val playlist = fetchText(playlistUrl, referer, userAgent)
                 val mediaUrl = chooseHlsMediaPlaylist(playlistUrl, playlist)
                 val mediaPlaylist = if (mediaUrl == playlistUrl) playlist else fetchText(mediaUrl, referer ?: playlistUrl, userAgent)
-                val segmentUrls = parseHlsSegments(mediaUrl, mediaPlaylist)
-                if (segmentUrls.isEmpty()) throw Exception("HLS 播放列表没有可下载的视频分片")
+                val segments = parseHlsSegments(mediaUrl, mediaPlaylist)
+                if (segments.isEmpty()) throw Exception("HLS 播放列表没有可下载的视频分片")
 
                 // Assemble HLS segments into a temporary TS file, then remux it
                 // into MP4 so the finished download is a normal MP4 video.
@@ -311,9 +311,13 @@ class ElephantDownloadManager(private val context: Context) {
                 var downloaded = 0L
                 updateItemProgress(item.id, 0L, 0L, 0L)
                 FileOutputStream(tempTs, false).use { out ->
-                    segmentUrls.forEach { segmentUrl ->
+                    segments.forEach { segment ->
                         if (!isActive) throw CancellationException("Download cancelled or paused")
-                        val data = fetchBytes(segmentUrl, referer ?: mediaUrl, userAgent)
+                        val data = if (segment.range != null) {
+                            fetchBytes(segment.url, referer ?: mediaUrl, userAgent, segment.range.first, segment.range.second)
+                        } else {
+                            fetchBytes(segment.url, referer ?: mediaUrl, userAgent)
+                        }
                         if (data.isEmpty()) throw Exception("HLS 分片下载为空")
                         out.write(data)
                         downloaded += data.size
@@ -437,7 +441,7 @@ class ElephantDownloadManager(private val context: Context) {
         } finally { conn.disconnect() }
     }
 
-    private fun fetchBytes(url: String, referer: String? = null, userAgent: String? = null): ByteArray {
+    private fun fetchBytes(url: String, referer: String? = null, userAgent: String? = null, rangeStart: Long? = null, rangeEnd: Long? = null): ByteArray {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
             readTimeout = 30000
@@ -446,6 +450,9 @@ class ElephantDownloadManager(private val context: Context) {
             setRequestProperty("Accept", "*/*")
             CookieManager.getInstance().getCookie(url)?.let { setRequestProperty("Cookie", it) }
             setRequestProperty("Referer", referer ?: url)
+            if (rangeStart != null) {
+                setRequestProperty("Range", "bytes=$rangeStart-${rangeEnd ?: ""}")
+            }
         }
         return try {
             if (conn.responseCode !in 200..299) throw Exception("视频分片 HTTP " + conn.responseCode)
@@ -471,25 +478,51 @@ class ElephantDownloadManager(private val context: Context) {
         return bestUrl ?: baseUrl
     }
 
-    private fun parseHlsSegments(baseUrl: String, playlist: String): List<String> {
+    private data class HlsSegment(
+        val url: String,
+        val range: Pair<Long, Long>? = null
+    )
+
+    private fun parseHlsSegments(baseUrl: String, playlist: String): List<HlsSegment> {
         if (playlist.contains("#EXT-X-KEY", true) &&
             !Regex("""METHOD=NONE""", RegexOption.IGNORE_CASE).containsMatchIn(playlist)) {
             throw Exception("当前 HLS 视频使用加密分片，暂不支持解密下载")
         }
 
-        val result = mutableListOf<String>()
-        // fMP4 HLS playlists commonly provide an initialization segment through
-        // EXT-X-MAP. It must be downloaded before the media fragments or the
-        // assembled stream cannot be parsed/remuxed into MP4.
+        val result = mutableListOf<HlsSegment>()
+        var pendingRange: Pair<Long, Long>? = null
+        var nextRangeOffset = 0L
+
+        // Supports both normal segments and byte-range HLS. EXT-X-MAP is emitted
+        // first because fragmented MP4 needs its initialization segment.
         playlist.lineSequence().map { it.trim() }.forEach { line ->
-            if (line.startsWith("#EXT-X-MAP:", true)) {
-                val match = Regex("""URI="([^"]+)"""", RegexOption.IGNORE_CASE).find(line)
-                val init = match?.groupValues?.getOrNull(1)
-                if (!init.isNullOrBlank()) {
-                    result += URL(URL(baseUrl), init).toString()
+            when {
+                line.startsWith("#EXT-X-MAP:", true) -> {
+                    val match = Regex("""URI="([^"]+)"""", RegexOption.IGNORE_CASE).find(line)
+                    val init = match?.groupValues?.getOrNull(1)
+                    if (!init.isNullOrBlank()) {
+                        val range = Regex("""BYTERANGE="(\d+)(?:@(\d+))?"""", RegexOption.IGNORE_CASE)
+                            .find(line)?.let {
+                                val length = it.groupValues[1].toLong()
+                                val start = it.groupValues[2].toLongOrNull() ?: 0L
+                                start to (start + length - 1)
+                            }
+                        result += HlsSegment(URL(URL(baseUrl), init).toString(), range)
+                    }
                 }
-            } else if (line.isNotEmpty() && !line.startsWith("#")) {
-                result += URL(URL(baseUrl), line).toString()
+                line.startsWith("#EXT-X-BYTERANGE:", true) -> {
+                    val value = line.substringAfter(":").trim()
+                    val parts = value.split("@", limit = 2)
+                    val length = parts.getOrNull(0)?.toLongOrNull()
+                        ?: throw Exception("HLS BYTERANGE 长度无效")
+                    val start = parts.getOrNull(1)?.toLongOrNull() ?: nextRangeOffset
+                    pendingRange = start to (start + length - 1)
+                    nextRangeOffset = start + length
+                }
+                line.isNotEmpty() && !line.startsWith("#") -> {
+                    result += HlsSegment(URL(URL(baseUrl), line).toString(), pendingRange)
+                    pendingRange = null
+                }
             }
         }
         return result
