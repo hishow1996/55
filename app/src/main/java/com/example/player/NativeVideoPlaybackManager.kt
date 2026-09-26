@@ -142,7 +142,8 @@ object NativeVideoPlaybackManager {
         assertMainThread()
         val size = controller?.rawPlayer()?.videoSize
         return if (size != null && size.width > 0 && size.height > 0) {
-            (size.width.toFloat() / size.height.toFloat()).coerceIn(0.42f, 2.38f)
+            (size.width.toFloat() * size.pixelWidthHeightRatio / size.height.toFloat())
+                .coerceIn(0.42f, 2.38f)
         } else {
             fallback.coerceIn(0.42f, 2.38f)
         }
