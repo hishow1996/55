@@ -9,8 +9,6 @@ import android.graphics.PixelFormat
 import android.graphics.SurfaceTexture
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.Surface
@@ -62,7 +60,6 @@ class FloatingPlayerService : MediaSessionService() {
     private var drmLicenseUri: String? = null
     private var drmLicenseHeaders: Map<String, String> = emptyMap()
 
-    private val handler = Handler(Looper.getMainLooper())
     private var isPlaying = true
     // Prevent duplicate close/error callbacks from racing during teardown.
     private var closing = false
@@ -413,7 +410,6 @@ class FloatingPlayerService : MediaSessionService() {
 
     private fun removeFloatingWindow() {
         try {
-            handler.removeCallbacks(hideControlsRunnable)
             try {
                 FloatingVideoPlayerComponent.syncProgress(
                     NativeVideoPlaybackManager.currentPositionMs() / 1000.0
