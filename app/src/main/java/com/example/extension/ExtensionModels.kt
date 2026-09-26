@@ -17,6 +17,7 @@ data class ExtensionManifest(
     val optionsPage: String? = null,
     val actionTitle: String? = null,
     val iconPath: String? = null,
+    val iconPaths: List<String> = emptyList(),
     val key: String? = null,
     val webAccessibleResources: List<WebAccessibleResource> = emptyList()
 ) {
@@ -76,16 +77,23 @@ data class ExtensionManifest(
                 }
                 return null
             }
-            val icon = pickIcon(o.optJSONObject("icons"))
-                ?: pickIcon(action?.optJSONObject("default_icon"))
-                ?: action?.optString("default_icon", "")?.takeIf { it.isNotBlank() }
+            val iconCandidates = (
+                listOf("128", "96", "64", "48", "32", "16")
+                    .map { o.optJSONObject("icons")?.optString(it, "") ?: "" }
+                    .filter { it.isNotBlank() } +
+                    listOf("128", "96", "64", "48", "32", "16")
+                        .map { action?.optJSONObject("default_icon")?.optString(it, "") ?: "" }
+                        .filter { it.isNotBlank() } +
+                    listOf(action?.optString("default_icon", "") ?: "")
+                ).filter { it.isNotBlank() }.distinct()
+            val icon = iconCandidates.firstOrNull()
             return ExtensionManifest(
                 mv, o.optString("name", "未命名扩展"), o.optString("version", "1.0"),
                 o.optString("description", ""), perms.distinct(), hosts.distinct(), cs,
                 scripts, bg?.optString("service_worker")?.takeIf { it.isNotBlank() },
                 action?.optString("default_popup")?.takeIf { it.isNotBlank() },
                 o.optString("options_page").takeIf { it.isNotBlank() },
-                action?.optString("default_title")?.takeIf { it.isNotBlank() }, icon,
+                action?.optString("default_title")?.takeIf { it.isNotBlank() }, icon, iconCandidates,
                 o.optString("key").takeIf { it.isNotBlank() },
                 war.distinctBy { it.resources to it.matches }
             )
