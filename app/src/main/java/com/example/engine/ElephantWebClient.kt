@@ -20,7 +20,8 @@ class ElephantWebViewClient(
     private val onPageStart: (url: String) -> Unit,
     private val onPageFinish: (url: String, title: String) -> Unit,
     private val onExtensionDownload: (url: String) -> Unit = {},
-    private val onUserScriptDownload: (url: String) -> Unit = {}
+    private val onUserScriptDownload: (url: String) -> Unit = {},
+    private val onDrmLicenseRequest: (url: String, scheme: String, headers: Map<String, String>) -> Unit = { _, _, _ -> }
 ) : WebViewClient() {
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -155,11 +156,30 @@ class ElephantWebViewClient(
             return WebResourceResponse("text/plain", "UTF-8", 204, "No Content", emptyMap(), null)
         }
 
-        // Sniff real playable streaming media URLs (m3u8, mp4, flv, ts streams)
-        if (lowerUrl.contains(".m3u8") || lowerUrl.contains(".mp4") || lowerUrl.contains(".flv") || 
+        // Sniff real playable streaming media URLs (m3u8, mp4, flv, ts streams).
+        if (lowerUrl.contains(".m3u8") || lowerUrl.contains(".mp4") || lowerUrl.contains(".flv") ||
             (lowerUrl.contains("mime=") && lowerUrl.contains("video")) || lowerUrl.contains("/video/") ||
-            lowerUrl.contains("googlevideo.com") || lowerUrl.contains(".ts")) {
+            lowerUrl.contains("googlevideo.com") || lowerUrl.contains(".ts") || lowerUrl.contains(".mpd")) {
             repository.setDetectedStreamUrl(tab.id, reqUrl)
+        }
+
+        // WebView's request callback exposes the page's own license request URL and
+        // request headers. Capture only the endpoint metadata needed by Media3's
+        // authorized DRM client; never inspect, store, or transform license keys.
+        // Widevine is the Android WebView/MediaDrm path used by the native player.
+        val drmHint = lowerUrl.contains("widevine") || lowerUrl.contains("license") ||
+            lowerUrl.contains("drm") || lowerUrl.contains("keyserver") ||
+            lowerUrl.contains("acquirelicense") || lowerUrl.contains("licenseproxy")
+        if (drmHint && request?.method.equals("POST", true)) {
+            val headers = request?.requestHeaders.orEmpty()
+                .filterKeys { key ->
+                    !key.equals("Cookie", true) &&
+                    !key.equals("Authorization", true) &&
+                    !key.equals("Proxy-Authorization", true)
+                }
+                .toMap()
+            val scheme = if (lowerUrl.contains("playready")) "playready" else "widevine"
+            onDrmLicenseRequest(reqUrl, scheme, headers)
         }
 
         return super.shouldInterceptRequest(view, request)
