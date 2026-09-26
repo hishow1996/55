@@ -7,7 +7,14 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-data class UserScript(val id: String, val name: String, val matches: List<String>, val code: String, val enabled: Boolean = true)
+data class UserScript(
+    val id: String,
+    val name: String,
+    val matches: List<String>,
+    val code: String,
+    val runAt: String = "document_idle",
+    val enabled: Boolean = true
+)
 
 class UserScriptManager(private val context: Context) {
     private val root = File(context.filesDir, "userscripts")
@@ -37,17 +44,25 @@ class UserScriptManager(private val context: Context) {
         val matches = values("match").ifEmpty { values("include") }
         require(matches.isNotEmpty()) { "用户脚本没有 @match/@include" }
         val code = text.substringAfter("// ==/UserScript==").trim()
+        val runAt = values("run-at").firstOrNull()?.lowercase()?.let {
+            when (it) {
+                "document-start" -> "document_start"
+                "document-end" -> "document_end"
+                "document-idle" -> "document_idle"
+                else -> "document_idle"
+            }
+        } ?: "document_idle"
         val id = java.security.MessageDigest.getInstance("SHA-256").digest((name + "|" + code).toByteArray())
             .joinToString("") { "%02x".format(it) }.take(32)
         File(root, "$id.user.js").writeText(code)
         prefs.edit().putString("meta_$id", org.json.JSONObject().apply {
-            put("id", id); put("name", name); put("matches", org.json.JSONArray(matches)); put("enabled", true)
+            put("id", id); put("name", name); put("matches", org.json.JSONArray(matches)); put("runAt", runAt); put("enabled", true)
         }.toString()).apply()
         return UserScript(id, name, matches, code, true)
     }
 
-    fun injectForPage(webView: WebView, url: String) {
-        all().filter { it.enabled && ExtensionManager.matches(it.matches, url) }.forEach { script ->
+    fun injectForPage(webView: WebView, url: String, runAt: String = "document_idle") {
+        all().filter { it.enabled && it.runAt == runAt && ExtensionManager.matches(it.matches, url) }.forEach { script ->
             val js = org.json.JSONObject.quote(script.code)
             webView.evaluateJavascript(
                 "(function(){try{if(!window.__elephantUserscript_" + script.id + "){window.__elephantUserscript_" +
@@ -61,10 +76,14 @@ class UserScriptManager(private val context: Context) {
         if (!entry.key.startsWith("meta_")) return@mapNotNull null
         try {
             val o = org.json.JSONObject(entry.value as String)
-            UserScript(o.getString("id"), o.getString("name"),
+            UserScript(
+                o.getString("id"),
+                o.getString("name"),
                 (0 until o.getJSONArray("matches").length()).map { o.getJSONArray("matches").getString(it) },
                 File(root, o.getString("id") + ".user.js").takeIf { it.exists() }?.readText() ?: "",
-                o.optBoolean("enabled", true))
+                o.optString("runAt", "document_idle"),
+                o.optBoolean("enabled", true)
+            )
         } catch (_: Exception) { null }
     }
 
