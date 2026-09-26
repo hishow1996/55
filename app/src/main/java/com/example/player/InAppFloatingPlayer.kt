@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
@@ -93,6 +94,7 @@ fun InAppFloatingPlayer(
     onClose: (currentPositionSeconds: Double) -> Unit,
     onEnterGlobalPiP: () -> Unit,
     onEnterFullscreen: () -> Unit,
+    onRotateScreen: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     isDesktopPiP: Boolean = false,
     isFullscreen: Boolean = false,
@@ -428,6 +430,19 @@ fun InAppFloatingPlayer(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "退出全屏", tint = Color.White, modifier = Modifier.size(25.dp))
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (onRotateScreen != null) {
+                                IconButton(
+                                    onClick = onRotateScreen,
+                                    modifier = Modifier.size(42.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ScreenRotation,
+                                        contentDescription = "手动旋转屏幕",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
                             if (onDownloadVideo != null) {
                                 IconButton(
                                     onClick = { onDownloadVideo(videoInfo.url, videoInfo.title.ifBlank { "网页视频" }) },
