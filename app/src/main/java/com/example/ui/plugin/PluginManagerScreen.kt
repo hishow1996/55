@@ -78,13 +78,16 @@ fun PluginManagerScreen(
     val scope = rememberCoroutineScope()
     val extensions by repository.extensionManager.extensions.collectAsState()
     var userScripts by remember { mutableStateOf(repository.userScriptManager.all()) }
-    var popupExtensionId by remember { mutableStateOf<String?>(null) }
-    var optionsExtensionId by remember { mutableStateOf<String?>(null) }
-    var aboutExtensionId by remember { mutableStateOf<String?>(null) }
+    var showMenu by remember { mutableStateOf(false) }
+    var showInstallMenu by remember { mutableStateOf(false) }
     var showUrlDialog by remember { mutableStateOf(false) }
     var extensionUrl by remember { mutableStateOf("") }
-    var showUserScriptDialog by remember { mutableStateOf(false) }
-    var userScriptUrl by remember { mutableStateOf("") }
+    var showScripts by remember { mutableStateOf(false) }
+    var showScriptDialog by remember { mutableStateOf(false) }
+    var scriptUrl by remember { mutableStateOf("") }
+    var aboutExtensionId by remember { mutableStateOf<String?>(null) }
+    var popupExtensionId by remember { mutableStateOf<String?>(null) }
+    var optionsExtensionId by remember { mutableStateOf<String?>(null) }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -94,7 +97,7 @@ fun PluginManagerScreen(
                 .onFailure { Toast.makeText(context, "安装失败：" + (it.message ?: "扩展包无效"), Toast.LENGTH_LONG).show() }
         }
     }
-    val userScriptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val scriptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             repository.userScriptManager.install(uri)
@@ -106,86 +109,101 @@ fun PluginManagerScreen(
         }
     }
 
-    val background = if (isNightMode) Color(0xFF101318) else Color(0xFFF6F7F9)
-    val cardColor = if (isNightMode) Color(0xFF1B2028) else Color.White
-    val secondary = if (isNightMode) Color(0xFF9AA4B2) else Color(0xFF667085)
+    val background = if (isNightMode) Color(0xFF0F1115) else Color(0xFFF7F8FA)
+    val cardColor = if (isNightMode) Color(0xFF191C22) else Color.White
+    val secondary = if (isNightMode) Color(0xFF9AA1AD) else Color(0xFF667085)
+
+    if (showScripts) {
+        UserScriptsScreen(
+            scripts = userScripts,
+            isNightMode = isNightMode,
+            onBack = { showScripts = false },
+            onAdd = { showScriptDialog = true },
+            onToggle = {
+                repository.userScriptManager.setEnabled(it.first, it.second)
+                userScripts = repository.userScriptManager.all()
+            },
+            onDelete = {
+                repository.userScriptManager.uninstall(it)
+                userScripts = repository.userScriptManager.all()
+            }
+        )
+        if (showScriptDialog) {
+            UserScriptInstallDialog(
+                value = scriptUrl,
+                secondary = secondary,
+                onValueChange = { scriptUrl = it },
+                onDismiss = { showScriptDialog = false },
+                onInstall = {
+                    val url = scriptUrl.trim()
+                    showScriptDialog = false
+                    scope.launch {
+                        repository.userScriptManager.installUrl(url)
+                            .onSuccess {
+                                userScripts = repository.userScriptManager.all()
+                                Toast.makeText(context, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show()
+                            }
+                            .onFailure { Toast.makeText(context, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show() }
+                    }
+                },
+                onPickFile = { scriptLauncher.launch(arrayOf("text/javascript", "application/javascript", "*/*")) }
+            )
+        }
+        return
+    }
 
     Column(
-        modifier = modifier.fillMaxSize().background(background).statusBarsPadding().navigationBarsPadding()
+        modifier = modifier.fillMaxSize()
+            .background(background)
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
             }
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).padding(start = 2.dp)) {
                 Text("扩展", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Text(extensions.size.toString() + " 个已安装扩展", style = MaterialTheme.typography.bodySmall, color = secondary)
+                Text(
+                    if (extensions.isEmpty()) "还没有安装扩展" else extensions.size.toString() + " 个已安装扩展",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = secondary
+                )
             }
-            TextButton(onClick = onOpenChromeWebStore) {
-                Text("Chrome 商店")
-            }
-            TextButton(onClick = { showUrlDialog = true }) {
-                Icon(Icons.Default.OpenInNew, null, Modifier.size(17.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("链接安装")
-            }
-            TextButton(onClick = { showUserScriptDialog = true }) {
-                Text("用户脚本")
-            }
-            TextButton(onClick = {
-                userScriptLauncher.launch(arrayOf("text/javascript", "application/javascript", "*/*"))
-            }) {
-                Text("导入脚本")
-            }
-            TextButton(onClick = {
-                launcher.launch(arrayOf("application/zip", "application/x-chrome-extension", "application/octet-stream", "*/*"))
-            }) {
-                Icon(Icons.Default.FileOpen, null, Modifier.size(17.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("导入")
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, "更多")
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Chrome 网上应用店") },
+                        leadingIcon = { Icon(Icons.Default.OpenInNew, null) },
+                        onClick = { showMenu = false; onOpenChromeWebStore() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("用户脚本") },
+                        leadingIcon = { Icon(Icons.Default.Extension, null) },
+                        onClick = { showMenu = false; showScripts = true }
+                    )
+                }
             }
         }
 
-        Divider()
-
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             item {
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("已安装", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = if (isNightMode) Color(0xFF2A3039) else Color(0xFFE9EEF5)
-                    ) {
-                        Text(extensions.size.toString(), Modifier.padding(horizontal = 9.dp, vertical = 3.dp), color = secondary)
-                    }
-                }
+                SectionHeader("已安装", extensions.size, secondary)
             }
 
             if (extensions.isEmpty()) {
                 item {
-                    Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(14.dp)) {
-                        Column(
-                            Modifier.fillMaxWidth().padding(vertical = 42.dp, horizontal = 24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(Icons.Default.Extension, null, Modifier.size(54.dp), tint = secondary)
-                            Spacer(Modifier.height(12.dp))
-                            Text("暂无扩展", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Spacer(Modifier.height(5.dp))
-                            Text("点击右上角“导入”安装 CRX 或 ZIP 扩展。", color = secondary)
-                        }
-                    }
+                    EmptyExtensionsCard(cardColor, secondary, onOpenChromeWebStore, onInstall = { showInstallMenu = true })
                 }
             } else {
                 items(extensions, key = { it.id }) { ext ->
@@ -213,89 +231,70 @@ fun PluginManagerScreen(
             }
 
             item {
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = cardColor,
+                    onClick = { showScripts = true }
                 ) {
-                    Text("用户脚本", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = if (isNightMode) Color(0xFF2A3039) else Color(0xFFE9EEF5)
-                    ) {
-                        Text(userScripts.size.toString(), Modifier.padding(horizontal = 9.dp, vertical = 3.dp), color = secondary)
-                    }
-                }
-            }
-            if (userScripts.isNotEmpty()) {
-                items(userScripts, key = { "script_" + it.id }) { script ->
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = cardColor),
-                        shape = RoundedCornerShape(18.dp)
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            Modifier.size(42.dp),
+                            shape = RoundedCornerShape(13.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer
                         ) {
-                            Surface(
-                                modifier = Modifier.size(42.dp),
-                                shape = RoundedCornerShape(13.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        "JS",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    script.name,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    script.matches.size.toString() + " 个匹配规则",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = secondary
-                                )
-                            }
-                            Switch(
-                                checked = script.enabled,
-                                onCheckedChange = {
-                                    repository.userScriptManager.setEnabled(script.id, it)
-                                    userScripts = repository.userScriptManager.all()
-                                }
-                            )
-                            IconButton(
-                                onClick = {
-                                    repository.userScriptManager.uninstall(script.id)
-                                    userScripts = repository.userScriptManager.all()
-                                    Toast.makeText(context, "已卸载脚本 " + script.name, Toast.LENGTH_SHORT).show()
-                                }
-                            ) {
-                                Icon(Icons.Default.DeleteOutline, "卸载脚本")
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("JS", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                             }
                         }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("用户脚本", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                if (userScripts.isEmpty()) "尚未安装脚本" else userScripts.size.toString() + " 个已安装脚本",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = secondary
+                            )
+                        }
+                        Text("›", style = MaterialTheme.typography.headlineSmall, color = secondary)
                     }
                 }
             }
-            
+
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(14.dp)) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Default.Info, null, Modifier.size(20.dp), tint = secondary)
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            "扩展运行在浏览器 WebView 兼容层中。依赖 Chrome 专有 API、原生服务或桌面 UI 的扩展可能需要进一步适配。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = secondary
+                Box {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        onClick = { showInstallMenu = true }
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Extension, null, Modifier.size(22.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("添加扩展", fontWeight = FontWeight.SemiBold)
+                                Text("从 Chrome 商店、文件或链接安装", style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text("＋", style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                    DropdownMenu(expanded = showInstallMenu, onDismissRequest = { showInstallMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Chrome 网上应用店") },
+                            onClick = { showInstallMenu = false; onOpenChromeWebStore() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("从文件安装") },
+                            onClick = { showInstallMenu = false; launcher.launch(arrayOf("application/zip", "application/x-chrome-extension", "application/octet-stream", "*/*")) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("从链接安装") },
+                            onClick = { showInstallMenu = false; showUrlDialog = true }
                         )
                     }
                 }
@@ -303,82 +302,39 @@ fun PluginManagerScreen(
         }
     }
 
-    if (showUserScriptDialog) {
-        AlertDialog(
-            onDismissRequest = { showUserScriptDialog = false },
-            title = { Text("安装用户脚本") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("支持 Greasy Fork 等站点提供的 .user.js 脚本。安装后只会在脚本声明的匹配网址执行。", color = secondary)
-                    androidx.compose.material3.OutlinedTextField(
-                        value = userScriptUrl,
-                        onValueChange = { userScriptUrl = it },
-                        singleLine = true,
-                        placeholder = { Text("https://…/script.user.js") }
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = userScriptUrl.isNotBlank(),
-                    onClick = {
-                        val url = userScriptUrl.trim()
-                        showUserScriptDialog = false
-                        scope.launch {
-                            repository.userScriptManager.installUrl(url)
-                                .onSuccess {
-                                    userScripts = repository.userScriptManager.all()
-                                    Toast.makeText(context, "已安装脚本：" + it.name, Toast.LENGTH_SHORT).show()
-                                }
-                                .onFailure { Toast.makeText(context, "脚本安装失败：" + (it.message ?: "脚本无效"), Toast.LENGTH_LONG).show() }
-                        }
-                    }
-                ) { Text("安装") }
-            },
-            dismissButton = { TextButton(onClick = { showUserScriptDialog = false }) { Text("取消") } }
-        )
-    }
-
     if (showUrlDialog) {
         AlertDialog(
             onDismissRequest = { showUrlDialog = false },
-            title = { Text("安装扩展") },
+            title = { Text("从链接安装") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("粘贴 CRX/ZIP 扩展的直接下载地址。Chrome 网上应用店触发的 CRX 下载也会自动交给扩展安装器。", color = secondary)
-                    androidx.compose.material3.OutlinedTextField(
-                        value = extensionUrl,
-                        onValueChange = { extensionUrl = it },
-                        singleLine = true,
-                        placeholder = { Text("https://…/extension.crx") }
-                    )
-                }
+                androidx.compose.material3.OutlinedTextField(
+                    value = extensionUrl,
+                    onValueChange = { extensionUrl = it },
+                    singleLine = true,
+                    placeholder = { Text("扩展下载地址") }
+                )
             },
             confirmButton = {
-                TextButton(
-                    enabled = extensionUrl.isNotBlank(),
-                    onClick = {
-                        val url = extensionUrl.trim()
-                        showUrlDialog = false
-                        scope.launch {
-                            repository.extensionManager.installUrl(url)
-                                .onSuccess { Toast.makeText(context, "已安装：" + it.name, Toast.LENGTH_SHORT).show() }
-                                .onFailure { Toast.makeText(context, "安装失败：" + (it.message ?: "扩展地址无效"), Toast.LENGTH_LONG).show() }
-                        }
+                TextButton(enabled = extensionUrl.isNotBlank(), onClick = {
+                    val url = extensionUrl.trim()
+                    showUrlDialog = false
+                    scope.launch {
+                        repository.extensionManager.installUrl(url)
+                            .onSuccess { Toast.makeText(context, "已安装：" + it.name, Toast.LENGTH_SHORT).show() }
+                            .onFailure { Toast.makeText(context, "安装失败：" + (it.message ?: "扩展地址无效"), Toast.LENGTH_LONG).show() }
                     }
-                ) { Text("安装") }
+                }) { Text("安装") }
             },
             dismissButton = { TextButton(onClick = { showUrlDialog = false }) { Text("取消") } }
         )
     }
 
-    ExtensionPageDialog(repository, popupExtensionId, "", { repository.extensionManager.popupUrl(it) }) {
-        popupExtensionId = null
+    popupExtensionId?.let { id ->
+        ExtensionPageDialog(repository, id, "", { repository.extensionManager.popupUrl(it) }) { popupExtensionId = null }
     }
-    ExtensionPageDialog(repository, optionsExtensionId, " 设置", { repository.extensionManager.optionsUrl(it) }) {
-        optionsExtensionId = null
+    optionsExtensionId?.let { id ->
+        ExtensionPageDialog(repository, id, " 设置", { repository.extensionManager.optionsUrl(it) }) { optionsExtensionId = null }
     }
-
     aboutExtensionId?.let { id ->
         val ext = repository.extensionManager.extension(id)
         if (ext != null) {
@@ -387,13 +343,10 @@ fun PluginManagerScreen(
                 title = { Text(ext.name) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("版本：" + ext.version)
-                        Text("Manifest：V" + ext.manifest.manifestVersion)
+                        Text("版本 " + ext.version)
+                        Text("Manifest V" + ext.manifest.manifestVersion)
                         if (ext.manifest.description.isNotBlank()) Text(ext.manifest.description)
-                        Text(
-                            "权限：" + (ext.manifest.permissions + ext.manifest.hostPermissions)
-                                .distinct().joinToString(", ").ifBlank { "无特殊权限" }
-                        )
+                        Text("权限：" + (ext.manifest.permissions + ext.manifest.hostPermissions).distinct().joinToString(", ").ifBlank { "无特殊权限" })
                     }
                 },
                 confirmButton = { TextButton(onClick = { aboutExtensionId = null }) { Text("完成") } }
@@ -403,97 +356,107 @@ fun PluginManagerScreen(
 }
 
 @Composable
-private fun ExtensionCard(
-    name: String,
-    iconPath: String?,
-    version: String,
-    description: String,
-    manifestVersion: Int,
-    enabled: Boolean,
-    hasPopup: Boolean,
-    hasOptions: Boolean,
-    cardColor: Color,
-    secondary: Color,
-    onToggle: (Boolean) -> Unit,
-    onPopup: () -> Unit,
-    onOptions: () -> Unit,
-    onAbout: () -> Unit,
-    onUninstall: () -> Unit
-) {
-    var menuExpanded by remember { mutableStateOf(false) }
+private fun SectionHeader(title: String, count: Int, secondary: Color) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.width(8.dp))
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+            Text(count.toString(), Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, color = secondary)
+        }
+    }
+}
 
-    Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    modifier = Modifier.size(44.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
-                    val bitmap = remember(iconPath) {
-                        iconPath?.let { BitmapFactory.decodeFile(it) }
-                    }
-                    if (bitmap != null) {
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = name,
-                            modifier = Modifier.fillMaxSize().padding(5.dp)
-                        )
-                    } else {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Extension,
-                                null,
-                                Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
+@Composable
+private fun EmptyExtensionsCard(cardColor: Color, secondary: Color, onStore: () -> Unit, onInstall: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(20.dp)) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 38.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(Icons.Default.Extension, null, Modifier.size(46.dp), tint = secondary)
+            Spacer(Modifier.height(12.dp))
+            Text("还没有扩展", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(5.dp))
+            Text("安装扩展来增强浏览器功能", color = secondary)
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onStore) { Text("Chrome 商店") }
+                TextButton(onClick = onInstall) { Text("选择文件") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserScriptsScreen(
+    scripts: List<com.example.extension.UserScript>,
+    isNightMode: Boolean,
+    onBack: () -> Unit,
+    onAdd: () -> Unit,
+    onToggle: (Pair<String, Boolean>) -> Unit,
+    onDelete: (String) -> Unit
+) {
+    val background = if (isNightMode) Color(0xFF0F1115) else Color(0xFFF7F8FA)
+    val cardColor = if (isNightMode) Color(0xFF191C22) else Color.White
+    val secondary = if (isNightMode) Color(0xFF9AA1AD) else Color(0xFF667085)
+    Column(Modifier.fillMaxSize().background(background).statusBarsPadding().navigationBarsPadding()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
+            Column(Modifier.weight(1f)) {
+                Text("用户脚本", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(scripts.size.toString() + " 个已安装脚本", style = MaterialTheme.typography.bodySmall, color = secondary)
+            }
+            IconButton(onClick = onAdd) { Icon(Icons.Default.MoreVert, "添加") }
+        }
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (scripts.isEmpty()) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(20.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(38.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("暂无用户脚本", fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(6.dp))
+                            Text("支持 .user.js 脚本", color = secondary)
+                            Spacer(Modifier.height(14.dp))
+                            TextButton(onClick = onAdd) { Text("添加脚本") }
                         }
                     }
                 }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                    Spacer(Modifier.height(2.dp))
-                    Text("v" + version + "  ·  Manifest V" + manifestVersion, style = MaterialTheme.typography.bodySmall, color = secondary)
-                }
-                Switch(checked = enabled, onCheckedChange = onToggle)
-                Box {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, "更多")
-                    }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        if (hasPopup) DropdownMenuItem(
-                            text = { Text("打开扩展弹窗") },
-                            leadingIcon = { Icon(Icons.Default.OpenInNew, null) },
-                            onClick = { menuExpanded = false; onPopup() }
-                        )
-                        if (hasOptions) DropdownMenuItem(
-                            text = { Text("扩展设置") },
-                            leadingIcon = { Icon(Icons.Default.Settings, null) },
-                            onClick = { menuExpanded = false; onOptions() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("扩展详情") },
-                            leadingIcon = { Icon(Icons.Default.Info, null) },
-                            onClick = { menuExpanded = false; onAbout() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("卸载") },
-                            leadingIcon = { Icon(Icons.Default.DeleteOutline, null) },
-                            onClick = { menuExpanded = false; onUninstall() }
-                        )
+            } else {
+                items(scripts, key = { it.id }) { script ->
+                    Surface(shape = RoundedCornerShape(18.dp), color = cardColor) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Surface(Modifier.size(42.dp), RoundedCornerShape(13.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("JS", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(script.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                Text(script.matches.size.toString() + " 个匹配规则", style = MaterialTheme.typography.bodySmall, color = secondary)
+                            }
+                            Switch(checked = script.enabled, onCheckedChange = { onToggle(script.id to it) })
+                            IconButton(onClick = { onDelete(script.id) }) { Icon(Icons.Default.DeleteOutline, "卸载") }
+                        }
                     }
                 }
             }
-            if (description.isNotBlank()) {
-                Spacer(Modifier.height(10.dp))
-                Text(description, style = MaterialTheme.typography.bodySmall, color = secondary, maxLines = 3)
-            }
-            if (hasPopup || hasOptions) {
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    if (hasPopup) TextButton(onClick = onPopup) { Text("弹窗") }
-                    if (hasOptions) TextButton(onClick = onOptions) { Text("设置") }
+            item {
+                Surface(
+                    Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    onClick = onAdd
+                ) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("＋", style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.width(8.dp))
+                        Text("添加用户脚本", fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -501,37 +464,33 @@ private fun ExtensionCard(
 }
 
 @Composable
-private fun ExtensionPageDialog(
-    repository: BrowserRepository,
-    extensionId: String?,
-    titleSuffix: String,
-    urlProvider: (String) -> String?,
-    onDismiss: () -> Unit
+private fun UserScriptInstallDialog(
+    value: String,
+    secondary: Color,
+    onValueChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onInstall: () -> Unit,
+    onPickFile: () -> Unit
 ) {
-    extensionId?.let { id ->
-        val url = urlProvider(id)
-        val ext = repository.extensionManager.extension(id)
-        if (url != null && ext != null) {
-            AlertDialog(
-                onDismissRequest = onDismiss,
-                title = { Text(ext.name + titleSuffix) },
-                text = {
-                    AndroidView(
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                settings.javaScriptEnabled = true
-                                settings.domStorageEnabled = true
-                                settings.allowFileAccess = true
-                                settings.allowContentAccess = true
-                                webViewClient = WebViewClient()
-                                loadUrl(url)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(440.dp)
-                    )
-                },
-                confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } }
-            )
-        }
-    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("添加用户脚本") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("支持 Greasy Fork 等站点提供的 .user.js 脚本。", color = secondary)
+                androidx.compose.material3.OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    singleLine = true,
+                    placeholder = { Text("https://…/script.user.js") }
+                )
+                TextButton(onClick = onPickFile) { Text("从文件选择") }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = value.isNotBlank(), onClick = onInstall) { Text("安装") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
+
