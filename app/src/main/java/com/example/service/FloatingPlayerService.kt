@@ -35,21 +35,18 @@ import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import java.util.Locale
 import kotlin.math.max
+import kotlin.math.roundToInt
 import org.json.JSONObject
 
 class FloatingPlayerService : MediaSessionService() {
 
     private var windowManager: WindowManager? = null
-    private var rootLayout: FrameLayout? = null
+    private var rootLayout: View? = null
+    private var composeView: androidx.compose.ui.platform.ComposeView? = null
+    private var composeLifecycleOwner: FloatingComposeLifecycleOwner? = null
     private var textureView: TextureView? = null
     private var currentSurface: Surface? = null
 
-    private var controlsLayout: FrameLayout? = null
-    private var lockOverlay: FrameLayout? = null
-    private var playPauseBtn: ImageButton? = null
-    private var timeTv: TextView? = null
-    private var progressTrack: View? = null
-    private var progressFill: View? = null
 
     private var videoUrl: String = ""
     private var videoTitle: String = "网页视频"
@@ -67,8 +64,6 @@ class FloatingPlayerService : MediaSessionService() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var isPlaying = true
-    private var areControlsVisible = true
-    private var isLocked = false
     // Prevent duplicate close/error callbacks from racing during teardown.
     private var closing = false
     private var currentPositionMs = 0
@@ -120,37 +115,6 @@ class FloatingPlayerService : MediaSessionService() {
 
     private var currentSizeIndex = 0 // 0: Normal (320dp), 1: Large (370dp), 2: Compact (260dp)
     private val sizePresets = floatArrayOf(320f, 370f, 260f)
-
-    private val hideControlsRunnable = Runnable {
-        hideControls()
-    }
-
-    private val progressUpdater = object : Runnable {
-        override fun run() {
-            try {
-                val cur = NativeVideoPlaybackManager.currentPositionMs()
-                val dur = NativeVideoPlaybackManager.durationMs().coerceAtLeast(1000L)
-                currentPositionMs = cur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                durationMs = dur.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                VideoPlaybackSessionManager.updatePosition(cur)
-                VideoPlaybackSessionManager.updateDuration(dur)
-                FloatingVideoPlayerComponent.syncProgress(cur / 1000.0)
-                timeTv?.text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}"
-                val ratio = (cur.toFloat() / dur.toFloat()).coerceIn(0f, 1f)
-                progressTrack?.let { track ->
-                    progressFill?.let { fill ->
-                        fill.layoutParams = (fill.layoutParams as FrameLayout.LayoutParams).apply {
-                            width = (track.width * ratio).toInt()
-                            height = (2 * resources.displayMetrics.density).toInt().coerceAtLeast(1)
-                        }
-                        fill.requestLayout()
-                    }
-                }
-                isPlaying = NativeVideoPlaybackManager.isPlaying()
-            } catch (_: Exception) {}
-            handler.postDelayed(this, 500)
-        }
-    }
 
     override fun onCreate() {
         super.onCreate()
@@ -292,18 +256,18 @@ class FloatingPlayerService : MediaSessionService() {
     }
 
     private fun showFloatingWindow() {
-        // Repeated launch requests must reuse the existing overlay instead of
-        // adding a second root view on top of the first one.
-        if (rootLayout != null) {
-            isPlaying = try { NativeVideoPlaybackManager.isPlaying() } catch (_: Exception) { isPlaying }
-            handler.removeCallbacks(progressUpdater)
-            handler.post(progressUpdater)
-            return
-        }
-        removeFloatingWindow()
+        // The Android global window is only a host. The actual player UI is the
+        // same InAppFloatingPlayer composable used by the browser. This removes
+        // the old second, hand-written View-based player implementation.
+        if (rootLayout != null) return
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val density = resources.displayMetrics.density
+        val screenWidth = resources.displayMetrics.widthPixels
+        val preferredW = (sizePresets[currentSizeIndex] * density).toInt()
+        val defaultW = preferredW.coerceAtMost((screenWidth * 0.95f).toInt())
+        val effectiveRatio = currentValidRatio()
+        val heightPx = (defaultW / effectiveRatio).toInt().coerceAtLeast((100 * density).toInt())
 
         val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -311,12 +275,6 @@ class FloatingPlayerService : MediaSessionService() {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
-
-        val screenWidth = resources.displayMetrics.widthPixels
-        val preferredW = (sizePresets[currentSizeIndex] * density).toInt()
-        val defaultW = preferredW.coerceAtMost((screenWidth * 0.95f).toInt())
-        val effectiveRatio = videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)
-        val heightPx = (defaultW / effectiveRatio).toInt().coerceAtLeast((100 * density).toInt())
 
         val params = WindowManager.LayoutParams(
             defaultW,
@@ -331,473 +289,74 @@ class FloatingPlayerService : MediaSessionService() {
             y = (130 * density).toInt()
         }
 
-        // 1. Root Container with rounded corners & border (Figure 1 matching style)
-        val root = FrameLayout(this).apply {
-            val bgDrawable = GradientDrawable().apply {
-                setColor(0xFF0F172A.toInt())
-                cornerRadius = 16 * density
-                setStroke((1.5f * density).toInt(), 0xFF3B82F6.toInt())
-            }
-            background = bgDrawable
-            clipToOutline = true
-        }
-
-        // 2. TextureView Video Surface (Fixes Black Screen completely!)
-        val tv = TextureView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
+        val owner = FloatingComposeLifecycleOwner().also { it.create() }
+        val compose = androidx.compose.ui.platform.ComposeView(this).apply {
+            setViewCompositionStrategy(
+                androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
             )
-            isClickable = false
-            isFocusable = false
-            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                    currentSurface = Surface(st)
-                    try {
-                        // Surface attachment must never reload or seek the shared
-                        // player. ExoPlayer already owns the authoritative live
-                        // position/play state, so re-seeking here could jump
-                        // backwards whenever the overlay is recreated.
-                        NativeVideoPlaybackManager.attachSurface(currentSurface)
-                        val session = VideoPlaybackSessionManager.current()
-                        NativeVideoPlaybackManager.setPlaybackRate(
-                            session?.playbackRate ?: requestedPlaybackRate
-                        )
-                        isPlaying = NativeVideoPlaybackManager.isPlaying()
-                        currentPositionMs = NativeVideoPlaybackManager.currentPositionMs()
-                            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                        durationMs = NativeVideoPlaybackManager.durationMs()
-                            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                    } catch (e: Exception) {
-                        android.util.Log.e("FloatingPlayerService", "Failed to attach shared Native Media3 player", e)
+            androidx.lifecycle.setViewTreeLifecycleOwner(this@FloatingPlayerService)
+        }
+        // The Compose tree must use the dedicated overlay owner, not the Service
+        // itself, so its composition has a stable lifecycle and saved-state owner.
+        androidx.lifecycle.setViewTreeLifecycleOwner(compose, owner)
+        androidx.lifecycle.setViewTreeViewModelStoreOwner(compose, owner)
+        androidx.savedstate.setViewTreeSavedStateRegistryOwner(compose, owner)
+
+        val activeVideo = VideoMediaInfo(
+            url = videoUrl,
+            pageUrl = sourcePageUrl,
+            title = videoTitle,
+            currentTime = initialPositionMs / 1000.0,
+            videoWidth = (videoRatio * 1000).toInt().coerceAtLeast(1),
+            videoHeight = 1000,
+            isPlaying = isPlaying,
+            originTabIndex = originTabIndex,
+            originTabId = originTabId,
+            drmScheme = drmScheme,
+            drmLicenseUri = drmLicenseUri,
+            drmLicenseHeaders = drmLicenseHeaders
+        )
+
+        compose.setContent {
+            androidx.compose.material3.MaterialTheme {
+                com.example.player.InAppFloatingPlayer(
+                    videoInfo = activeVideo,
+                    isGlobalFloating = true,
+                    isDesktopPiP = false,
+                    isFullscreen = false,
+                    currentTabIndex = originTabIndex,
+                    onClose = { position ->
+                        closeFloatingWindowOrResumeBrowser(position)
+                    },
+                    onEnterGlobalPiP = {},
+                    onEnterFullscreen = {},
+                    onDownloadVideo = null,
+                    onGlobalDrag = { dx, dy ->
+                        val wm = windowManager ?: return@InAppFloatingPlayer
+                        val root = rootLayout ?: return@InAppFloatingPlayer
+                        val lp = root.layoutParams as? WindowManager.LayoutParams ?: return@InAppFloatingPlayer
+                        val maxX = (resources.displayMetrics.widthPixels - lp.width).coerceAtLeast(0)
+                        val maxY = (resources.displayMetrics.heightPixels - lp.height).coerceAtLeast(0)
+                        lp.x = (lp.x + dx.roundToInt()).coerceIn(0, maxX)
+                        lp.y = (lp.y + dy.roundToInt()).coerceIn(0, maxY)
+                        runCatching { wm.updateViewLayout(root, lp) }
                     }
-                }
-
-                override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
-
-                override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-                    try {
-                        val pos = NativeVideoPlaybackManager.currentPositionMs()
-                        VideoPlaybackSessionManager.updatePosition(pos)
-                        VideoPlaybackSessionManager.updatePlaying(NativeVideoPlaybackManager.isPlaying())
-                        NativeVideoPlaybackManager.detachSurface()
-                    } catch (_: Exception) {}
-                    try { currentSurface?.release() } catch (_: Exception) {}
-                    currentSurface = null
-                    return true
-                }
-
-                override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
-            }
-        }
-        root.addView(tv)
-        textureView = tv
-
-        // 3. Floating Overlay Controls Container (Figure 1 UI Match)
-        val controls = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            setBackgroundColor(0x70000000.toInt())
-        }
-
-        // 3.1 Top Header Bar (Only Close button on top-right, clean and minimal)
-        val topBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL or Gravity.END
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                (42 * density).toInt()
-            ).apply {
-                gravity = Gravity.TOP
-            }
-            setPadding((12 * density).toInt(), 0, (8 * density).toInt(), 0)
-            setBackgroundColor(0x88000000.toInt())
-        }
-
-        // Close Button (Only X button retained)
-        val closeBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-            setBackgroundColor(Color.TRANSPARENT)
-            background = null
-            setColorFilter(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt())
-            setOnClickListener {
-                val position = try { NativeVideoPlaybackManager.currentPositionMs().toDouble() / 1000.0 } catch (e: Exception) { FloatingVideoPlayerComponent.lastPlaybackPositionSeconds }
-                closeFloatingWindowOrResumeBrowser(position)
-            }
-        }
-        topBar.addView(closeBtn)
-        controls.addView(topBar)
-
-        // 3.4 Center Controls (Rewind 10s, Enlarged Play/Pause, Forward 10s)
-        val centerBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.CENTER
+                )
             }
         }
 
-        val rewBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_media_rew)
-            setBackgroundColor(Color.TRANSPARENT)
-            setColorFilter(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt())
-            setOnClickListener {
-                try {
-                    val pos = max(0L, NativeVideoPlaybackManager.currentPositionMs() - 10000L)
-                    NativeVideoPlaybackManager.seekTo(pos)
-                    currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                } catch (_: Exception) {}
-                resetHideTimer()
-            }
-        }
-        centerBar.addView(rewBtn)
-
-        // Play/Pause button (Clean icon without circle background)
-        val playBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_media_pause)
-            setBackgroundColor(Color.TRANSPARENT)
-            background = null
-            setColorFilter(Color.WHITE)
-            setPadding(0, 0, 0, 0)
-            layoutParams = LinearLayout.LayoutParams((46 * density).toInt(), (46 * density).toInt()).apply {
-                setMargins((16 * density).toInt(), 0, (16 * density).toInt(), 0)
-            }
-            setOnClickListener {
-                try {
-                    if (NativeVideoPlaybackManager.isPlaying()) {
-                        NativeVideoPlaybackManager.pause()
-                        isPlaying = false
-                        setImageResource(android.R.drawable.ic_media_play)
-                    } else {
-                        NativeVideoPlaybackManager.play()
-                        isPlaying = true
-                        setImageResource(android.R.drawable.ic_media_pause)
-                    }
-                } catch (_: Exception) {}
-                resetHideTimer()
-            }
-        }
-        playPauseBtn = playBtn
-        centerBar.addView(playBtn)
-
-        val ffBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_media_ff)
-            setBackgroundColor(Color.TRANSPARENT)
-            setColorFilter(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt())
-            setOnClickListener {
-                try {
-                    val pos = (NativeVideoPlaybackManager.currentPositionMs() + 10000L)
-                        .coerceAtMost(NativeVideoPlaybackManager.durationMs().coerceAtLeast(0L))
-                    NativeVideoPlaybackManager.seekTo(pos)
-                    currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                } catch (_: Exception) {}
-                resetHideTimer()
-            }
-        }
-        centerBar.addView(ffBtn)
-        controls.addView(centerBar)
-
-        // 3.5 Bottom Bar: thin real-time progress line + time + return-to-tab
-        val bottomBar = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                (28 * density).toInt()
-            ).apply { gravity = Gravity.BOTTOM }
-            setBackgroundColor(0x66000000)
-        }
-
-        val progressTrack = View(this).apply {
-            setBackgroundColor(0x66FFFFFF)
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                (2 * density).toInt()
-            ).apply {
-                gravity = Gravity.TOP
-                leftMargin = (8 * density).toInt()
-                rightMargin = (8 * density).toInt()
-            }
-        }
-        progressTrack.setOnTouchListener { view, event ->
-            if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE || event.action == MotionEvent.ACTION_UP) {
-                val width = view.width.coerceAtLeast(1)
-                val ratio = (event.x / width.toFloat()).coerceIn(0f, 1f)
-                val position = (durationMs * ratio).toInt().toLong().coerceAtLeast(0L)
-                NativeVideoPlaybackManager.seekTo(position)
-                currentPositionMs = position.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                VideoPlaybackSessionManager.updatePosition(position)
-                timeTv?.text = formatTime(currentPositionMs) + "/" + formatTime(durationMs)
-                true
-            } else {
-                false
-            }
-        }
-        bottomBar.addView(progressTrack)
-
-        val progressFill = View(this).apply {
-            setBackgroundColor(0xFFFF3030.toInt())
-            layoutParams = FrameLayout.LayoutParams(
-                0,
-                (2 * density).toInt()
-            ).apply { gravity = Gravity.TOP }
-        }
-        bottomBar.addView(progressFill)
-
-        val timeTv = TextView(this).apply {
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 10f
-            text = "0:00/0:00"
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding((8 * density).toInt(), 0, 0, 0)
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            ).apply { gravity = Gravity.START or Gravity.BOTTOM }
-        }
-        this@FloatingPlayerService.timeTv = timeTv
-        this@FloatingPlayerService.progressTrack = progressTrack
-        this@FloatingPlayerService.progressFill = progressFill
-        bottomBar.addView(timeTv)
-
-        controls.addView(bottomBar)
-
-        root.addView(controls)
-        controlsLayout = controls
-
-        // 3.6 Lock Overlay (Shown when screen lock is active)
-        val lockOv = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            visibility = View.GONE
-        }
-        val unlockBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_lock_closed)
-            setBackgroundColor(Color.TRANSPARENT)
-            background = null
-            setColorFilter(0xFF38BDF8.toInt())
-            setPadding(0, 0, 0, 0)
-            layoutParams = FrameLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt()).apply {
-                gravity = Gravity.CENTER_VERTICAL or Gravity.START
-                marginStart = (12 * density).toInt()
-            }
-            setOnClickListener {
-                isLocked = false
-                lockOverlay?.visibility = View.GONE
-                showControls()
-            }
-        }
-        lockOv.addView(unlockBtn)
-        root.addView(lockOv)
-        lockOverlay = lockOv
-
-        // 3.7 UC-Style Subtle Corner Resize Gripper (Bottom-Right Corner)
-        var resizeInitialW = 0
-        var resizeTouchX = 0f
-        var isResizeDragging = false
-        var currentSizePresetIndex = 0
-        val sizePresetsDp = floatArrayOf(300f, 360f, 240f)
-
-        val resizeBtn = FrameLayout(this).apply {
-            val sizePx = (32 * density).toInt()
-            layoutParams = FrameLayout.LayoutParams(sizePx, sizePx).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-            }
-            background = null
-
-            val iconIv = ImageView(this@FloatingPlayerService).apply {
-                setImageResource(R.drawable.ic_resize_corner)
-                setColorFilter(0xB3FFFFFF.toInt())
-                val iconSize = (10 * density).toInt()
-                val m = (3 * density).toInt()
-                layoutParams = FrameLayout.LayoutParams(iconSize, iconSize).apply {
-                    gravity = Gravity.BOTTOM or Gravity.END
-                    setMargins(0, 0, m, m)
-                }
-            }
-            addView(iconIv)
-        }
-
-        resizeBtn.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    resizeInitialW = params.width
-                    resizeTouchX = event.rawX
-                    isResizeDragging = false
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - resizeTouchX
-                    if (Math.abs(dx) > 6) {
-                        isResizeDragging = true
-                        val screenW = resources.displayMetrics.widthPixels
-                        val screenH = resources.displayMetrics.heightPixels
-                        val minW = (180 * density).toInt()
-                        val maxW = (screenW - params.x).coerceAtLeast(minW)
-                        val minH = (110 * density).toInt()
-                        val maxH = (screenH - params.y).coerceAtLeast(minH)
-
-                        val (newW, newH) = sizeForRatio(
-                            (resizeInitialW + dx).toInt(), minW, maxW, minH, maxH
-                        )
-                        params.width = newW
-                        params.height = newH
-                        windowManager?.updateViewLayout(root, params)
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (!isResizeDragging) {
-                        currentSizePresetIndex = (currentSizePresetIndex + 1) % sizePresetsDp.size
-                        val targetWDp = sizePresetsDp[currentSizePresetIndex]
-                        val screenW = resources.displayMetrics.widthPixels
-                        val (targetW, targetH) = sizeForRatio(
-                            (targetWDp * density).toInt(),
-                            (180 * density).toInt(),
-                            (screenW - params.x).coerceAtLeast((180 * density).toInt()),
-                            (110 * density).toInt(),
-                            (resources.displayMetrics.heightPixels - params.y).coerceAtLeast((110 * density).toInt())
-                        )
-                        params.width = targetW
-                        params.height = targetH
-                        windowManager?.updateViewLayout(root, params)
-                    }
-                    true
-                }
-                else -> false
-            }
-        }
-        root.addView(resizeBtn)
-
-        rootLayout = root
-
-        // 4. Ultra-Smooth Touch & Drag Handling (Fixes any stutter / lag when moving)
-        var initialX = 0
-        var initialY = 0
-        var initialTouchX = 0f
-        var initialTouchY = 0f
-        var isDragging = false
-
-        val touchListener = View.OnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    initialX = params.x
-                    initialY = params.y
-                    initialTouchX = event.rawX
-                    initialTouchY = event.rawY
-                    isDragging = false
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - initialTouchX
-                    val dy = event.rawY - initialTouchY
-                    if (dx * dx + dy * dy > 16) {
-                        isDragging = true
-                        val screenW = resources.displayMetrics.widthPixels
-                        val screenH = resources.displayMetrics.heightPixels
-                        val maxX = (screenW - params.width).coerceAtLeast(0)
-                        val maxY = (screenH - params.height).coerceAtLeast(0)
-                        params.x = (initialX + dx).toInt().coerceIn(0, maxX)
-                        params.y = (initialY + dy).toInt().coerceIn(0, maxY)
-                        windowManager?.updateViewLayout(root, params)
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (isDragging) {
-                        snapToNearestEdge(root, params)
-                    }
-                    if (!isDragging) {
-                        if (isLocked) {
-                            lockOverlay?.let { lo ->
-                                lo.visibility = if (lo.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-                            }
-                        } else {
-                            toggleControls()
-                        }
-                    }
-                    true
-                }
-                else -> false
-            }
-        }
-
-        root.setOnTouchListener(touchListener)
-        controls.setOnTouchListener(touchListener)
-        lockOv.setOnTouchListener(touchListener)
+        rootLayout = compose
+        composeView = compose
+        composeLifecycleOwner = owner
 
         try {
-            windowManager?.addView(root, params)
-            handler.post(progressUpdater)
-            resetHideTimer()
+            windowManager?.addView(compose, params)
         } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun snapToNearestEdge(root: View, params: WindowManager.LayoutParams) {
-        val wm = windowManager ?: return
-        val screenW = resources.displayMetrics.widthPixels
-        val screenH = resources.displayMetrics.heightPixels
-        val margin = (8 * resources.displayMetrics.density).toInt()
-        val maxX = (screenW - params.width - margin).coerceAtLeast(margin)
-        val maxY = (screenH - params.height - margin).coerceAtLeast(margin)
-        val left = margin
-        val right = maxX
-        val top = margin
-        val bottom = maxY
-        val distances = intArrayOf(
-            params.x - left,
-            right - params.x,
-            params.y - top,
-            bottom - params.y
-        )
-        when (distances.indices.minByOrNull { distances[it] }) {
-            0 -> params.x = left
-            1 -> params.x = right
-            2 -> params.y = top
-            3 -> params.y = bottom
-        }
-        params.x = params.x.coerceIn(left, right)
-        params.y = params.y.coerceIn(top, bottom)
-        try { wm.updateViewLayout(root, params) } catch (_: Exception) {}
-    }
-
-    private fun showLockOverlay() {
-        lockOverlay?.visibility = View.VISIBLE
-    }
-
-    private fun toggleControls() {
-        if (areControlsVisible) {
-            hideControls()
-        } else {
-            showControls()
-        }
-    }
-
-    private fun showControls() {
-        controlsLayout?.visibility = View.VISIBLE
-        areControlsVisible = true
-        resetHideTimer()
-    }
-
-    private fun hideControls() {
-        controlsLayout?.visibility = View.GONE
-        areControlsVisible = false
-    }
-
-    private fun resetHideTimer() {
-        handler.removeCallbacks(hideControlsRunnable)
-        if (isPlaying && !isLocked) {
-            handler.postDelayed(hideControlsRunnable, 3500)
+            composeLifecycleOwner?.destroy()
+            composeLifecycleOwner = null
+            composeView = null
+            rootLayout = null
+            throw e
         }
     }
 
@@ -853,7 +412,6 @@ class FloatingPlayerService : MediaSessionService() {
 
     private fun removeFloatingWindow() {
         try {
-            handler.removeCallbacks(progressUpdater)
             handler.removeCallbacks(hideControlsRunnable)
             try {
                 FloatingVideoPlayerComponent.syncProgress(
@@ -867,10 +425,10 @@ class FloatingPlayerService : MediaSessionService() {
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
+            composeLifecycleOwner?.destroy()
+            composeLifecycleOwner = null
+            composeView = null
             rootLayout = null
-            textureView = null
-            controlsLayout = null
-            lockOverlay = null
         }
     }
 
