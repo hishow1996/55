@@ -50,6 +50,8 @@ class FloatingPlayerService : MediaSessionService() {
     private var playPauseBtn: ImageButton? = null
     private var timeTv: TextView? = null
     private var seekBar: SeekBar? = null
+    private var progressTrack: View? = null
+    private var progressFill: View? = null
 
     private var videoUrl: String = ""
     private var videoTitle: String = "网页视频"
@@ -137,7 +139,14 @@ class FloatingPlayerService : MediaSessionService() {
                 FloatingVideoPlayerComponent.syncProgress(cur / 1000.0)
                 seekBar?.max = durationMs
                 seekBar?.progress = currentPositionMs
-                timeTv?.text = "${formatTime(currentPositionMs)} / ${formatTime(durationMs)}"
+                timeTv?.text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}"
+                val ratio = if (durationMs > 0) (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+                progressFill?.let { fill ->
+                    fill.layoutParams = (fill.layoutParams as FrameLayout.LayoutParams).apply {
+                        width = (progressTrack?.width ?: 0).let { (it * ratio).toInt() }
+                    }
+                    fill.requestLayout()
+                }
                 isPlaying = NativeVideoPlaybackManager.isPlaying()
             } catch (_: Exception) {}
             handler.postDelayed(this, 500)
@@ -497,67 +506,80 @@ class FloatingPlayerService : MediaSessionService() {
         centerBar.addView(ffBtn)
         controls.addView(centerBar)
 
-        // 3.5 Bottom Bar (Time, SeekBar, Return to Tab button)
-        val bottomBar = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        // 3.5 Bottom Bar: time above a thin red live-progress line.
+        // This design belongs exclusively to the global desktop floating window.
+        val bottomBar = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
+                (30 * density).toInt()
             ).apply {
                 gravity = Gravity.BOTTOM
             }
             setBackgroundColor(0x88000000.toInt())
-            setPadding((8 * density).toInt(), (2 * density).toInt(), (24 * density).toInt(), (4 * density).toInt())
-        }
-
-        val sk = SeekBar(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser) {
-                        timeTv?.text = "${formatTime(progress)} / ${formatTime(durationMs)}"
-                    }
-                }
-                override fun onStartTrackingTouch(sb: SeekBar?) {
-                    handler.removeCallbacks(hideControlsRunnable)
-                }
-                override fun onStopTrackingTouch(sb: SeekBar?) {
-                    sb?.progress?.let { pos ->
-                        NativeVideoPlaybackManager.seekTo(pos.toLong())
-                        currentPositionMs = pos
-                        VideoPlaybackSessionManager.updatePosition(pos.toLong())
-                    }
-                    resetHideTimer()
-                }
-            })
-        }
-        seekBar = sk
-        bottomBar.addView(sk)
-
-        val bottomRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            setPadding((8 * density).toInt(), 0, (8 * density).toInt(), 0)
         }
 
         val tTv = TextView(this).apply {
-            text = "00:00 / 00:00"
+            text = "0:00/0:00"
             setTextColor(Color.WHITE)
             textSize = 10f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            gravity = Gravity.BOTTOM
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                (18 * density).toInt()
+            ).apply {
+                gravity = Gravity.START or Gravity.BOTTOM
+                bottomMargin = (4 * density).toInt()
+            }
         }
         timeTv = tTv
-        bottomRow.addView(tTv)
-        bottomBar.addView(bottomRow)
+        bottomBar.addView(tTv)
+
+        val track = View(this).apply {
+            setBackgroundColor(0x55FFFFFF.toInt())
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                (2 * density).toInt()
+            ).apply {
+                gravity = Gravity.BOTTOM
+            }
+        }
+        progressTrack = track
+        bottomBar.addView(track)
+
+        val fill = View(this).apply {
+            setBackgroundColor(Color.RED)
+            layoutParams = FrameLayout.LayoutParams(
+                0,
+                (2 * density).toInt()
+            ).apply {
+                gravity = Gravity.START or Gravity.BOTTOM
+            }
+        }
+        progressFill = fill
+        bottomBar.addView(fill)
+
+        // Keep seeking on the same thin progress line: tapping or dragging the
+        // bottom area moves the shared Media3 player without changing its owner.
+        bottomBar.setOnTouchListener { _, event ->
+            val duration = durationMs
+            if (duration <= 0 || bottomBar.width <= 0) return@setOnTouchListener true
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
+                    val ratio = (event.x / bottomBar.width.toFloat()).coerceIn(0f, 1f)
+                    val target = (duration * ratio).toLong()
+                    if (event.actionMasked != MotionEvent.ACTION_MOVE || !isLocked) {
+                        NativeVideoPlaybackManager.seekTo(target)
+                        currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                        VideoPlaybackSessionManager.updatePosition(target)
+                        timeTv?.text = "\${formatTime(currentPositionMs)}/\${formatTime(duration)}"
+                    }
+                    if (event.actionMasked == MotionEvent.ACTION_UP) resetHideTimer()
+                    true
+                }
+                else -> true
+            }
+        }
         controls.addView(bottomBar)
 
         root.addView(controls)
