@@ -16,26 +16,26 @@ object KiwiExtensionApi {
           chrome.runtime.id=id;
           chrome.runtime.getURL=function(p){return root+p;};
           chrome.runtime.getManifest=function(){try{return JSON.parse(bridge.getManifest(id))}catch(e){return {}}};
-          chrome.runtime.sendMessage=function(m,c){try{var r=bridge.sendMessage(id,JSON.stringify(m));if(c)c(r?JSON.parse(r):undefined)}catch(e){if(c)c(undefined)}};
+          chrome.runtime.sendMessage=function(m,c){return new Promise(function(resolve){try{var r=bridge.sendMessage(id,JSON.stringify(m));var v=r?JSON.parse(r):undefined;if(c)c(v);resolve(v)}catch(e){if(c)c(undefined);resolve(undefined)}})};
           chrome.runtime.onMessage=chrome.runtime.onMessage||event();
           chrome.runtime.onInstalled=chrome.runtime.onInstalled||event();
           chrome.runtime.onStartup=chrome.runtime.onStartup||event();
           chrome.runtime.lastError=undefined;
           chrome.storage=chrome.storage||{};
           chrome.storage.local={
-            get:function(k,c){try{var r=bridge.storageGet(id,typeof k==='string'?k:null);if(c)c(r?JSON.parse(r):{})}catch(e){if(c)c({})}},
-            set:function(v,c){try{bridge.storageSet(id,JSON.stringify(v||{}));if(c)c()}catch(e){if(c)c()}},
-            remove:function(k,c){try{bridge.storageRemove(id,k);if(c)c()}catch(e){if(c)c()}},
-            clear:function(c){try{bridge.storageClear(id);if(c)c()}catch(e){if(c)c()}}
+            get:function(k,c){return new Promise(function(resolve){try{var v=JSON.parse(bridge.storageGet(id,typeof k==='string'?k:null)||'{}');if(c)c(v);resolve(v)}catch(e){if(c)c({});resolve({})}})},
+            set:function(v,c){return new Promise(function(resolve){try{bridge.storageSet(id,JSON.stringify(v||{}));if(c)c();resolve()}catch(e){if(c)c();resolve()}})},
+            remove:function(k,c){return new Promise(function(resolve){try{bridge.storageRemove(id,k);if(c)c();resolve()}catch(e){if(c)c();resolve()}})},
+            clear:function(c){return new Promise(function(resolve){try{bridge.storageClear(id);if(c)c();resolve()}catch(e){if(c)c();resolve()}})}
           };
           window.__elephantRuntimeOnMessage=function(m,s,r){chrome.runtime.onMessage.dispatch(m,s,r)};
           window.__elephantRuntimeOnInstalled=function(d){chrome.runtime.onInstalled.dispatch(d)};
           window.__elephantRuntimeOnStartup=function(){chrome.runtime.onStartup.dispatch()};
           chrome.tabs=chrome.tabs||{};
-          chrome.tabs.query=function(q,c){try{var r=bridge.tabsQuery(JSON.stringify(q||{}));if(c)c(r?JSON.parse(r):[])}catch(e){if(c)c([])}};
-          chrome.tabs.sendMessage=function(t,m,c){try{var r=bridge.tabsSendMessage(id,t,JSON.stringify(m));if(c)c(r?JSON.parse(r):undefined)}catch(e){if(c)c(undefined)}};
-          chrome.tabs.update=function(t,p,c){try{var r=bridge.tabsUpdate(id,t,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):undefined)}catch(e){if(c)c(undefined)}};
-          chrome.tabs.create=function(p,c){try{var r=bridge.tabsCreate(id,JSON.stringify(p||{}));if(c)c(r?JSON.parse(r):undefined)}catch(e){if(c)c(undefined)}};
+          chrome.tabs.query=function(q,c){return new Promise(function(resolve){try{var v=JSON.parse(bridge.tabsQuery(JSON.stringify(q||{}))||'[]');if(c)c(v);resolve(v)}catch(e){if(c)c([]);resolve([])}})};
+          chrome.tabs.sendMessage=function(t,m,c){return new Promise(function(resolve){try{var v=JSON.parse(bridge.tabsSendMessage(id,t,JSON.stringify(m))||'null');if(c)c(v);resolve(v)}catch(e){if(c)c(undefined);resolve(undefined)}})};
+          chrome.tabs.update=function(t,p,c){return new Promise(function(resolve){try{var v=JSON.parse(bridge.tabsUpdate(id,t,JSON.stringify(p||{}))||'null');if(c)c(v);resolve(v)}catch(e){if(c)c(undefined);resolve(undefined)}})};
+          chrome.tabs.create=function(p,c){return new Promise(function(resolve){try{var v=JSON.parse(bridge.tabsCreate(id,JSON.stringify(p||{}))||'null');if(c)c(v);resolve(v)}catch(e){if(c)c(undefined);resolve(undefined)}})};
           chrome.tabs.remove=function(t,c){try{var r=bridge.tabsRemove(id,t);if(c)c(r?JSON.parse(r):undefined)}catch(e){if(c)c()}};
           chrome.tabs.onCreated=chrome.tabs.onCreated||event();
           chrome.tabs.onUpdated=chrome.tabs.onUpdated||event();
@@ -45,7 +45,7 @@ object KiwiExtensionApi {
           window.__elephantTabsUpdated=function(t,c,i){chrome.tabs.onUpdated.dispatch(t,c,i)};
           window.__elephantTabsActivated=function(i){chrome.tabs.onActivated.dispatch({tabId:i})};
           chrome.scripting=chrome.scripting||{};
-          chrome.scripting.executeScript=function(o,c){try{var r=bridge.executeScript(id,JSON.stringify(o||{}));if(c)c(r?JSON.parse(r):[])}catch(e){if(c)c([])}};
+          chrome.scripting.executeScript=function(o,c){return new Promise(function(resolve){try{var v=JSON.parse(bridge.executeScript(id,JSON.stringify(o||{}))||'[]');if(c)c(v);resolve(v)}catch(e){if(c)c([]);resolve([])}})};
           chrome.windows=chrome.windows||{};
           chrome.windows.getCurrent=function(c){try{var r=bridge.windowsGetCurrent(id);if(c)c(r?JSON.parse(r):{})}catch(e){if(c)c({id:1,type:'normal'})}};
           chrome.windows.getLastFocused=chrome.windows.getCurrent;
