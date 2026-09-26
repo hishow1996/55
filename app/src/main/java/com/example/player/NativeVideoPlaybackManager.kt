@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.Surface
 import android.os.Looper
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.model.VideoMediaInfo
 
@@ -20,6 +21,7 @@ object NativeVideoPlaybackManager {
     private var controller: Media3VideoPlayerController? = null
     private var activeSessionId: String? = null
     private var listenerInstalled = false
+    private var playbackErrorListener: ((PlaybackException) -> Unit)? = null
 
     @Synchronized
     fun start(context: Context, video: VideoMediaInfo, autoPlay: Boolean = true): Boolean {
@@ -61,6 +63,12 @@ object NativeVideoPlaybackManager {
                     if (playbackState == Player.STATE_READY) {
                         VideoPlaybackSessionManager.updateDuration(created.durationMs())
                     }
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    VideoPlaybackSessionManager.updatePosition(created.currentPositionMs())
+                    VideoPlaybackSessionManager.updatePlaying(false)
+                    playbackErrorListener?.invoke(error)
                 }
             })
             listenerInstalled = true
@@ -136,12 +144,19 @@ object NativeVideoPlaybackManager {
     }
 
     @Synchronized
+    fun setPlaybackErrorListener(listener: ((PlaybackException) -> Unit)?) {
+        assertMainThread()
+        playbackErrorListener = listener
+    }
+
+    @Synchronized
     fun release() {
         assertMainThread()
         controller?.release()
         controller = null
         activeSessionId = null
         listenerInstalled = false
+        playbackErrorListener = null
         VideoPlaybackSessionManager.clear()
     }
 }
