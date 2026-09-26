@@ -36,6 +36,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import java.util.Locale
 import kotlin.math.max
+import org.json.JSONObject
 
 class FloatingPlayerService : MediaSessionService() {
 
@@ -60,6 +61,9 @@ class FloatingPlayerService : MediaSessionService() {
 
     private var requestedShouldPlay: Boolean = true
     private var requestedPlaybackRate: Float = 1.0f
+    private var drmScheme: String? = null
+    private var drmLicenseUri: String? = null
+    private var drmLicenseHeaders: Map<String, String> = emptyMap()
 
     private val handler = Handler(Looper.getMainLooper())
     private var isPlaying = true
@@ -179,6 +183,19 @@ class FloatingPlayerService : MediaSessionService() {
         initialPositionMs = intent.getLongExtra(EXTRA_VIDEO_POSITION, 0L)
         requestedShouldPlay = intent.getBooleanExtra(EXTRA_VIDEO_SHOULD_PLAY, true)
         requestedPlaybackRate = intent.getFloatExtra(EXTRA_VIDEO_PLAYBACK_RATE, 1.0f).coerceIn(0.25f, 4.0f)
+        drmScheme = intent.getStringExtra(EXTRA_DRM_SCHEME)?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
+        drmLicenseUri = intent.getStringExtra(EXTRA_DRM_LICENSE_URI)?.trim()?.takeIf { it.isNotBlank() }
+        drmLicenseHeaders = runCatching {
+            val raw = intent.getStringExtra(EXTRA_DRM_LICENSE_HEADERS).orEmpty()
+            if (raw.isBlank()) emptyMap() else {
+                val json = JSONObject(raw)
+                buildMap {
+                    json.keys().forEach { key ->
+                        json.optString(key).takeIf { it.isNotBlank() }?.let { put(key, it) }
+                    }
+                }
+            }
+        }.getOrDefault(emptyMap())
         originTabIndex = intent.getIntExtra(EXTRA_ORIGIN_TAB_INDEX, 0)
         originTabId = intent.getStringExtra(EXTRA_ORIGIN_TAB_ID)
         sourcePageUrl = intent.getStringExtra(EXTRA_VIDEO_PAGE_URL) ?: ""
@@ -197,7 +214,10 @@ class FloatingPlayerService : MediaSessionService() {
                     videoWidth = (videoRatio * 1000).toInt().coerceAtLeast(1),
                     videoHeight = 1000,
                     originTabIndex = originTabIndex,
-                    originTabId = originTabId
+                    originTabId = originTabId,
+                    drmScheme = drmScheme,
+                    drmLicenseUri = drmLicenseUri,
+                    drmLicenseHeaders = drmLicenseHeaders
                 )
             )
         } else null
@@ -238,7 +258,10 @@ class FloatingPlayerService : MediaSessionService() {
                 videoHeight = 1000,
                 originTabIndex = originTabIndex,
                 originTabId = originTabId,
-                isPlaying = isPlaying
+                isPlaying = isPlaying,
+                drmScheme = drmScheme,
+                drmLicenseUri = drmLicenseUri,
+                drmLicenseHeaders = drmLicenseHeaders
             )
             val started = try {
                 NativeVideoPlaybackManager.start(this, nativeInfo, autoPlay = isPlaying)
@@ -881,5 +904,8 @@ class FloatingPlayerService : MediaSessionService() {
         const val EXTRA_VIDEO_PAGE_URL = "extra_video_page_url"
         const val EXTRA_VIDEO_SHOULD_PLAY = "extra_video_should_play"
         const val EXTRA_VIDEO_PLAYBACK_RATE = "extra_video_playback_rate"
+        const val EXTRA_DRM_SCHEME = "extra_drm_scheme"
+        const val EXTRA_DRM_LICENSE_URI = "extra_drm_license_uri"
+        const val EXTRA_DRM_LICENSE_HEADERS = "extra_drm_license_headers"
     }
 }
