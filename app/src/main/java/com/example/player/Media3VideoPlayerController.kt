@@ -3,7 +3,6 @@ package com.example.player
 import android.content.Context
 import android.view.Surface
 import androidx.media3.common.AudioAttributes
-import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
