@@ -792,20 +792,62 @@ object Scripts {
     val DESKTOP_MODE_INJECT = """
         (function() {
             try {
-                if (window.screen) {
-                    try { Object.defineProperty(window.screen, 'width', { get: () => 1920 }); } catch(e){}
-                    try { Object.defineProperty(window.screen, 'height', { get: () => 1080 }); } catch(e){}
-                    try { Object.defineProperty(window.screen, 'availWidth', { get: () => 1920 }); } catch(e){}
-                    try { Object.defineProperty(window.screen, 'availHeight', { get: () => 1040 }); } catch(e){}
-                }
+                // Do not spoof screen.width/height. The previous 1920x1080
+                // override made the page see a desktop-sized screen while the
+                // actual WebView visual viewport was still phone-sized. Sites
+                // that combine screen metrics with CSS breakpoints could then
+                // choose incompatible layouts and stack controls/columns.
                 if (navigator) {
                     try { Object.defineProperty(navigator, 'platform', { get: () => 'Win32' }); } catch(e){}
                     try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 0 }); } catch(e){}
                 }
-                // If a mobile-restricting viewport exists, widen it to standard desktop 1280
-                const meta = document.querySelector('meta[name="viewport"]');
-                if (meta) {
-                    meta.setAttribute('content', 'width=1280, initial-scale=0.25, maximum-scale=3.0, user-scalable=yes');
+
+                // Chrome Android desktop mode uses a wide virtual viewport.
+                // WebView needs the viewport meta tag to be widened explicitly
+                // on pages that declare width=device-width. Use at least the
+                // Chromium desktop baseline of 980 CSS px, while allowing
+                // genuinely wider displays to use their real CSS width.
+                const desktopViewportWidth = Math.max(
+                    980,
+                    Math.round(Number(window.screen && window.screen.width) || 980)
+                );
+
+                function forceDesktopViewport() {
+                    try {
+                        const head = document.head || document.documentElement;
+                        if (!head) return;
+
+                        let meta = document.querySelector('meta[name="viewport"]');
+                        if (!meta) {
+                            meta = document.createElement('meta');
+                            meta.name = 'viewport';
+                            head.appendChild(meta);
+                        }
+
+                        const desired = 'width=' + desktopViewportWidth +
+                            ', initial-scale=1, user-scalable=yes';
+                        if (meta.getAttribute('content') !== desired) {
+                            meta.setAttribute('content', desired);
+                        }
+                    } catch(e) {}
+                }
+
+                forceDesktopViewport();
+
+                // Some modern sites recreate/replace their viewport meta tag
+                // after the initial document load. Keep the desktop viewport
+                // stable instead of falling back to device-width mid-render.
+                if (window._elephantDesktopViewportObserver) {
+                    try { window._elephantDesktopViewportObserver.disconnect(); } catch(e) {}
+                }
+                if (window.MutationObserver) {
+                    window._elephantDesktopViewportObserver = new MutationObserver(function() {
+                        forceDesktopViewport();
+                    });
+                    window._elephantDesktopViewportObserver.observe(
+                        document.documentElement || document,
+                        { childList: true, subtree: true }
+                    );
                 }
             } catch(e) {}
         })();
