@@ -101,7 +101,7 @@ class FloatingPlayerService : MediaSessionService() {
 
         super.onCreate()
         NativeVideoPlaybackManager.ensureMediaSession(this)
-        startForegroundServiceNotification()
+        // MediaSessionService supplies the media notification for this service.
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
