@@ -8,6 +8,7 @@ import android.webkit.WebView
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.BrowserRepository
+import com.example.data.BrowserSessionStore
 import com.example.download.ElephantDownloadManager
 import com.example.engine.Scripts
 import com.example.model.BookmarkItem
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
     val repository = BrowserRepository(application)
+    val sessionStore = BrowserSessionStore(application)
     val downloadManager = ElephantDownloadManager(application)
 
     data class PendingDownload(
@@ -33,13 +35,17 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val contentLength: Long
     )
 
-    // Current open tabs
-    private val _tabs = MutableStateFlow<List<BrowserTab>>(
-        listOf(BrowserTab(url = "", title = "大象浏览器"))
+    // Current open tabs. Restore non-incognito session metadata after process death;
+    // WebViews are recreated lazily by the UI and reload the persisted URL.
+    private val restoredSession = sessionStore.loadTabs()
+    private val _tabs = MutableStateFlow(
+        restoredSession.first.ifEmpty { listOf(BrowserTab(url = "", title = "大象浏览器")) }
     )
     val tabs: StateFlow<List<BrowserTab>> = _tabs.asStateFlow()
 
-    private val _currentTabIndex = MutableStateFlow(0)
+    private val _currentTabIndex = MutableStateFlow(
+        restoredSession.second.coerceIn(0, maxOf(0, _tabs.value.lastIndex))
+    )
     val currentTabIndex: StateFlow<Int> = _currentTabIndex.asStateFlow()
 
     val currentTab: BrowserTab
@@ -186,6 +192,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     override fun onCleared() {
+        persistSession()
         tabWebViews.clear()
         extensionTabMap.clear()
         pendingWebVideoResume = null
@@ -280,6 +287,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _urlInput.value = input
     }
 
+    private fun persistSession() {
+        sessionStore.saveTabs(_tabs.value, _currentTabIndex.value)
+    }
+
     fun updateCurrentTab(transform: (BrowserTab) -> BrowserTab) {
         val currentIndex = _currentTabIndex.value
         val list = _tabs.value
@@ -287,6 +298,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             _tabs.value = list.mapIndexed { idx, tab ->
                 if (idx == currentIndex) transform(tab) else tab
             }
+            persistSession()
         }
     }
 
@@ -441,6 +453,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             _urlInput.value = url
             activeWebView = tabWebViews[newTab.id]
         }
+        persistSession()
+        }
     }
 
     fun updateExtensionTab(extensionTabId: Int, url: String?) {
@@ -504,6 +518,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             _currentTabIndex.value = index
             _urlInput.value = _tabs.value[index].url
             repository.extensionManager.setPageActive(_tabs.value[index].id)
+            persistSession()
             _isTabManagerVisible.value = false
         }
     }
@@ -513,6 +528,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         if (index !in currentList.indices) return
 
         val closingTab = currentList[index]
+        sessionStore.addRecentlyClosed(closingTab)
         val closedVideo = _detectedVideo.value
         val session = VideoPlaybackSessionManager.current()
         val closingOwnsVideo = (closedVideo?.originTabId == closingTab.id) ||
@@ -585,6 +601,17 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _currentTabIndex.value = newIndex
         _urlInput.value = currentList[newIndex].url
         activeWebView = tabWebViews[currentList[newIndex].id]
+        persistSession()
+    }
+
+    fun restoreRecentlyClosedTab() {
+        val restored = sessionStore.popRecentlyClosed() ?: return
+        val list = _tabs.value + restored
+        _tabs.value = list
+        _currentTabIndex.value = list.lastIndex
+        _urlInput.value = restored.url
+        _isTabManagerVisible.value = false
+        persistSession()
     }
 
     fun closeTab(tab: BrowserTab) {
