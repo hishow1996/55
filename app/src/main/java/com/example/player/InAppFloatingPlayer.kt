@@ -525,14 +525,14 @@ fun InAppFloatingPlayer(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (isDesktopPiP) 3.dp else 4.dp)
-                    .background(Color.Black.copy(alpha = 0.45f))
+                    .height(2.dp)
+                    .background(Color.Transparent)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(progress)
                         .fillMaxHeight()
-                        .background(Color(0xFFFF1744))
+                        .background(Color.Red)
                 )
             }
         }
