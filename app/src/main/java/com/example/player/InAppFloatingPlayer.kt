@@ -1,5 +1,6 @@
 package com.example.player
 
+import android.content.res.Configuration
 import android.graphics.SurfaceTexture
 import android.view.Surface
 import android.view.TextureView
@@ -61,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -103,6 +105,11 @@ fun InAppFloatingPlayer(
 ) {
     val density = LocalDensity.current
     val context = LocalContext.current
+    // Recompose the fullscreen controls whenever the device rotates. The
+    // Activity handles the configuration change in-place, so Media3/ExoPlayer
+    // and its playback position are not recreated.
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // Video aspect ratio calculation
     // Prefer the dimensions reported by the actual native decoder. WebView
@@ -410,7 +417,7 @@ fun InAppFloatingPlayer(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                            .padding(horizontal = if (isLandscape) 16.dp else 12.dp, vertical = if (isLandscape) 6.dp else 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -511,7 +518,14 @@ fun InAppFloatingPlayer(
                 Row(
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .fillMaxWidth(if (isDesktopPiP) 0.55f else if (isFullscreen) 0.42f else 0.65f),
+                        .fillMaxWidth(
+                        when {
+                            isDesktopPiP -> 0.55f
+                            isFullscreen && isLandscape -> 0.30f
+                            isFullscreen -> 0.42f
+                            else -> 0.65f
+                        }
+                    ),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -526,7 +540,7 @@ fun InAppFloatingPlayer(
                                 currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                             } catch (_: Exception) {}
                         },
-                        modifier = Modifier.size(if (isDesktopPiP) 34.dp else if (isFullscreen) 56.dp else 46.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 34.dp else if (isFullscreen) (if (isLandscape) 50.dp else 56.dp) else 46.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Replay10,
@@ -545,7 +559,7 @@ fun InAppFloatingPlayer(
                                 isPlaying = NativeVideoPlaybackManager.isPlaying()
                             } catch (_: Exception) {}
                         },
-                        modifier = Modifier.size(if (isDesktopPiP) 40.dp else if (isFullscreen) 64.dp else 52.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 40.dp else if (isFullscreen) (if (isLandscape) 58.dp else 64.dp) else 52.dp)
                     ) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -570,7 +584,7 @@ fun InAppFloatingPlayer(
                                 currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                             } catch (_: Exception) {}
                         },
-                        modifier = Modifier.size(if (isDesktopPiP) 32.dp else if (isFullscreen) 56.dp else 42.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 32.dp else if (isFullscreen) (if (isLandscape) 50.dp else 56.dp) else 42.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Forward10,
@@ -587,7 +601,7 @@ fun InAppFloatingPlayer(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .padding(horizontal = if (isLandscape) 18.dp else 14.dp, vertical = if (isLandscape) 6.dp else 10.dp)
                     ) {
                         Text(
                             text = formatTime(currentPositionMs) + " / " + formatTime(durationMs),
@@ -639,7 +653,7 @@ fun InAppFloatingPlayer(
                         shadowElevation = 4.dp,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(bottom = 54.dp)
+                            .padding(bottom = if (isLandscape) 46.dp else 54.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .clickable { onReturnToOriginTab(videoInfo.originTabIndex) }
                     ) {
@@ -665,6 +679,18 @@ fun InAppFloatingPlayer(
                 }
 
             }
+        }
+
+        // When fullscreen is locked, consume touches everywhere except the lock
+        // button below. This remains correct after portrait/landscape rotation.
+        if (isFullscreen && fullscreenLocked) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures { }
+                    }
+            )
         }
 
         // Lock control is intentionally available only in native fullscreen.
