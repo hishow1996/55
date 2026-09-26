@@ -99,15 +99,17 @@ class PinchZoomWebView @JvmOverloads constructor(
             MotionEvent.ACTION_POINTER_DOWN -> {
                 if (event.pointerCount >= 2) {
                     parent?.requestDisallowInterceptTouchEvent(true)
-                    // Start the one-finger pan baseline from the current gesture.
-                    lastPanX = event.getX(event.actionIndex)
-                    lastPanY = event.getY(event.actionIndex)
+                    panStarted = false
+                    // Keep multi-touch owned by the custom detector so native
+                    // WebView zoom cannot run in parallel.
+                    return true
                 }
             }
 
             MotionEvent.ACTION_MOVE -> {
                 if (event.pointerCount >= 2) {
                     parent?.requestDisallowInterceptTouchEvent(true)
+                    return true
                 } else if (!pinchActive && pageZoom > 1.01f && event.pointerCount == 1) {
                     val dx = event.x - lastPanX
                     val dy = event.y - lastPanY
@@ -130,9 +132,9 @@ class PinchZoomWebView @JvmOverloads constructor(
             MotionEvent.ACTION_POINTER_UP -> {
                 // Do not clear pinchActive here: ScaleGestureDetector may still
                 // have one final scale callback before it ends the gesture.
-                if (event.pointerCount <= 2) {
-                    panStarted = false
-                }
+                panStarted = false
+                parent?.requestDisallowInterceptTouchEvent(true)
+                return true
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
