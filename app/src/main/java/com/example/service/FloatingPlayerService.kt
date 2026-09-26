@@ -294,7 +294,6 @@ class FloatingPlayerService : MediaSessionService() {
             setViewCompositionStrategy(
                 androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
             )
-            androidx.lifecycle.setViewTreeLifecycleOwner(this@FloatingPlayerService)
         }
         // The Compose tree must use the dedicated overlay owner, not the Service
         // itself, so its composition has a stable lifecycle and saved-state owner.
