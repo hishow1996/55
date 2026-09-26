@@ -703,7 +703,7 @@ class FloatingPlayerService : MediaSessionService() {
         VideoPlaybackSessionManager.updatePosition((effectivePosition * 1000.0).toLong())
         VideoPlaybackSessionManager.updatePlaying(shouldPlay)
         try { NativeVideoPlaybackManager.stopForUiClose() } catch (_: Exception) {}
-        val shouldResumeWeb = false
+        val shouldResumeWeb = MainActivity.shouldResumeFloatingVideo(originTabIndex, originTabId, sourcePageUrl)
         if (shouldResumeWeb) {
             // Only the original tab/source is unlocked. Other tabs must not have
             // their HTML5 video resumed or altered by closing this global player.
@@ -757,11 +757,18 @@ class FloatingPlayerService : MediaSessionService() {
         }
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (!NativeVideoPlaybackManager.isPlaying()) {
+            stopSelf()
+        }
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         NativeVideoPlaybackManager.setPlaybackErrorListener(null)
-        NativeVideoPlaybackManager.releaseMediaSession()
-        super.onDestroy()
         removeFloatingWindow()
+        NativeVideoPlaybackManager.release()
+        super.onDestroy()
     }
 
     companion object {
