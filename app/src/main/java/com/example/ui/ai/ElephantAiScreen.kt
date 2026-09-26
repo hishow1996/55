@@ -89,7 +89,7 @@ fun ElephantAiScreen(
         mutableStateListOf(
             ChatMessageItem(
                 sender = "ai",
-                text = "你好！我是大象智能 AI 助手。\n\n我拥有广泛的通用专业知识，可以为你解答各类百科常识、协助撰写文章文案、翻译多国语言、编写与调试代码，或者协助你整理灵感与生活规划。\n\n你可以随时向我提问任何问题！"
+                text = "你好，我是大象 AI。有什么想问的？"
             )
         )
     }
@@ -191,7 +191,7 @@ fun ElephantAiScreen(
                         Text(
                             text = "大象 AI 助手",
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             color = textColor
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -202,7 +202,7 @@ fun ElephantAiScreen(
                                 .padding(horizontal = 5.dp, vertical = 1.5.dp)
                         ) {
                             Text(
-                                text = "Gemini 3.5",
+                                text = "Gemini",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = primaryAccent
@@ -210,7 +210,7 @@ fun ElephantAiScreen(
                         }
                     }
                     Text(
-                        text = "通用智能 · 独立问答与创作",
+                        text = "AI 助手",
                         fontSize = 11.sp,
                         color = secondaryText,
                         maxLines = 1,
@@ -253,8 +253,8 @@ fun ElephantAiScreen(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item { Spacer(modifier = Modifier.height(8.dp)) }
 
@@ -284,7 +284,7 @@ fun ElephantAiScreen(
                             Text(
                                 text = "探索大象 AI 的无限可能",
                                 fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = textColor
                             )
                             Spacer(modifier = Modifier.height(4.dp))
@@ -313,7 +313,7 @@ fun ElephantAiScreen(
                             ) {
                                 promptSuggestions.forEach { promptText ->
                                     Surface(
-                                        shape = RoundedCornerShape(18.dp),
+                                        shape = RoundedCornerShape(14.dp),
                                         color = cardBg,
                                         border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
                                         modifier = Modifier
@@ -370,8 +370,7 @@ fun ElephantAiScreen(
                                     RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
                                 },
                                 color = if (isUser) primaryAccent else cardBg,
-                                border = if (!isUser) androidx.compose.foundation.BorderStroke(1.dp, borderColor) else null,
-                                shadowElevation = if (isUser) 0.dp else 1.dp
+                                shadowElevation = 0.dp
                             ) {
                                 Text(
                                     text = msg.text,
@@ -466,7 +465,7 @@ fun ElephantAiScreen(
         // --- BOTTOM INPUT AREA ---
         Surface(
             color = cardBg,
-            shadowElevation = 6.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
