@@ -209,6 +209,15 @@ object NativeVideoPlaybackManager {
         return controller?.rawPlayer()?.playbackState ?: Player.STATE_IDLE
     }
 
+    /** Re-assert playback after fullscreen/orientation transitions without overriding a real user pause. */
+    fun resumeIfNeeded() {
+        assertMainThread()
+        if (playIntent) {
+            controller?.play()
+            VideoPlaybackSessionManager.updatePlaying(true)
+        }
+    }
+
     fun isPlaying(): Boolean {
         assertMainThread()
         return controller?.isPlaying() ?: false
