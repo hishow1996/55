@@ -160,6 +160,7 @@ class BrowserRepository(private val context: Context) {
         return when (_desktopUaType.value) {
             "mac" -> DESKTOP_MAC_UA
             "ipad" -> DESKTOP_IPAD_UA
+            "android" -> MOBILE_USER_AGENT
             "custom" -> _customUserAgent.value.ifBlank { DESKTOP_WINDOWS_UA }
             else -> DESKTOP_WINDOWS_UA
         }
