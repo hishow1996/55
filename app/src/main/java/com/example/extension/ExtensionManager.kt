@@ -94,7 +94,12 @@ class ExtensionManager(
             val root = if (File(temp, "manifest.json").exists()) temp
             else temp.listFiles()?.firstOrNull { File(it, "manifest.json").exists() }
                 ?: error("扩展包中没有 manifest.json")
-            val manifest = ExtensionManifest.parse(File(root, "manifest.json").readText())
+            val manifestFile = File(root, "manifest.json")
+            require(manifestFile.isFile) { "扩展包中没有有效 manifest.json" }
+            val manifestRaw = manifestFile.readText(Charsets.UTF_8)
+            val manifest = ExtensionManifest.parse(manifestRaw)
+            require(manifest.name.isNotBlank()) { "扩展名称不能为空" }
+            require(manifest.version.isNotBlank()) { "扩展版本不能为空" }
             require(manifest.manifestVersion == 2 || manifest.manifestVersion == 3) { "仅支持 Manifest V2/V3" }
             val id = stableId(manifest)
             val target = File(context.filesDir, "extensions/" + id)
@@ -436,7 +441,7 @@ class ExtensionManager(
             val p = pattern.trim().replace('\\', '/').removePrefix("/")
             val candidate = path.replace('\\', '/').removePrefix("/")
             if (p == "*") return true
-            val regex = "^" + java.util.regex.Pattern.quote(p).replace("\\*", "\\\\E.*\\\\Q") + "$"
+            val regex = "^" + p.split("*").joinToString(".*") { java.util.regex.Pattern.quote(it) } + "$"
             return try { java.util.regex.Pattern.matches(regex, candidate) } catch (_: Exception) { false }
         }
 
