@@ -4,8 +4,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 KIWI="$ROOT/third_party/kiwi/src.next"
 
-"$ROOT/scripts/prepare_kiwi_chromium.sh"
-
 required=(
   "$KIWI/chrome/android/java/src/org/chromium/chrome/browser"
   "$KIWI/chrome/android/java/res_chromium"
@@ -30,7 +28,6 @@ if grep -RqsE 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)|Elephant
   exit 3
 fi
 
-# The extension runtime is an explicit hard requirement.
 "$ROOT/scripts/verify_kiwi_extension_runtime.sh"
 "$ROOT/scripts/verify_55_native_cutover.sh"
 
