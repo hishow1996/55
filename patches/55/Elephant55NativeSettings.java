@@ -20,17 +20,14 @@ public final class Elephant55NativeSettings {
 
     private Elephant55NativeSettings() {}
 
-    public static void applyKiwiUiDefaults() {
+    public static void applyKiwiUiDefaults(Context context) {
         // Kiwi's TabUtils reads the global desktop_mode preference directly.
         // Keep that Chromium preference synchronized with repo-55's persisted setting.
-        boolean desktopMode = isDesktopModeFrom55();
+        boolean desktopMode = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getBoolean(KEY_DESKTOP_MODE, false);
         ContextUtils.getAppSharedPreferences().edit()
                 .putBoolean("desktop_mode", desktopMode)
                 .apply();
-    }
-
-    private static boolean isDesktopModeFrom55() {
-        return true;
     }
 
 
