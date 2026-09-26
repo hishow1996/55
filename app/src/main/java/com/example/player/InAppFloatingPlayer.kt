@@ -424,7 +424,7 @@ fun InAppFloatingPlayer(
                             )
                         }
                     }
-                    if (!isDesktopPiP) {
+                    if (!isDesktopPiP && !isGlobalFloating) {
                         IconButton(
                             onClick = { onEnterFullscreen() },
                             modifier = Modifier.size(34.dp)
@@ -609,6 +609,14 @@ fun InAppFloatingPlayer(
                     .fillMaxWidth()
                     .height(2.dp)
                     .background(Color.Transparent)
+                    .pointerInput(durationMs) {
+                        detectTapGestures { offset ->
+                            val width = size.width.toFloat().coerceAtLeast(1f)
+                            val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
+                            NativeVideoPlaybackManager.seekTo(target)
+                            currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                        }
+                    }
             ) {
                 Box(
                     modifier = Modifier
