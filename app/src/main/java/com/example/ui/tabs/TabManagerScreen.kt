@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -43,8 +44,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -72,6 +77,7 @@ fun TabManagerScreen(
     onCloseTab: (Int) -> Unit,
     onCloseTabItem: ((BrowserTab) -> Unit)? = null,
     onNewTab: (Boolean) -> Unit,
+    onRestoreClosedTab: (() -> Unit)? = null,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -79,6 +85,10 @@ fun TabManagerScreen(
     val cardBg = if (isNightMode) Color(0xFF1E232B) else Color(0xFFFFFFFF)
     val textColor = if (isNightMode) Color(0xFFE2E8F0) else Color(0xFF1E293B)
     val subTextColor = if (isNightMode) Color(0xFF94A3B8) else Color(0xFF64748B)
+    var searchText by remember { mutableStateOf("") }
+    val filteredTabs = tabs.filter { tab ->
+        searchText.isBlank() || tab.title.contains(searchText, true) || tab.url.contains(searchText, true)
+    }
 
     Column(
         modifier = modifier
@@ -125,6 +135,29 @@ fun TabManagerScreen(
 
         HorizontalDivider(color = if (isNightMode) Color(0xFF262C36) else Color(0xFFE2E8F0))
 
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { searchText = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            placeholder = { Text("搜索标签页") },
+            shape = RoundedCornerShape(12.dp)
+        )
+
+        if (onRestoreClosedTab != null) {
+            Text(
+                text = "恢复最近关闭的标签",
+                color = Color(0xFF2563EB),
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .padding(horizontal = 18.dp, vertical = 2.dp)
+                    .clickable { onRestoreClosedTab() }
+            )
+        }
+
         // Tab Cards Grid with Swipe-To-Dismiss Support
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -134,7 +167,8 @@ fun TabManagerScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            itemsIndexed(tabs, key = { _, tab -> tab.id }) { index, tab ->
+            itemsIndexed(filteredTabs, key = { _, tab -> tab.id }) { _, tab ->
+                val index = tabs.indexOfFirst { it.id == tab.id }
                 val isCurrent = index == currentTabIndex
 
                 SwipeableTabCard(
