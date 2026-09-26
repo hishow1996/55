@@ -120,8 +120,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             activeWebView = webView
         }
         val pending = pendingWebVideoResume
-        if (pending != null && (pending.tabId.isNullOrBlank() || pending.tabId == currentTab.id) &&
-            (pending.pageUrl.isBlank() || pending.pageUrl == currentTab.url)) {
+        if (pendingWebVideoResume != null &&
+            (pendingWebVideoResume!!.tabId?.takeIf { it.isNotBlank() } == currentTab.id ||
+                (pendingWebVideoResume!!.tabId.isNullOrBlank() &&
+                    pendingWebVideoResume!!.tabIndex == _currentTabIndex.value)) &&
+            (pendingWebVideoResume!!.pageUrl.isBlank() ||
+                pendingWebVideoResume!!.pageUrl == currentTab.url)) {
             pendingWebVideoResume = null
             webView.postDelayed({
                 webView.evaluateJavascript(
