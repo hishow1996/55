@@ -51,3 +51,27 @@ It is not the runtime of the final browser APK.
 
 No `android.webkit.WebView`, `ExtensionManager`, `KiwiExtensionApi`,
 or custom JavaScript extension bridge may be copied into the Chromium runtime.
+
+
+## Management contract
+
+The management layer deliberately delegates lifecycle operations to Chromium's
+native `ExtensionService`/registry rather than maintaining a second extension
+database. Chromium's current ExtensionService exposes lifecycle operations such
+as initialization, unload/remove, update handling and user-disable checks.
+
+For repo 55, the browser UI must therefore treat `chrome://extensions` as the
+source of truth. A future native Android toolbar surface may mirror the
+ExtensionAction/toolbar state, but it must not duplicate extension state or
+permissions.
+
+Acceptance criteria:
+
+1. An installed extension survives browser restart through Chromium profile
+   storage.
+2. Disable/enable changes are reflected by Chromium's ExtensionService.
+3. Uninstall removes the extension from the native registry and its profile
+   state.
+4. Extension permissions are read from the native manifest/permission system.
+5. Content scripts and background/service-worker execution remain native.
+6. No Kotlin `ExtensionManager` or JavaScript compatibility API is introduced.
