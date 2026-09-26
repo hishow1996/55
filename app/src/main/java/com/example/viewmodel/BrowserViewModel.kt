@@ -386,6 +386,14 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             _urlInput.value = ""
             return
         }
+        // A new navigation invalidates any DRM license metadata captured
+        // for the previous page. Keeping it would risk attaching the old
+        // license endpoint to a different media source.
+        pendingDrmInfo = null
+        if (_detectedVideo.value?.originTabId == currentTab.id &&
+            _detectedVideo.value?.pageUrl != url) {
+            _detectedVideo.value = null
+        }
         updateCurrentTab { it.copy(url = url, isLoading = true) }
         _urlInput.value = url
     }
