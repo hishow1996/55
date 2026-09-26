@@ -197,6 +197,22 @@ object NativeVideoPlaybackManager {
         playbackErrorListener = listener
     }
 
+    /**
+     * Abort a failed native takeover and hand the same source back to WebView.
+     * This is intentionally different from release(): the browser may still be
+     * alive and should be able to resume the page video at the last native clock.
+     */
+    @Synchronized
+    fun resetAfterPlaybackError() {
+        assertMainThread()
+        val position = controller?.currentPositionMs() ?: 0L
+        controller?.pause()
+        VideoPlaybackSessionManager.updatePosition(position)
+        VideoPlaybackSessionManager.updatePlaying(false)
+        VideoPlaybackSessionManager.clear()
+        activeSessionId = null
+    }
+
     @Synchronized
     fun release() {
         assertMainThread()
