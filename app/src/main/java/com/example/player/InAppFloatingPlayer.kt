@@ -602,12 +602,14 @@ fun InAppFloatingPlayer(
                                 .height(20.dp)
                                 .pointerInput(durationMs) {
                                     detectTapGestures { offset ->
-                                        val width = size.width.toFloat().coerceAtLeast(1f)
-                                        val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
-                                        NativeVideoPlaybackManager.seekTo(target)
-                                        val actual = NativeVideoPlaybackManager.currentPositionMs()
-                                        currentPositionMs = actual.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                                        VideoPlaybackSessionManager.updatePosition(actual)
+                                        if (durationMs > 0) {
+                                            val width = size.width.toFloat().coerceAtLeast(1f)
+                                            val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
+                                            NativeVideoPlaybackManager.seekTo(target)
+                                            val actual = NativeVideoPlaybackManager.currentPositionMs()
+                                            currentPositionMs = actual.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                            VideoPlaybackSessionManager.updatePosition(actual)
+                                        }
                                     }
                                 }
                         ) {
@@ -711,12 +713,14 @@ fun InAppFloatingPlayer(
                         .height(18.dp)
                         .pointerInput(durationMs) {
                             detectTapGestures { offset ->
-                                val width = size.width.toFloat().coerceAtLeast(1f)
-                                val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
-                                NativeVideoPlaybackManager.seekTo(target)
-                                val actual = NativeVideoPlaybackManager.currentPositionMs()
-                                currentPositionMs = actual.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                                VideoPlaybackSessionManager.updatePosition(actual)
+                                if (durationMs > 0) {
+                                    val width = size.width.toFloat().coerceAtLeast(1f)
+                                    val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
+                                    NativeVideoPlaybackManager.seekTo(target)
+                                    val actual = NativeVideoPlaybackManager.currentPositionMs()
+                                    currentPositionMs = actual.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                    VideoPlaybackSessionManager.updatePosition(actual)
+                                }
                             }
                         }
                 ) {
