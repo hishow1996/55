@@ -11,6 +11,7 @@ import android.os.Process
 import android.provider.Settings
 import android.util.Rational
 import android.widget.Toast
+import org.json.JSONObject
 import com.example.model.VideoMediaInfo
 import com.example.player.VideoPlaybackSessionManager
 import com.example.service.FloatingPlayerService
@@ -211,6 +212,12 @@ object FloatingVideoPlayerComponent {
             putExtra(FloatingPlayerService.EXTRA_ORIGIN_TAB_ID, video.originTabId)
             putExtra(FloatingPlayerService.EXTRA_VIDEO_SHOULD_PLAY, session.isPlaying)
             putExtra(FloatingPlayerService.EXTRA_VIDEO_PLAYBACK_RATE, session.playbackRate)
+            putExtra(FloatingPlayerService.EXTRA_DRM_SCHEME, video.drmScheme)
+            putExtra(FloatingPlayerService.EXTRA_DRM_LICENSE_URI, video.drmLicenseUri)
+            putExtra(
+                FloatingPlayerService.EXTRA_DRM_LICENSE_HEADERS,
+                JSONObject(video.drmLicenseHeaders).toString()
+            )
         }
 
         try {
