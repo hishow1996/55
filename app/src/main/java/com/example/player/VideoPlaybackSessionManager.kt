@@ -30,7 +30,8 @@ object VideoPlaybackSessionManager {
             current.pageUrl == video.pageUrl &&
             current.source == resolvedSource &&
             current.drmScheme == video.drmScheme &&
-            current.drmLicenseUri == video.drmLicenseUri
+            current.drmLicenseUri == video.drmLicenseUri &&
+            current.drmLicenseHeaders == video.drmLicenseHeaders
 
         // A new native source on the same page is a new media identity. Never
         // carry A's position/rate/playback state into B merely because the tab
@@ -43,6 +44,7 @@ object VideoPlaybackSessionManager {
                 title = video.title.ifBlank { current.title },
                 drmScheme = video.drmScheme ?: current.drmScheme,
                 drmLicenseUri = video.drmLicenseUri ?: current.drmLicenseUri,
+                drmLicenseHeaders = if (video.drmLicenseHeaders.isNotEmpty()) video.drmLicenseHeaders else current.drmLicenseHeaders,
                 durationMs = if (video.duration > 0) (video.duration * 1000).toLong() else current.durationMs
             )
         } else {
@@ -55,6 +57,7 @@ object VideoPlaybackSessionManager {
                 source = resolvedSource,
                 drmScheme = video.drmScheme,
                 drmLicenseUri = video.drmLicenseUri,
+                drmLicenseHeaders = video.drmLicenseHeaders,
                 positionMs = (video.currentTime * 1000).toLong().coerceAtLeast(0L),
                 durationMs = (video.duration * 1000).toLong().coerceAtLeast(0L),
                 isPlaying = video.isPlaying
