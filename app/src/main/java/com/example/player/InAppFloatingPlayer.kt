@@ -158,6 +158,15 @@ fun InAppFloatingPlayer(
     // Lock aspect ratio during resizing
     var lockAspectRatio by remember { mutableStateOf(true) }
 
+    LaunchedEffect(baseRatio, isDesktopPiP, isFullscreen) {
+        if (!isDesktopPiP && !isFullscreen && baseRatio > 0f) {
+            val targetHeight = (windowWidthDp / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+            val targetWidth = (targetHeight * baseRatio).coerceIn(minWidthDp, maxWidthDp)
+            windowWidthDp = targetWidth
+            windowHeightDp = targetHeight
+        }
+    }
+
     // Resizing visual feedback states
     var isActivelyResizing by remember { mutableStateOf(false) }
     var cornerDragDistance by remember { mutableFloatStateOf(0f) }
