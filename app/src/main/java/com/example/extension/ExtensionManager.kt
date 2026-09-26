@@ -71,9 +71,6 @@ class ExtensionManager(
     suspend fun installUrl(url: String): Result<BrowserExtension> = withContext(Dispatchers.IO) { runCatching {
         val normalized = url.trim()
         require(normalized.startsWith("https://", true) || normalized.startsWith("http://", true)) { "扩展地址无效" }
-        // Do not infer the archive type from the URL path. Chrome CDN download URLs
-        // are often opaque and may not contain ".crx" or ".zip"; installBytes()
-        // validates the actual downloaded archive and manifest instead.
         val connection = java.net.URL(normalized).openConnection() as java.net.HttpURLConnection
         connection.instanceFollowRedirects = true
         connection.connectTimeout = 15000
@@ -96,8 +93,7 @@ class ExtensionManager(
                 ?: error("扩展包中没有 manifest.json")
             val manifestFile = File(root, "manifest.json")
             require(manifestFile.isFile) { "扩展包中没有有效 manifest.json" }
-            val manifestRaw = manifestFile.readText(Charsets.UTF_8)
-            val manifest = ExtensionManifest.parse(manifestRaw)
+            val manifest = ExtensionManifest.parse(manifestFile.readText(Charsets.UTF_8))
             require(manifest.name.isNotBlank()) { "扩展名称不能为空" }
             require(manifest.version.isNotBlank()) { "扩展版本不能为空" }
             require(manifest.manifestVersion == 2 || manifest.manifestVersion == 3) { "仅支持 Manifest V2/V3" }
@@ -167,12 +163,16 @@ class ExtensionManager(
 
     fun iconFile(id: String): File? {
         val ext = extension(id) ?: return null
-        val rawPath = ext.manifest.iconPath ?: return null
-        // Manifest paths are extension-relative. Normalize separators and a
-        // possible leading slash before applying the canonical-path sandbox check.
-        val path = rawPath.trim().replace('\\', '/').removePrefix("/")
-        if (path.isBlank()) return null
-        return safeChild(ext.rootPath, path)?.takeIf { it.exists() && it.isFile }
+        // Try the complete ordered candidate list so an extension still gets
+        // an icon when its preferred 128/96/64/48/32/16 asset is missing.
+        val candidates = ext.manifest.iconPaths.ifEmpty {
+            listOfNotNull(ext.manifest.iconPath)
+        }
+        return candidates.asSequence()
+            .map { it.trim().replace('\\', '/').removePrefix("/") }
+            .filter { it.isNotBlank() }
+            .mapNotNull { safeChild(ext.rootPath, it) }
+            .firstOrNull { it.exists() && it.isFile }
     }
 
     fun prepareExtensionPage(webView: WebView, extensionId: String, pageKey: String = "extension-page"): Boolean {
@@ -214,7 +214,6 @@ class ExtensionManager(
 
     fun bindBrowserTab(extensionTabId: Int, pageKey: String) {
         tabHost.bindReplacingLegacy(pageKey, extensionTabId)
-        // Bind before Compose creates the WebView. attachWebView keeps this ID.
     }
 
     fun attachWebView(pageKey: String, webView: WebView, url: String) {
@@ -328,7 +327,7 @@ class ExtensionManager(
         }
         @JavascriptInterface fun contextMenuRemove(extensionId: String, itemId: String) {}
         @JavascriptInterface fun contextMenuRemoveAll(extensionId: String) {}
-        
+
         @JavascriptInterface fun executeScript(extensionId: String, optionsJson: String): String {
             if (!hasPermission(extensionId, "scripting") && !hasPermission(extensionId, "activeTab")) return "[]"
             val o = try { JSONObject(optionsJson) } catch (_: Exception) { JSONObject() }
@@ -412,9 +411,6 @@ class ExtensionManager(
         ) return bytes
 
         require(bytes.size >= 12) { "CRX 文件损坏" }
-        // CRX layout: magic(4) + version(4) + header.
-        // The version is at offset 4; offset 8 is the CRX2 public-key
-        // length or the CRX3 header size.
         return when (readIntLE(bytes, 4)) {
             2 -> {
                 require(bytes.size >= 16) { "CRX2 文件损坏" }
