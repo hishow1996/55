@@ -352,34 +352,6 @@ fun InAppFloatingPlayer(
             )
         }
 
-        if (isFullscreen && fullscreenLocked) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures { /* keep fullscreen controls locked */ }
-                    }
-            )
-        }
-
-        if (isFullscreen) {
-            IconButton(
-                onClick = { fullscreenLocked = !fullscreenLocked },
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 8.dp)
-                    .size(42.dp)
-                    .background(Color.Black.copy(alpha = 0.48f), CircleShape)
-            ) {
-                Icon(
-                    imageVector = if (fullscreenLocked) Icons.Default.LockOpen else Icons.Default.Lock,
-                    contentDescription = if (fullscreenLocked) "解锁全屏播放器" else "锁定全屏播放器",
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-        }
-
         // --- 4. Floating Video Player Controls Overlay (Figure 1 UI in both PiP & In-App) ---
         AnimatedVisibility(
             visible = showControls,
@@ -549,6 +521,34 @@ fun InAppFloatingPlayer(
                     }
                 }
 
+            }
+        }
+
+        if (isFullscreen && fullscreenLocked) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures { /* keep fullscreen controls locked */ }
+                    }
+            )
+        }
+
+        if (isFullscreen) {
+            IconButton(
+                onClick = { fullscreenLocked = !fullscreenLocked },
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 8.dp)
+                    .size(42.dp)
+                    .background(Color.Black.copy(alpha = 0.48f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = if (fullscreenLocked) Icons.Default.LockOpen else Icons.Default.Lock,
+                    contentDescription = if (fullscreenLocked) "解锁全屏播放器" else "锁定全屏播放器",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
 
