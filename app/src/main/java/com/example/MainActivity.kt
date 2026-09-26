@@ -187,6 +187,23 @@ class MainActivity : ComponentActivity() {
             val searchHistory by viewModel.repository.searchHistory.collectAsState()
             val pendingDownload by viewModel.pendingDownload.collectAsState()
             val inPipMode by remember { isPipModeState }
+            var aiPageContext by remember { mutableStateOf("") }
+            var aiPageTitle by remember { mutableStateOf("") }
+
+            fun openAiWithCurrentPage() {
+                aiPageTitle = currentTab.title
+                aiPageContext = ""
+                viewModel.activeWebView?.evaluateJavascript(
+                    "(function(){return document.body ? document.body.innerText : "";})()"
+                ) { raw ->
+                    aiPageContext = raw
+                        .removePrefix(""").removeSuffix(""")
+                        .replace("\\n", "\n")
+                        .replace("\\"", """)
+                        .take(12000)
+                    viewModel.setAiChatVisible(true)
+                } ?: viewModel.setAiChatVisible(true)
+            }
 
             var isSplashVisible by remember { mutableStateOf(true) }
             LaunchedEffect(Unit) {
@@ -299,7 +316,7 @@ class MainActivity : ComponentActivity() {
                                         viewModel.repository.addBookmarkToQuickSites(bookmark)
                                     },
                                     onOpenDownloads = { viewModel.openDownloads() },
-                                    onOpenAi = { viewModel.setAiChatVisible(true) },
+                                    onOpenAi = { openAiWithCurrentPage() },
                                     onOpenHistory = { viewModel.openHistory() },
                                     onOpenBookmarks = { viewModel.openBookmarks() }
                                 )
@@ -510,6 +527,8 @@ class MainActivity : ComponentActivity() {
                     ) {
                         ElephantAiScreen(
                             isNightMode = isNightMode,
+                            pageTitle = aiPageTitle,
+                            pageContext = aiPageContext,
                             onBack = { viewModel.setAiChatVisible(false) }
                         )
                     }
