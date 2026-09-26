@@ -813,6 +813,39 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun onDrmLicenseDetected(
+        licenseUri: String,
+        scheme: String,
+        headers: Map<String, String> = emptyMap()
+    ) {
+        val current = _detectedVideo.value ?: return
+        if (current.originTabId != null && current.originTabId != currentTab.id) return
+        if (!VideoSourceResolver.canUseNativePlayer(current)) return
+
+        val normalizedScheme = when (scheme.lowercase()) {
+            "widevine" -> "widevine"
+            "playready" -> "playready"
+            "clearkey" -> "clearkey"
+            else -> "widevine"
+        }
+
+        val updated = current.copy(
+            drmScheme = normalizedScheme,
+            drmLicenseUri = licenseUri.trim(),
+            drmLicenseHeaders = headers
+        )
+        _detectedVideo.value = updated
+
+        // A license request proves the page is using protected media. Let the
+        // WebView finish its own request, then hand the same authorized media
+        // source to Media3. No license/key material is copied into the app.
+        activeWebView?.evaluateJavascript(Scripts.LOCK_WEB_VIDEOS) {
+            if (VideoSourceResolver.canUseNativePlayer(updated)) {
+                NativeVideoPlaybackManager.start(getApplication(), updated, autoPlay = true)
+            }
+        }
+    }
+
     fun onWebVideoPlaybackState(currentTime: Double, isPlaying: Boolean) {
         val video = _detectedVideo.value ?: return
         if (video.originTabId != null && video.originTabId != currentTab.id) return
