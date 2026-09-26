@@ -68,10 +68,13 @@ if settings_call not in s:
 
 controller_call = "        Elephant55NativeFeatureController.applyToTab(this, getActivityTab());"
 if controller_call not in s:
-    pattern = r"(\s*super\.onResume\(\);)"
+    pattern = r"(\s*super\.onResumeWithNative\(\);)"
     m = re.search(pattern, s)
     if not m:
-        raise SystemExit("Cannot find ChromeTabbedActivity onResume lifecycle anchor")
+        pattern = r"(\s*super\.onResume\(\);)"
+        m = re.search(pattern, s)
+    if not m:
+        raise SystemExit("Cannot find ChromeTabbedActivity native resume lifecycle anchor")
     s = s[:m.end()] + "\n" + controller_call + s[m.end():]
 
 p.write_text(s)
