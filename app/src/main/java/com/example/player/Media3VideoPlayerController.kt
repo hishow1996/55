@@ -71,16 +71,39 @@ class Media3VideoPlayerController(context: Context) {
         }
 
         val lower = url.lowercase()
+        val decoded = runCatching {
+            java.net.URLDecoder.decode(lower, "UTF-8")
+        }.getOrDefault(lower)
+
+        // CDN/media endpoints frequently hide their actual MIME type in a query
+        // parameter instead of using a .mp4/.webm extension. Give Media3 an
+        // explicit type in those cases so DefaultMediaSourceFactory can choose
+        // the correct media source instead of guessing from the URI.
         val mimeType = when {
             lower.contains(".m3u8") ||
                 lower.contains("application/vnd.apple.mpegurl") ||
                 lower.contains("application/x-mpegurl") ||
-                lower.contains("mime=application%2fvnd.apple.mpegurl") ->
+                decoded.contains("application/vnd.apple.mpegurl") ->
                 MimeTypes.APPLICATION_M3U8
             lower.contains(".mpd") ||
                 lower.contains("application/dash+xml") ||
-                lower.contains("mime=application%2fdash%2bxml") ->
+                decoded.contains("application/dash+xml") ->
                 MimeTypes.APPLICATION_MPD
+            lower.contains("mime=video/mp4") ||
+                lower.contains("type=video/mp4") ||
+                decoded.contains("mime=video/mp4") ||
+                decoded.contains("type=video/mp4") ->
+                MimeTypes.VIDEO_MP4
+            lower.contains("mime=video/webm") ||
+                lower.contains("type=video/webm") ||
+                decoded.contains("mime=video/webm") ||
+                decoded.contains("type=video/webm") ->
+                MimeTypes.VIDEO_WEBM
+            lower.contains("mime=video/3gpp") ||
+                lower.contains("type=video/3gpp") ||
+                decoded.contains("mime=video/3gpp") ||
+                decoded.contains("type=video/3gpp") ->
+                MimeTypes.VIDEO_MP4
             else -> null
         }
 
