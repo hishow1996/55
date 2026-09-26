@@ -36,6 +36,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -203,6 +205,13 @@ class MainActivity : ComponentActivity() {
             val inPipMode by remember { isPipModeState }
             var aiPageContext by remember { mutableStateOf("") }
             var aiPageTitle by remember { mutableStateOf("") }
+            // Fullscreen video lock: blocks accidental touches on the fullscreen video
+            // while leaving a lock/unlock control on the left edge of the screen.
+            var fullscreenVideoLocked by remember { mutableStateOf(false) }
+            LaunchedEffect(customVideoView) {
+                // Every new fullscreen session starts unlocked.
+                fullscreenVideoLocked = false
+            }
 
             fun openAiWithCurrentPage() {
                 aiPageTitle = currentTab.title
@@ -343,20 +352,58 @@ class MainActivity : ComponentActivity() {
 
                             // Fullscreen Web Video (HTML5 Custom View)
                             if (customVideoView != null) {
-                                AndroidView(
-                                    factory = {
-                                        FrameLayout(it).apply {
-                                            layoutParams = ViewGroup.LayoutParams(
-                                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                                ViewGroup.LayoutParams.MATCH_PARENT
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    AndroidView(
+                                        factory = {
+                                            FrameLayout(it).apply {
+                                                layoutParams = ViewGroup.LayoutParams(
+                                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                                )
+                                                setBackgroundColor(0xFF000000.toInt())
+                                                (customVideoView?.parent as? ViewGroup)?.removeView(customVideoView)
+                                                addView(customVideoView)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+
+                                    // Fullscreen lock button: vertically centered on the left edge.
+                                    // When locked, the transparent blocker consumes accidental taps
+                                    // so the video's fullscreen controls cannot be triggered by mistake.
+                                    if (fullscreenVideoLocked) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .pointerInput(Unit) {
+                                                    detectTapGestures { /* keep fullscreen locked */ }
+                                                }
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = { fullscreenVideoLocked = !fullscreenVideoLocked },
+                                        modifier = Modifier
+                                            .align(Alignment.CenterStart)
+                                            .padding(start = 8.dp)
+                                            .size(42.dp)
+                                            .background(
+                                                Color.Black.copy(alpha = 0.48f),
+                                                androidx.compose.foundation.shape.CircleShape
                                             )
-                                            setBackgroundColor(0xFF000000.toInt())
-                                            (customVideoView?.parent as? ViewGroup)?.removeView(customVideoView)
-                                            addView(customVideoView)
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                    ) {
+                                        androidx.compose.material3.Icon(
+                                            imageVector = if (fullscreenVideoLocked) {
+                                                androidx.compose.material.icons.Icons.Default.LockOpen
+                                            } else {
+                                                androidx.compose.material.icons.Icons.Default.Lock
+                                            },
+                                            contentDescription = if (fullscreenVideoLocked) "解锁全屏播放器" else "锁定全屏播放器",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
 
