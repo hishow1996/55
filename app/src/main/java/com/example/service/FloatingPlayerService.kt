@@ -384,7 +384,6 @@ class FloatingPlayerService : MediaSessionService() {
         } finally {
             composeLifecycleOwner?.destroy()
             composeLifecycleOwner = null
-            composeView = null
             rootLayout = null
             globalVideoInfo = null
         }
