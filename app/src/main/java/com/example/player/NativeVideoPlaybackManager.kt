@@ -122,6 +122,16 @@ object NativeVideoPlaybackManager {
         return controller?.durationMs() ?: VideoPlaybackSessionManager.current()?.durationMs ?: 0L
     }
 
+    fun bufferedPositionMs(): Long {
+        assertMainThread()
+        return controller?.rawPlayer()?.bufferedPosition ?: 0L
+    }
+
+    fun playbackState(): Int {
+        assertMainThread()
+        return controller?.rawPlayer()?.playbackState ?: Player.STATE_IDLE
+    }
+
     fun isPlaying(): Boolean {
         assertMainThread()
         return controller?.isPlaying() ?: false
