@@ -118,7 +118,9 @@ class ElephantDownloadManager(private val context: Context) {
         url: String,
         suggestedFileName: String? = null,
         mimeType: String? = null,
-        contentLength: Long = 0L
+        contentLength: Long = 0L,
+        referer: String? = null,
+        userAgent: String? = null
     ): DownloadItem {
         val fileName = resolveFileName(url, suggestedFileName, mimeType)
         val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
@@ -144,14 +146,14 @@ class ElephantDownloadManager(private val context: Context) {
         _downloads.value = current
         saveDownloads()
 
-        startDownloadJob(item)
+        startDownloadJob(item, referer, userAgent)
         return item
     }
 
     /**
      * Starts or resumes a download job.
      */
-    private fun startDownloadJob(item: DownloadItem) {
+    private fun startDownloadJob(item: DownloadItem, referer: String? = null, userAgent: String? = null) {
         activeJobs[item.id]?.cancel()
         if (isHlsUrl(item.url)) {
             startHlsDownloadJob(item)
@@ -176,10 +178,10 @@ class ElephantDownloadManager(private val context: Context) {
                         connectTimeout = 15000
                         readTimeout = 20000
                         instanceFollowRedirects = true
-                        setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36 Elephant/2.0")
+                        setRequestProperty("User-Agent", userAgent ?: DEFAULT_USER_AGENT)
                         setRequestProperty("Accept-Encoding", "identity")
                         CookieManager.getInstance().getCookie(currentUrl)?.let { setRequestProperty("Cookie", it) }
-                        setRequestProperty("Referer", currentUrl)
+                        if (!referer.isNullOrBlank()) setRequestProperty("Referer", referer) else setRequestProperty("Referer", currentUrl)
                         setRequestProperty("Accept", "*/*")
                         if (existingBytes > 0) {
                             setRequestProperty("Range", "bytes=$existingBytes-")
@@ -640,5 +642,6 @@ class ElephantDownloadManager(private val context: Context) {
 
     companion object {
         private const val KEY_DOWNLOAD_ITEMS = "key_elephant_download_items"
+        private const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36 Elephant/2.0"
     }
 }
