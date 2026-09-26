@@ -1373,6 +1373,8 @@ fun ChromiumWebViewContainer(
                 webView.settings.userAgentString = targetUa
                 webView.settings.useWideViewPort = tab.isDesktopMode
                 webView.settings.loadWithOverviewMode = tab.isDesktopMode
+                // Keep the WebView zoom engine available for PinchZoomWebView.
+                // Legacy zoom UI remains disabled; the wrapper owns the gesture.
                 webView.settings.setSupportZoom(true)
                 webView.settings.builtInZoomControls = false
                 webView.settings.displayZoomControls = false
