@@ -79,6 +79,8 @@ import kotlinx.coroutines.launch
 fun ElephantAiScreen(
     isNightMode: Boolean,
     onBack: () -> Unit,
+    pageTitle: String = "",
+    pageContext: String = "",
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -126,7 +128,8 @@ fun ElephantAiScreen(
 
             val reply = GeminiAiService.sendMessage(
                 history = messages.toList(),
-                newUserPrompt = trimmed
+                newUserPrompt = trimmed,
+                pageContext = pageContext
             )
 
             messages.add(ChatMessageItem(sender = "ai", text = reply))
@@ -143,6 +146,39 @@ fun ElephantAiScreen(
             .background(bg)
             .statusBarsPadding()
     ) {
+        if (pageContext.isNotBlank()) {
+            Surface(
+                color = if (isNightMode) Color(0xFF172033) else Color(0xFFEFF6FF),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = primaryAccent,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("已读取当前网页", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = textColor)
+                        Text(
+                            pageTitle.ifBlank { "当前页面" },
+                            fontSize = 11.sp,
+                            color = secondaryText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
         // --- TOP APP BAR ---
         Surface(
             color = cardBg,
