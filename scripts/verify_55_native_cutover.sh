@@ -4,8 +4,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 KIWI="$ROOT/third_party/kiwi/src.next"
 
-"$ROOT/scripts/prepare_kiwi_chromium.sh"
-
 required=(
   "$KIWI/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java"
   "$KIWI/chrome/android/java/res_chromium"
@@ -24,8 +22,6 @@ for path in "${required[@]}"; do
   fi
 done
 
-# app/ is retained as legacy source material. The final APK is produced only
-# by the Kiwi Chromium GN/Ninja target, so this gate checks the compiled source tree.
 legacy_found=0
 if grep -RqsE 'android\.webkit\.(WebView|WebChromeClient|WebViewClient)|ElephantWebBridge|ElephantWebViewClient|ElephantWebChromeClient|com\.example\.extension|ExtensionManager|KiwiExtensionApi|BrowserExtension|PluginManagerScreen|onOpenPlugins|onOpenPluginManager' "$KIWI/chrome" 2>/dev/null; then
   echo "ERROR: legacy WebView/plugin runtime was copied into Chromium source." >&2
