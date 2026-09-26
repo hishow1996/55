@@ -410,7 +410,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Fullscreen Web Video (HTML5 Custom View)
-                            if (customVideoView != null) {
+                            if (customVideoView != null && !isFloatingPlayerVisible && !nativePlayerFullscreen) {
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     AndroidView(
                                         factory = {
@@ -467,7 +467,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // Bottom Navigation Bar (Image 2 style)
-                        if (customVideoView == null) {
+                        if (customVideoView == null || isFloatingPlayerVisible || nativePlayerFullscreen) {
                             BottomNavBar(
                                 canGoBack = !currentTab.isAtHome && (currentTab.canGoBack || viewModel.activeWebView?.canGoBack() == true),
                                 canGoForward = !currentTab.isAtHome && (currentTab.canGoForward || viewModel.activeWebView?.canGoForward() == true),
