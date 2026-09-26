@@ -180,7 +180,7 @@ fun PluginManagerScreen(
             }
 
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(18.dp)) {
+                Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(14.dp)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
                         Icon(Icons.Default.Info, null, Modifier.size(20.dp), tint = secondary)
                         Spacer(Modifier.width(10.dp))
