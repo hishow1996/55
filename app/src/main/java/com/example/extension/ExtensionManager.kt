@@ -238,7 +238,7 @@ class ExtensionManager(
         else updatePageState(pageKey, url)
         _extensions.value.filter { it.enabled }.forEach { ext ->
             ext.manifest.contentScripts
-                .filter { it.runAt == runAt && matches(it.matches, url) && (ext.manifest.hostPermissions.isEmpty() || matches(ext.manifest.hostPermissions, url)) }
+                .filter { it.runAt == runAt && matches(it.matches, url) }
                 .forEach { spec ->
                     spec.jsFiles.forEach { name ->
                         val file = safeChild(ext.rootPath, name) ?: return@forEach
