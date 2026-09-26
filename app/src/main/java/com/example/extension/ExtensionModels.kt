@@ -55,10 +55,13 @@ data class ExtensionManifest(
                 // MV3 may use objects: {resources:[...], matches:[...]}
                 for (i in 0 until a.length()) {
                     val item = a.optJSONObject(i) ?: continue
+                    val matchRules = item.optJSONArray("matches")?.let { matches ->
+                        (0 until matches.length()).map { k -> matches.optString(k) }.filter { it.isNotBlank() }
+                    }.orEmpty()
                     item.optJSONArray("resources")?.let { resources ->
                         for (j in 0 until resources.length()) {
                             val value = resources.optString(j, "")
-                            if (value.isNotBlank()) war += WebAccessibleResource(listOf(value), (0 until (item.optJSONArray("matches")?.length() ?: 0)).map { k -> item.optJSONArray("matches")!!.optString(k) })
+                            if (value.isNotBlank()) war += WebAccessibleResource(listOf(value), matchRules)
                         }
                     }
                 }
