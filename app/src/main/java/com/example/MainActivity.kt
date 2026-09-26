@@ -21,6 +21,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -63,7 +65,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.FileProvider
 import com.example.data.BrowserRepository
+import com.example.data.BrowserBackupManager
+import com.example.engine.BrowserPerformanceManager
 import com.example.engine.ElephantWebBridge
 import com.example.engine.ElephantWebChromeClient
 import com.example.engine.ElephantWebViewClient
@@ -119,6 +124,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             val viewModel: com.example.viewmodel.BrowserViewModel = viewModel()
             viewModelRef = viewModel
+
+            val restoreBackupLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                if (uri != null) {
+                    val manager = BrowserBackupManager(this@MainActivity)
+                    val json = manager.read(uri)
+                    val ok = json?.let { manager.restore(viewModel.repository, it) } == true
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (ok) "浏览器数据已恢复，重新打开标签页后生效" else "备份文件无效或无法读取",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
             viewModel.repository.extensionManager.setBrowserTabCreator { url, active ->
                 runOnUiThread { viewModel.addNewTab(initialUrl = url) }
             }
@@ -408,6 +428,7 @@ class MainActivity : ComponentActivity() {
                             onCloseTab = { viewModel.closeTab(it) },
                             onCloseTabItem = { viewModel.closeTab(it) },
                             onNewTab = { incognito -> viewModel.addNewTab(isIncognito = incognito) },
+                            onRestoreClosedTab = { viewModel.restoreRecentlyClosedTab() },
                             onBack = { viewModel.setTabManagerVisible(false) }
                         )
                     }
@@ -424,7 +445,29 @@ class MainActivity : ComponentActivity() {
                             isDesktopMode = currentTab.isDesktopMode,
                             searchEngine = searchEngine,
                             onBack = { viewModel.setSettingsVisible(false) },
-                            onOpenPluginManager = { viewModel.setPluginManagerVisible(true) }
+                            onOpenPluginManager = { viewModel.setPluginManagerVisible(true) },
+                            onBackupData = {
+                                try {
+                                    val manager = BrowserBackupManager(this@MainActivity)
+                                    val file = java.io.File(cacheDir, "elephant-browser-backup-" + System.currentTimeMillis() + ".json")
+                                    file.writeText(manager.buildBackup(viewModel.repository, tabs, currentTabIndex), Charsets.UTF_8)
+                                    val uri = FileProvider.getUriForFile(
+                                        this@MainActivity,
+                                        packageName + ".fileprovider",
+                                        file
+                                    )
+                                    startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/json"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }, "导出浏览器备份"))
+                                } catch (e: Exception) {
+                                    Toast.makeText(this@MainActivity, "导出备份失败", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onRestoreData = {
+                                restoreBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                            }
                         )
                     }
 
@@ -777,6 +820,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        viewModelRef?.let { vm ->
+            BrowserPerformanceManager.onAppTrimMemory(level, listOfNotNull(vm.activeWebView))
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         try {
@@ -871,6 +921,8 @@ fun ChromiumWebViewContainer(
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
                 setBackgroundColor(if (isNightMode) 0xFF111418.toInt() else android.graphics.Color.WHITE)
+
+                BrowserPerformanceManager.configure(this, tab.isIncognito, tab.isDesktopMode, isNightMode)
 
                 settings.apply {
                     javaScriptEnabled = true
