@@ -348,15 +348,20 @@ class MainActivity : ComponentActivity() {
                                     onOpenBookmarks = { viewModel.openBookmarks() }
                                 )
                             } else {
-                                // Chromium Core WebView Host keyed by tab ID
-                                androidx.compose.runtime.key(currentTab.id) {
-                                    ChromiumWebViewContainer(
-                                        tab = currentTab,
-                                        viewModel = viewModel,
-                                        onAdjustBrightness = { adjustWindowBrightness(it) },
-                                        onAdjustVolume = { adjustSystemVolume(it) },
-                                        modifier = Modifier.fillMaxSize()
-                                    )
+                                // When the native in-app player is open, hide the webpage
+                                // underneath it. This prevents the webpage's own video title
+                                // and controls from showing through the native player and
+                                // creating a duplicated/ghosted title.
+                                if (!isFloatingPlayerVisible) {
+                                    androidx.compose.runtime.key(currentTab.id) {
+                                        ChromiumWebViewContainer(
+                                            tab = currentTab,
+                                            viewModel = viewModel,
+                                            onAdjustBrightness = { adjustWindowBrightness(it) },
+                                            onAdjustVolume = { adjustSystemVolume(it) },
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
                                 }
                             }
 
