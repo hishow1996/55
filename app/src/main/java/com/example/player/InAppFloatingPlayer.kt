@@ -547,44 +547,6 @@ fun InAppFloatingPlayer(
             }
         }
 
-        // The thin live red progress line is exclusive to the global
-        // floating-window presentation. It is not part of the in-app
-        // player page or native fullscreen player.
-        if (isDesktopPiP) {
-            val progress = if (durationMs > 0) {
-                (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-            } else 0f
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-            ) {
-            Text(
-                text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
-                color = Color.White,
-                fontSize = if (isDesktopPiP) 10.sp else 11.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(Color.Transparent)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progress)
-                        .fillMaxHeight()
-                        .background(Color.Red)
-                )
-            }
-        }
-
-            }
-        }
-
         // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
         // Resizing cannot exceed screen width or move/expand outside phone screen
         if (!isDesktopPiP && !isFullscreen) {
