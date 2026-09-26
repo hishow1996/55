@@ -19,7 +19,7 @@ grep -Eq 'public static void switchUserAgent[[:space:]]*\([[:space:]]*Tab tab,[[
 grep -Fq 'TabUtils.switchUserAgent(' "$CONTROLLER" ||
   fail "55 native feature controller does not use Chromium TabUtils"
 
-if grep -Eq 'switchUserAgent\([[:space:]]*|.*,[[:space:]]*.*,[[:space:]]*.*,[[:space:]]*' "$CONTROLLER"; then
+if grep -Fq 'forcedByUser' "$CONTROLLER"; then
   fail "55 controller appears to use a stale 4-argument switchUserAgent call"
 fi
 
