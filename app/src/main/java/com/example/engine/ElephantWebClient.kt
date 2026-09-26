@@ -167,11 +167,21 @@ class ElephantWebViewClient(
         // request headers. Capture only the endpoint metadata needed by Media3's
         // authorized DRM client; never inspect, store, or transform license keys.
         // Widevine is the Android WebView/MediaDrm path used by the native player.
-        val drmHint = lowerUrl.contains("widevine") || lowerUrl.contains("license") ||
-            lowerUrl.contains("drm") || lowerUrl.contains("keyserver") ||
+        val requestHeaders = request?.requestHeaders.orEmpty()
+        val contentType = requestHeaders.entries
+            .firstOrNull { it.key.equals("Content-Type", true) }
+            ?.value
+            ?.lowercase()
+            .orEmpty()
+        val drmHint = lowerUrl.contains("widevine") || lowerUrl.contains("playready") ||
+            lowerUrl.contains("license") || lowerUrl.contains("keyserver") ||
             lowerUrl.contains("acquirelicense") || lowerUrl.contains("licenseproxy")
-        if (drmHint && request?.method.equals("POST", true)) {
-            val headers = request?.requestHeaders.orEmpty()
+        val drmRequestBodyHint =
+            contentType.contains("application/octet-stream") ||
+                contentType.contains("application/json") ||
+                contentType.contains("application/x-www-form-urlencoded")
+        if (drmHint && request?.method.equals("POST", true) && drmRequestBodyHint) {
+            val headers = requestHeaders
                 .filterKeys { key ->
                     // Media3 needs site-provided auth tokens when the license
                     // server requires them. Cookie is handled separately by the
