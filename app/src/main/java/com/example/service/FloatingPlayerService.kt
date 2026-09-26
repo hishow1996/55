@@ -52,6 +52,10 @@ class FloatingPlayerService : MediaSessionService() {
     private var isPlaying = true
     // Prevent duplicate close/error callbacks from racing during teardown.
     private var closing = false
+    // WindowManager can outlive/lag behind Compose teardown by a frame. Keep an
+    // explicit attachment flag so ratio/drag/resize callbacks never update a
+    // window that has already been removed.
+    private var windowAttached = false
 
     // The native Media3 player is the single playback owner. This listener only
     // observes its decoded video size so the overlay can follow the actual
@@ -94,7 +98,9 @@ class FloatingPlayerService : MediaSessionService() {
         val (w, h) = sizeForRatio(p.width, minW, maxW, minH, maxH)
         p.width = w
         p.height = h
-        wm.updateViewLayout(root, p)
+        if (!windowAttached) return
+        runCatching { wm.updateViewLayout(root, p) }
+            .onFailure { android.util.Log.w("FloatingPlayerService", "Ignored stale floating-window resize", it) }
     }
 
     private val globalWindowWidthDp = 320f
@@ -344,11 +350,28 @@ class FloatingPlayerService : MediaSessionService() {
 
         try {
             windowManager?.addView(compose, params)
-        } catch (e: Exception) {
+            windowAttached = true
+        } catch (e: android.view.WindowManager.BadTokenException) {
+            android.util.Log.w("FloatingPlayerService", "Floating window token is no longer valid", e)
             composeLifecycleOwner?.destroy()
             composeLifecycleOwner = null
             rootLayout = null
-            throw e
+            globalVideoInfo = null
+            stopSelf()
+        } catch (e: SecurityException) {
+            android.util.Log.w("FloatingPlayerService", "Floating window permission is no longer valid", e)
+            composeLifecycleOwner?.destroy()
+            composeLifecycleOwner = null
+            rootLayout = null
+            globalVideoInfo = null
+            stopSelf()
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("FloatingPlayerService", "Floating window was already torn down", e)
+            composeLifecycleOwner?.destroy()
+            composeLifecycleOwner = null
+            rootLayout = null
+            globalVideoInfo = null
+            stopSelf()
         }
     }
 
@@ -409,6 +432,7 @@ class FloatingPlayerService : MediaSessionService() {
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
+            windowAttached = false
             composeLifecycleOwner?.destroy()
             composeLifecycleOwner = null
             rootLayout = null
@@ -428,7 +452,10 @@ class FloatingPlayerService : MediaSessionService() {
             NativeVideoPlaybackManager.player()?.removeListener(videoSizeListener)
         } catch (_: Exception) {}
         removeFloatingWindow()
-        NativeVideoPlaybackManager.release()
+        // The service is the owner of the global overlay playback lifecycle.
+        // Release only after the overlay surface and listener have been detached.
+        runCatching { NativeVideoPlaybackManager.release() }
+            .onFailure { android.util.Log.w("FloatingPlayerService", "Player release during service teardown failed", it) }
         super.onDestroy()
     }
 
