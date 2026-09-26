@@ -365,15 +365,53 @@ fun InAppFloatingPlayer(
             modifier = Modifier.fillMaxSize()
         )
 
-        // --- 3. Fluid In-App Drag Gesture when Controls are Hidden ---
+        // --- 3. Fluid In-App/Global Drag Gesture when Controls are Hidden ---
+        // When the controls fade out, this full-screen hit layer must remain
+        // draggable. Previously it only listened for taps, so the floating
+        // window became impossible to move precisely while the controls/icons
+        // were hidden.
         if (!isDesktopPiP && !showControls && !fullscreenLocked) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures {
-                            showControls = true
-                        }
+                    .pointerInput(isGlobalFloating, screenWidth, screenHeight) {
+                        var dragDistance = 0f
+                        detectDragGestures(
+                            onDragStart = {
+                                dragDistance = 0f
+                            },
+                            onDragEnd = {
+                                // A simple tap reveals the controls; an actual
+                                // drag moves the window without revealing them.
+                                if (dragDistance < 8f) {
+                                    showControls = true
+                                }
+                            },
+                            onDragCancel = {
+                                dragDistance = 0f
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                dragDistance += kotlin.math.hypot(
+                                    dragAmount.x.toDouble(),
+                                    dragAmount.y.toDouble()
+                                ).toFloat()
+
+                                val curW = with(density) { windowWidthDp.dp.toPx() }
+                                val curH = with(density) { windowHeightDp.dp.toPx() }
+                                val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
+                                val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
+
+                                if (isGlobalFloating) {
+                                    onGlobalDrag?.invoke(dragAmount.x, dragAmount.y)
+                                } else {
+                                    offsetX = (offsetX + dragAmount.x)
+                                        .coerceIn(0f, maxOffsetX)
+                                    offsetY = (offsetY + dragAmount.y)
+                                        .coerceIn(0f, maxOffsetY)
+                                }
+                            }
+                        )
                     }
             )
         }
