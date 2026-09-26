@@ -307,6 +307,30 @@ class FloatingPlayerService : MediaSessionService() {
                             lp.y = (lp.y + dy.roundToInt()).coerceIn(0, maxY)
                             runCatching { wm.updateViewLayout(root, lp) }
                         }
+                    },
+                    onGlobalResize = { widthDp, heightDp ->
+                        val wm = windowManager
+                        val root = rootLayout
+                        val lp = root?.layoutParams as? WindowManager.LayoutParams
+                        if (wm != null && root != null && lp != null) {
+                            val density = resources.displayMetrics.density
+                            val screenW = resources.displayMetrics.widthPixels
+                            val screenH = resources.displayMetrics.heightPixels
+                            val minW = (180 * density).toInt()
+                            val maxW = (screenW * 0.95f).toInt().coerceAtLeast(minW)
+                            val minH = (100 * density).toInt()
+                            val maxH = (screenH * 0.85f).toInt().coerceAtLeast(minH)
+                            val requestedW = (widthDp * density).roundToInt()
+                            val requestedH = (heightDp * density).roundToInt()
+                            val ratio = currentValidRatio()
+                            val safeW = requestedW.coerceIn(minW, maxW)
+                            val safeH = (safeW / ratio).roundToInt().coerceIn(minH, maxH)
+                            lp.width = safeW
+                            lp.height = safeH
+                            lp.x = lp.x.coerceIn(0, (screenW - safeW).coerceAtLeast(0))
+                            lp.y = lp.y.coerceIn(0, (screenH - safeH).coerceAtLeast(0))
+                            runCatching { wm.updateViewLayout(root, lp) }
+                        }
                     }
                 )
             }
