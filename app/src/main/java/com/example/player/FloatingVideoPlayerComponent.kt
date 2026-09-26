@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Process
 import android.provider.Settings
 import android.util.Rational
+import kotlin.math.roundToInt
 import android.widget.Toast
 import org.json.JSONObject
 import com.example.model.VideoMediaInfo
@@ -135,18 +136,16 @@ object FloatingVideoPlayerComponent {
             throw UnsupportedOperationException("PiP requires Android O (API 26) or higher")
         }
         val builder = PictureInPictureParams.Builder()
-        val rational = if (video.videoWidth > 0 && video.videoHeight > 0) {
-            val w = video.videoWidth.coerceIn(1, 10000)
-            val h = video.videoHeight.coerceIn(1, 10000)
-            val ratio = w.toFloat() / h.toFloat()
-            when {
-                ratio > 2.38f -> Rational(238, 100)
-                ratio < 0.42f -> Rational(100, 238)
-                else -> Rational(w, h)
-            }
-        } else {
-            Rational(16, 9)
-        }
+        // Once native playback has prepared, use the decoded frame size as the
+        // authoritative PiP ratio. Fall back to the WebView detector only before
+        // Media3 has reported a VideoSize.
+        val nativeRatio = runCatching {
+            NativeVideoPlaybackManager.videoAspectRatio(video.aspectRatio)
+        }.getOrDefault(video.aspectRatio)
+        val rational = Rational(
+            (nativeRatio * 1000f).roundToInt().coerceIn(420, 2380),
+            1000
+        )
         builder.setAspectRatio(rational)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             builder.setAutoEnterEnabled(true)
