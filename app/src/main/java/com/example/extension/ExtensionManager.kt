@@ -167,7 +167,11 @@ class ExtensionManager(
 
     fun iconFile(id: String): File? {
         val ext = extension(id) ?: return null
-        val path = ext.manifest.iconPath ?: return null
+        val rawPath = ext.manifest.iconPath ?: return null
+        // Manifest paths are extension-relative. Normalize separators and a
+        // possible leading slash before applying the canonical-path sandbox check.
+        val path = rawPath.trim().replace('\\', '/').removePrefix("/")
+        if (path.isBlank()) return null
         return safeChild(ext.rootPath, path)?.takeIf { it.exists() && it.isFile }
     }
 
@@ -393,7 +397,9 @@ class ExtensionManager(
 
     private fun safeChild(rootPath: String, relative: String): File? {
         val root = File(rootPath).canonicalFile
-        val file = File(root, relative).canonicalFile
+        val normalized = relative.replace('\\', '/').removePrefix("/")
+        if (normalized.isBlank()) return null
+        val file = File(root, normalized).canonicalFile
         return if (file.path == root.path || file.path.startsWith(root.path + File.separator)) file else null
     }
 
