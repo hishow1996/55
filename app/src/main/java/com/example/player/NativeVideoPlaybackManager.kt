@@ -25,6 +25,10 @@ object NativeVideoPlaybackManager {
     private var listenerInstalled = false
     private var playbackErrorListener: ((PlaybackException) -> Unit)? = null
     private var mediaSession: MediaSession? = null
+    // Keeps playback intent independent from TextureView/Surface lifecycle.
+    // A configuration change can temporarily detach the video surface without
+    // meaning that the user paused the video.
+    private var resumeAfterSurfaceReattach = false
 
     @Synchronized
     fun start(context: Context, video: VideoMediaInfo, autoPlay: Boolean = true): Boolean {
@@ -103,8 +107,11 @@ object NativeVideoPlaybackManager {
 
         if (surface != null) {
             val session = VideoPlaybackSessionManager.current()
-            if (session?.isPlaying == true) {
+            val shouldResume = resumeAfterSurfaceReattach || session?.isPlaying == true
+            resumeAfterSurfaceReattach = false
+            if (shouldResume) {
                 playerController.play()
+                VideoPlaybackSessionManager.updatePlaying(true)
             }
         }
     }
@@ -112,7 +119,10 @@ object NativeVideoPlaybackManager {
     @Synchronized
     fun detachSurface() {
         assertMainThread()
-        controller?.setSurface(null)
+        val currentPlayer = controller
+        resumeAfterSurfaceReattach = currentPlayer?.isPlaying == true ||
+            VideoPlaybackSessionManager.current()?.isPlaying == true
+        currentPlayer?.setSurface(null)
     }
 
     fun player(): ExoPlayer? {
@@ -254,6 +264,7 @@ object NativeVideoPlaybackManager {
         controller?.release()
         controller = null
         activeSessionId = null
+        resumeAfterSurfaceReattach = false
         listenerInstalled = false
         mediaSession?.release()
         mediaSession = null
