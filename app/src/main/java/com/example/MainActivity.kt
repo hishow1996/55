@@ -17,6 +17,7 @@ import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
+import com.example.ui.browser.PinchZoomWebView
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -1102,7 +1103,7 @@ fun ChromiumWebViewContainer(
                 ctx.createConfigurationContext(config)
             }
 
-            WebView(webViewContext).apply {
+            PinchZoomWebView(webViewContext).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
@@ -1116,8 +1117,10 @@ fun ChromiumWebViewContainer(
                     domStorageEnabled = true
                     databaseEnabled = true
                     mediaPlaybackRequiresUserGesture = false
-                    setSupportZoom(true)
-                    builtInZoomControls = true
+                    // PinchZoomWebView owns the only zoom gesture: two-finger pinch.
+                    // Do not re-enable WebView legacy zoom/double-tap handling here.
+                    setSupportZoom(false)
+                    builtInZoomControls = false
                     displayZoomControls = false
                     useWideViewPort = tab.isDesktopMode
                     loadWithOverviewMode = tab.isDesktopMode
