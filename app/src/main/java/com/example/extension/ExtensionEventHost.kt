@@ -47,7 +47,7 @@ class WebViewExtensionEventHost(
             is ExtensionBrowserEvent.TabsUpdated ->
                 "window.__elephantTabsUpdated&&window.__elephantTabsUpdated(JSON.parse(" + json + "),{},{});"
             is ExtensionBrowserEvent.RuntimeMessage -> {
-                val callback = "window.__elephantOnMessage&&window.__elephantOnMessage(JSON.parse(" + json + "),{id:" + JSONObject.quote(event.senderId) + "},function(){});"
+                val callback = "window.__elephantRuntimeOnMessage&&window.__elephantRuntimeOnMessage(JSON.parse(" + json + "),{id:" + JSONObject.quote(event.senderId) + "},function(){});"
                 callback
             }
         }
