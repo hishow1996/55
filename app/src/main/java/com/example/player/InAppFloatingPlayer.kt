@@ -330,24 +330,19 @@ fun InAppFloatingPlayer(
 
         // --- 3. Fluid In-App Drag Gesture when Controls are Hidden ---
         if (!isDesktopPiP && !showControls) {
+            // Once controls auto-hide, the video surface must still accept a tap
+            // and restore the controls. Keep this as a dedicated tap layer instead
+            // of combining tap and drag detectors on the same pointer node; the
+            // latter could consume the gesture before detectTapGestures receives it.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            val curW = with(density) { windowWidthDp.dp.toPx() }
-                            val curH = with(density) { windowHeightDp.dp.toPx() }
-                            val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
-                            val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
-                            offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxOffsetX)
-                            offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxOffsetY)
-                        }
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures {
-                            showControls = true
-                        }
+                        detectTapGestures(
+                            onTap = {
+                                showControls = true
+                            }
+                        )
                     }
             )
         }
