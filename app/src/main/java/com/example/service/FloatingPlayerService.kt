@@ -796,20 +796,20 @@ class FloatingPlayerService : MediaSessionService() {
         try { NativeVideoPlaybackManager.stopForUiClose() } catch (_: Exception) {}
         val shouldResumeWeb = MainActivity.shouldResumeFloatingVideo(originTabIndex, originTabId, sourcePageUrl)
         if (shouldResumeWeb) {
-            // Only the original tab/source is unlocked. Other tabs must not have
-            // their HTML5 video resumed or altered by closing this global player.
-            val intent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(EXTRA_SELECT_TAB, originTabIndex)
-                putExtra(EXTRA_ORIGIN_TAB_ID, originTabId)
-                putExtra(EXTRA_RESUME_WEB_VIDEO, true)
-                putExtra(EXTRA_VIDEO_POSITION_SECONDS, effectivePosition)
-                putExtra(EXTRA_VIDEO_SHOULD_PLAY, shouldPlay)
+            // The browser Activity already exists behind the overlay. Resume the
+            // original WebView directly; never start/recreate MainActivity here.
+            val resumed = MainActivity.resumeWebVideoFromFloatingClose(
+                originTabId = originTabId,
+                originTabIndex = originTabIndex,
+                positionSeconds = effectivePosition,
+                shouldPlay = shouldPlay
+            )
+            if (!resumed) {
+                MainActivity.unlockFloatingSourceTab(originTabId, originTabIndex)
             }
-            try { startActivity(intent) } catch (e: Exception) { e.printStackTrace() }
         } else {
-            // The user is on another tab (or the browser activity is not visible).
-            // Release only the source tab's lock; never navigate to it or autoplay it.
+            // The user is on another tab. Release only the source tab's lock;
+            // closing the floating window must not navigate or exit the browser.
             MainActivity.unlockFloatingSourceTab(originTabId, originTabIndex)
         }
 
