@@ -39,6 +39,7 @@ class ElephantDownloadManager(private val context: Context) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val prefs = context.getSharedPreferences("elephant_downloads_prefs", Context.MODE_PRIVATE)
+    private val requestContextPrefs = context.getSharedPreferences("elephant_download_request_context", Context.MODE_PRIVATE)
 
     private val _downloads = MutableStateFlow<List<DownloadItem>>(emptyList())
     val downloads: StateFlow<List<DownloadItem>> = _downloads.asStateFlow()
@@ -149,6 +150,7 @@ class ElephantDownloadManager(private val context: Context) {
         _downloads.value = current
         saveDownloads()
 
+        saveRequestContext(item.id, referer, userAgent)
         startDownloadJob(item, referer, userAgent)
         return item
     }
@@ -321,7 +323,7 @@ class ElephantDownloadManager(private val context: Context) {
                 }
 
                 remuxTransportStreamToMp4(tempTs, finalFile)
-                tempTs.delete()
+                if (!tempTs.delete() && tempTs.exists()) tempTs.deleteOnExit()
                 updateItemFile(item.id, finalFile.absolutePath, finalFile.name, "video/mp4")
                 updateItemCompleted(item.id, finalFile.length())
                 saveDownloads()
@@ -333,6 +335,7 @@ class ElephantDownloadManager(private val context: Context) {
                 updateItemFailed(item.id, e.message ?: "HLS 视频下载失败")
                 saveDownloads()
             } finally {
+                cleanupHlsTempFiles(item)
                 activeJobs.remove(item.id)
             }
         }
@@ -345,6 +348,7 @@ class ElephantDownloadManager(private val context: Context) {
     private fun remuxTransportStreamToMp4(input: File, output: File) {
         val extractor = MediaExtractor()
         var muxer: MediaMuxer? = null
+        var muxerStarted = false
         try {
             extractor.setDataSource(input.absolutePath)
             muxer = MediaMuxer(output.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
@@ -363,6 +367,7 @@ class ElephantDownloadManager(private val context: Context) {
             }
 
             muxer.start()
+            muxerStarted = true
             val buffer = java.nio.ByteBuffer.allocate(1024 * 1024)
             val info = android.media.MediaCodec.BufferInfo()
             while (true) {
@@ -388,7 +393,7 @@ class ElephantDownloadManager(private val context: Context) {
             }
         } finally {
             try { extractor.release() } catch (_: Exception) {}
-            try { muxer?.stop() } catch (_: Exception) {}
+            if (muxerStarted) try { muxer?.stop() } catch (_: Exception) {}
             try { muxer?.release() } catch (_: Exception) {}
         }
     }
@@ -502,7 +507,40 @@ class ElephantDownloadManager(private val context: Context) {
 
     fun resumeDownload(id: String) {
         val item = _downloads.value.find { it.id == id } ?: return
-        startDownloadJob(item)
+        val context = loadRequestContext(id)
+        startDownloadJob(item, context.first, context.second)
+    }
+
+    private fun saveRequestContext(id: String, referer: String?, userAgent: String?) {
+        val obj = JSONObject().apply {
+            if (!referer.isNullOrBlank()) put("referer", referer)
+            if (!userAgent.isNullOrBlank()) put("userAgent", userAgent)
+        }
+        requestContextPrefs.edit().putString(id, obj.toString()).apply()
+    }
+
+    private fun loadRequestContext(id: String): Pair<String?, String?> {
+        val raw = requestContextPrefs.getString(id, null) ?: return null to null
+        return try {
+            val obj = JSONObject(raw)
+            obj.optString("referer", null) to obj.optString("userAgent", null)
+        } catch (_: Exception) {
+            null to null
+        }
+    }
+
+    private fun clearRequestContext(id: String) {
+        requestContextPrefs.edit().remove(id).apply()
+    }
+
+    private fun cleanupHlsTempFiles(item: DownloadItem) {
+        val original = File(item.filePath)
+        val base = original.nameWithoutExtension
+        original.parentFile?.listFiles()?.forEach { file ->
+            if (file.name.startsWith(".$base") && file.name.endsWith(".download.ts")) {
+                try { file.delete() } catch (_: Exception) {}
+            }
+        }
     }
 
     fun cancelDownload(id: String) {
@@ -516,6 +554,7 @@ class ElephantDownloadManager(private val context: Context) {
         }
 
         updateItemStatus(id, DownloadStatus.CANCELLED, speed = 0L)
+        clearRequestContext(id)
         saveDownloads()
     }
 
@@ -533,6 +572,7 @@ class ElephantDownloadManager(private val context: Context) {
         val current = _downloads.value.toMutableList()
         current.removeAll { it.id == id }
         _downloads.value = current
+        clearRequestContext(id)
         saveDownloads()
     }
 
