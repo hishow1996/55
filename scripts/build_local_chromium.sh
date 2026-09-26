@@ -16,6 +16,8 @@ fi
 export PATH="$DEPOT_TOOLS:$PATH"
 cd "$KIWI"
 
+"$ROOT/scripts/preflight_local_chromium.sh"
+
 mkdir -p out/android_arm64
 
 # Install and wire the repo-55 native overlay before GN generation so the
