@@ -46,14 +46,6 @@ class Media3VideoPlayerController(context: Context) {
         )
         if (!pageUrl.isNullOrBlank()) {
             headers["Referer"] = pageUrl
-            runCatching {
-                val uri = android.net.Uri.parse(pageUrl)
-                val scheme = uri.scheme
-                val host = uri.host
-                if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
-                    headers["Origin"] = "$scheme://$host"
-                }
-            }
             android.webkit.CookieManager.getInstance().getCookie(pageUrl)
                 ?.takeIf { it.isNotBlank() }
                 ?.let { headers["Cookie"] = it }
