@@ -251,6 +251,7 @@ fun InAppFloatingPlayer(
         AndroidView(
             factory = { ctx ->
                 TextureView(ctx).apply {
+                    keepScreenOn = true
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
