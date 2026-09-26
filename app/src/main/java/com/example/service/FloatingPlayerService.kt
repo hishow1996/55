@@ -135,9 +135,17 @@ class FloatingPlayerService : MediaSessionService() {
                 VideoPlaybackSessionManager.updatePosition(cur)
                 VideoPlaybackSessionManager.updateDuration(dur)
                 FloatingVideoPlayerComponent.syncProgress(cur / 1000.0)
-                seekBar?.max = durationMs
-                seekBar?.progress = currentPositionMs
-                timeTv?.text = "${formatTime(currentPositionMs)} / ${formatTime(durationMs)}"
+                timeTv?.text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}"
+                val ratio = (cur.toFloat() / dur.toFloat()).coerceIn(0f, 1f)
+                progressTrack?.let { track ->
+                    progressFill?.let { fill ->
+                        fill.layoutParams = (fill.layoutParams as FrameLayout.LayoutParams).apply {
+                            width = (track.width * ratio).toInt()
+                            height = (2 * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+                        }
+                        fill.requestLayout()
+                    }
+                }
                 isPlaying = NativeVideoPlaybackManager.isPlaying()
             } catch (_: Exception) {}
             handler.postDelayed(this, 500)
