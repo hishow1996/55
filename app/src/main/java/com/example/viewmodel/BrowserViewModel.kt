@@ -230,43 +230,73 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun startVideoDownload(url: String, title: String) {
-        // Downloads follow the same per-tab isolation rule as playback.
-        // Never use the repository-wide lastDetectedStreamUrl or the page URL
-        // as a video fallback.
-        val effectiveUrl = if (url.isBlank() || url.startsWith("blob:") || !url.startsWith("http")) {
-            repository.getDetectedStreamUrlForTab(currentTab.id)
-                ?.trim()
-                ?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
-                ?: ""
-        } else {
-            url.trim()
+        // The download target must be the media source of the CURRENT playing video.
+        // Never fall back to a page/navigation URL, and never reuse a stream from
+        // another tab. Blob/MSE pages use the per-tab captured media candidate.
+        val suppliedUrl = url.trim()
+        val fallbackUrl = repository.getDetectedStreamUrlForTab(currentTab.id)?.trim().orEmpty()
+        val pageUrl = currentTab.url.trim()
+
+        fun isHttp(value: String): Boolean =
+            value.startsWith("http://", true) || value.startsWith("https://", true)
+
+        fun isSameUrl(a: String, b: String): Boolean =
+            a.isNotBlank() && b.isNotBlank() && runCatching {
+                java.net.URI(a).normalize().toString().trimEnd('/') ==
+                    java.net.URI(b).normalize().toString().trimEnd('/')
+            }.getOrDefault(a.trimEnd('/') == b.trimEnd('/'))
+
+        val effectiveUrl = when {
+            isHttp(suppliedUrl) && !isSameUrl(suppliedUrl, pageUrl) -> suppliedUrl
+            isHttp(fallbackUrl) && !isSameUrl(fallbackUrl, pageUrl) -> fallbackUrl
+            else -> ""
         }
+
         val cleanTitle = title.trim()
-            .replace(Regex("[\\\\/:*?\"<>|\\r\\n]"), "_")
-            .ifBlank { "video_${System.currentTimeMillis()}" }
-        val isHls = effectiveUrl.contains(".m3u8", ignoreCase = true) || effectiveUrl.contains("application/vnd.apple.mpegurl", ignoreCase = true)
-        val ext = if (isHls) ".ts" else ".mp4"
+            .replace(Regex("[\\/:*?&quot;&lt;&gt;|\\r\\n]"), "_")
+            .ifBlank { "video_" + System.currentTimeMillis() }
+
         if (effectiveUrl.isBlank()) {
             android.widget.Toast.makeText(
                 getApplication<Application>(),
-                "没有找到当前视频的可下载地址",
+                "没有找到当前正在播放视频的真实媒体地址",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
             return
         }
 
-        val fileName = if (cleanTitle.endsWith(".mp4", true) || cleanTitle.endsWith(".ts", true)) cleanTitle else "$cleanTitle$ext"
+        val isHls = effectiveUrl.contains(".m3u8", ignoreCase = true) ||
+            effectiveUrl.contains("application/vnd.apple.mpegurl", ignoreCase = true)
+        val isDash = effectiveUrl.contains(".mpd", ignoreCase = true) ||
+            effectiveUrl.contains("application/dash+xml", ignoreCase = true)
+
+        if (isDash) {
+            android.widget.Toast.makeText(
+                getApplication<Application>(),
+                "当前视频是 DASH 流，已识别到媒体地址，但当前下载器暂不合并 DASH 分片",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val ext = if (isHls) ".ts" else ".mp4"
+        val fileName = if (cleanTitle.endsWith(".mp4", true) || cleanTitle.endsWith(".ts", true)) {
+            cleanTitle
+        } else {
+            cleanTitle + ext
+        }
         val mimeType = if (isHls) "video/mp2t" else "video/mp4"
 
         downloadManager.enqueueDownload(
             url = effectiveUrl,
             suggestedFileName = fileName,
             mimeType = mimeType,
-            contentLength = 0L
+            contentLength = 0L,
+            referer = pageUrl.takeIf { it.isNotBlank() },
+            userAgent = repository.getUserAgent(currentTab.isDesktopMode)
         )
         _isDownloadManagerVisible.value = true
     }
-
     fun confirmPendingDownload() {
         val pending = _pendingDownload.value ?: return
         downloadManager.enqueueDownload(
