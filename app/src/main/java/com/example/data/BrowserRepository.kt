@@ -33,6 +33,15 @@ class BrowserRepository(private val context: Context) {
     private val _customUserAgent = MutableStateFlow(prefs.getString(KEY_CUSTOM_UA, "") ?: "")
     val customUserAgent: StateFlow<String> = _customUserAgent.asStateFlow()
 
+    // Content blocking (ads + common trackers)
+    private val _isContentBlocking = MutableStateFlow(prefs.getBoolean(KEY_CONTENT_BLOCKING, true))
+    val isContentBlocking: StateFlow<Boolean> = _isContentBlocking.asStateFlow()
+
+    fun setContentBlocking(enabled: Boolean) {
+        _isContentBlocking.value = enabled
+        prefs.edit().putBoolean(KEY_CONTENT_BLOCKING, enabled).apply()
+    }
+
     // Flow for Incognito Mode
     private val _isIncognito = MutableStateFlow(false)
     val isIncognito: StateFlow<Boolean> = _isIncognito.asStateFlow()
@@ -597,6 +606,7 @@ class BrowserRepository(private val context: Context) {
 
     companion object {
         private const val KEY_NIGHT_MODE = "pref_night_mode"
+        private const val KEY_CONTENT_BLOCKING = "pref_content_blocking"
         private const val KEY_DESKTOP_MODE = "pref_desktop_mode"
         private const val KEY_DESKTOP_UA_TYPE = "pref_desktop_ua_type"
         private const val KEY_CUSTOM_UA = "pref_custom_ua"
