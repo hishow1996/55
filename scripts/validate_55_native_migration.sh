@@ -17,7 +17,7 @@ test -d "$KIWI/components/history" || fail "Chromium history service missing"
 test -d "$KIWI/components/bookmarks" || fail "Chromium bookmarks service missing"
 test -f "$KIWI/extensions/browser/extension_service.cc" || fail "Chromium extension runtime missing"
 
-JAVA_LIST="$KIWI/chrome/android/chrome_java_sources.gni"
+JAVA_LIST="$KIWI/chrome/android/java_sources.gni"
 grep -Fq '"java/src/org/chromium/chrome/browser/Elephant55NativeSettings.java",' "$JAVA_LIST" || fail "55 settings source not registered"
 grep -Fq '"java/src/org/chromium/chrome/browser/Elephant55NativeFeatureController.java",' "$JAVA_LIST" || fail "55 feature controller source not registered"
 
