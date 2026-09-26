@@ -391,8 +391,46 @@ fun InAppFloatingPlayer(
             }
 
             Box(modifier = overlayModifier) {
-                // Unified player header controls
-                Row(
+                // Dedicated fullscreen header: back on the left, download/close on the right.
+                if (isFullscreen) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(
+                            onClick = { onEnterFullscreen() },
+                            modifier = Modifier.size(42.dp).background(Color.Black.copy(alpha = 0.42f), CircleShape)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "退出全屏", tint = Color.White, modifier = Modifier.size(25.dp))
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (onDownloadVideo != null) {
+                                IconButton(
+                                    onClick = { onDownloadVideo(videoInfo.url, videoInfo.title.ifBlank { "网页视频" }) },
+                                    modifier = Modifier.size(42.dp)
+                                ) {
+                                    Icon(Icons.Default.ArrowDownward, "下载当前视频", tint = Color.White, modifier = Modifier.size(24.dp))
+                                }
+                            }
+                            IconButton(
+                                onClick = {
+                                    val position = VideoPlaybackSessionManager.positionMsOr(currentPositionMs.toLong()) / 1000.0
+                                    onClose(position)
+                                },
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Icon(Icons.Default.Close, "关闭播放器", tint = Color.White, modifier = Modifier.size(25.dp))
+                            }
+                        }
+                    }
+                }
+
+                // Normal player/floating header controls
+                if (!isFullscreen) Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.5f))
@@ -460,7 +498,7 @@ fun InAppFloatingPlayer(
                 Row(
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .fillMaxWidth(if (isDesktopPiP) 0.55f else 0.65f),
+                        .fillMaxWidth(if (isDesktopPiP) 0.55f else if (isFullscreen) 0.42f else 0.65f),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -473,13 +511,13 @@ fun InAppFloatingPlayer(
                                 currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                             } catch (_: Exception) {}
                         },
-                        modifier = Modifier.size(if (isDesktopPiP) 34.dp else 46.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 34.dp else if (isFullscreen) 56.dp else 46.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Replay10,
                             contentDescription = "快退10秒",
                             tint = Color.White,
-                            modifier = Modifier.size(if (isDesktopPiP) 22.dp else 30.dp)
+                            modifier = Modifier.size(if (isDesktopPiP) 22.dp else if (isFullscreen) 38.dp else 30.dp)
                         )
                     }
 
@@ -492,13 +530,13 @@ fun InAppFloatingPlayer(
                                 isPlaying = NativeVideoPlaybackManager.isPlaying()
                             } catch (_: Exception) {}
                         },
-                        modifier = Modifier.size(if (isDesktopPiP) 40.dp else 52.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 40.dp else if (isFullscreen) 64.dp else 52.dp)
                     ) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (isPlaying) "暂停" else "播放",
                             tint = Color.White,
-                            modifier = Modifier.size(if (isDesktopPiP) 30.dp else 40.dp)
+                            modifier = Modifier.size(if (isDesktopPiP) 30.dp else if (isFullscreen) 48.dp else 40.dp)
                         )
                     }
 
@@ -512,14 +550,60 @@ fun InAppFloatingPlayer(
                                 currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                             } catch (_: Exception) {}
                         },
-                        modifier = Modifier.size(if (isDesktopPiP) 32.dp else 42.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 32.dp else if (isFullscreen) 56.dp else 42.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Forward10,
                             contentDescription = "快进10秒",
                             tint = Color.White,
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(if (isFullscreen) 38.dp else 26.dp)
                         )
+                    }
+                }
+
+                if (isFullscreen) {
+                    val progress = if (durationMs > 0) (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = formatTime(currentPositionMs) + " / " + formatTime(durationMs),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(20.dp)
+                                .pointerInput(durationMs) {
+                                    detectTapGestures { offset ->
+                                        val width = size.width.toFloat().coerceAtLeast(1f)
+                                        val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
+                                        NativeVideoPlaybackManager.seekTo(target)
+                                        currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                                    }
+                                }
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .align(Alignment.CenterStart)
+                                    .background(Color.White.copy(alpha = 0.28f), RoundedCornerShape(2.dp))
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(progress)
+                                    .height(3.dp)
+                                    .align(Alignment.CenterStart)
+                                    .background(Color.White, RoundedCornerShape(2.dp))
+                            )
+                        }
                     }
                 }
 
