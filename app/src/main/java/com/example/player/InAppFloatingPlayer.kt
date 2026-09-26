@@ -552,9 +552,10 @@ fun InAppFloatingPlayer(
             }
         }
 
-        // The thin live red progress line belongs to the floating/in-app
-        // window UI, not the native fullscreen player.
-        if (!isFullscreen) {
+        // The thin live red progress line is exclusive to the global
+        // floating-window presentation. It is not part of the in-app
+        // player page or native fullscreen player.
+        if (isDesktopPiP) {
             val progress = if (durationMs > 0) {
                 (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
             } else 0f
