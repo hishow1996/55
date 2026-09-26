@@ -24,7 +24,8 @@ import com.example.model.VideoMediaInfo
 class Media3VideoPlayerController(context: Context) {
 
     private val appContext = context.applicationContext
-    private val httpFactory = DefaultHttpDataSource.Factory()\n        .setAllowCrossProtocolRedirects(true)
+    private val httpFactory = DefaultHttpDataSource.Factory()
+        .setAllowCrossProtocolRedirects(true)
     private val player = ExoPlayer.Builder(appContext)
         .setMediaSourceFactory(DefaultMediaSourceFactory(httpFactory))
         .setWakeMode(C.WAKE_MODE_NETWORK)
@@ -44,7 +45,15 @@ class Media3VideoPlayerController(context: Context) {
             "Accept" to "*/*"
         )
         if (!pageUrl.isNullOrBlank()) {
-            headers["Referer"] = pageUrl\n            runCatching {\n                val uri = android.net.Uri.parse(pageUrl)\n                val scheme = uri.scheme\n                val host = uri.host\n                if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {\n                    headers["Origin"] = "$scheme://$host"\n                }\n            }
+            headers["Referer"] = pageUrl
+            runCatching {
+                val uri = android.net.Uri.parse(pageUrl)
+                val scheme = uri.scheme
+                val host = uri.host
+                if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
+                    headers["Origin"] = "$scheme://$host"
+                }
+            }
             android.webkit.CookieManager.getInstance().getCookie(pageUrl)
                 ?.takeIf { it.isNotBlank() }
                 ?.let { headers["Cookie"] = it }
