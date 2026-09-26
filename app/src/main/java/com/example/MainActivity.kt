@@ -1120,7 +1120,7 @@ fun ChromiumWebViewContainer(
                     mediaPlaybackRequiresUserGesture = false
                     // PinchZoomWebView owns the only zoom gesture: two-finger pinch.
                     // Do not re-enable WebView legacy zoom/double-tap handling here.
-                    setSupportZoom(false)
+                    setSupportZoom(true)
                     builtInZoomControls = false
                     displayZoomControls = false
                     useWideViewPort = tab.isDesktopMode
@@ -1373,7 +1373,7 @@ fun ChromiumWebViewContainer(
                 webView.settings.userAgentString = targetUa
                 webView.settings.useWideViewPort = tab.isDesktopMode
                 webView.settings.loadWithOverviewMode = tab.isDesktopMode
-                webView.settings.setSupportZoom(false)
+                webView.settings.setSupportZoom(true)
                 webView.settings.builtInZoomControls = false
                 webView.settings.displayZoomControls = false
                 webView.settings.layoutAlgorithm = if (tab.isDesktopMode) {
