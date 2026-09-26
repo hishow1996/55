@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 KIWI="$ROOT/third_party/kiwi/src.next"
 JAVA_ROOT="$KIWI/chrome/android/java/src/org/chromium/chrome/browser"
-JAVA_LIST="$KIWI/chrome/android/chrome_java_sources.gni"
+JAVA_LIST="$KIWI/chrome/android/java_sources.gni"
 TAB_ACTIVITY="$JAVA_ROOT/ChromeTabbedActivity.java"
 
 test -d "$KIWI/chrome/android" || { echo "Kiwi Chromium source is not prepared: $KIWI" >&2; exit 2; }
@@ -13,6 +13,8 @@ mkdir -p "$JAVA_ROOT"
 # Install the repo-55 native preference/controller classes into the Chromium
 # Android source tree. These are the only repo-55 runtime classes copied into
 # the final Chromium APK; the old Gradle/WebView runtime is never packaged.
+# The top-level java_sources.gni is the Kiwi integration point that appends
+# additional sources to chrome_java_sources.
 cp "$ROOT/patches/55/Elephant55NativeSettings.java" "$JAVA_ROOT/Elephant55NativeSettings.java"
 cp "$ROOT/patches/55/Elephant55NativeFeatureController.java" "$JAVA_ROOT/Elephant55NativeFeatureController.java"
 
