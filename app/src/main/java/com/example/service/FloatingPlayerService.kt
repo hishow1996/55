@@ -239,8 +239,7 @@ class FloatingPlayerService : MediaSessionService() {
 
         val screenWidth = resources.displayMetrics.widthPixels
         val defaultW = (sizePresets[currentSizeIndex] * density).toInt().coerceAtMost((screenWidth * 0.92f).toInt())
-        val effectiveRatio = if (videoRatio >= 1.2f) videoRatio else (16f / 9f)
-        val heightPx = (defaultW / effectiveRatio).toInt().coerceAtLeast((140 * density).toInt())
+        // Keep the floating window in the same orientation and aspect ratio as the actual video.\n        // Do not force portrait/vertical media back to 16:9. Android overlay windows\n        // can use the full valid video ratio here; only reject obviously invalid data.\n        val effectiveRatio = videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)\n        val heightPx = (defaultW / effectiveRatio).toInt().coerceAtLeast((100 * density).toInt())
 
         val params = WindowManager.LayoutParams(
             defaultW,
@@ -568,7 +567,7 @@ class FloatingPlayerService : MediaSessionService() {
                         val minH = (110 * density).toInt()
                         val maxH = (screenH - params.y).coerceAtLeast(minH)
 
-                        val effRatio = if (videoRatio >= 0.5f) videoRatio else (16f / 9f)
+                        val effRatio = videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)
                         val newW = (resizeInitialW + dx).toInt().coerceIn(minW, maxW)
                         val newH = (newW / effRatio).toInt().coerceIn(minH, maxH)
                         params.width = newW
@@ -583,7 +582,7 @@ class FloatingPlayerService : MediaSessionService() {
                         val targetWDp = sizePresetsDp[currentSizePresetIndex]
                         val screenW = resources.displayMetrics.widthPixels
                         val targetW = (targetWDp * density).toInt().coerceIn((180 * density).toInt(), (screenW - params.x).coerceAtLeast((180 * density).toInt()))
-                        val effRatio = if (videoRatio >= 0.5f) videoRatio else (16f / 9f)
+                        val effRatio = videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)
                         val targetH = (targetW / effRatio).toInt().coerceAtLeast((110 * density).toInt())
                         params.width = targetW
                         params.height = targetH
