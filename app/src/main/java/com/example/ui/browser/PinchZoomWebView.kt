@@ -63,6 +63,21 @@ class PinchZoomWebView @JvmOverloads constructor(
         settings.displayZoomControls = false
     }
 
+    /**
+     * Reset only the zoom state owned by this wrapper.
+     *
+     * Desktop mode changes WebView's initial scale independently through
+     * WebSettings. Keeping the old gesture scale here would make a later
+     * one-finger pan start unexpectedly after switching modes.
+     */
+    fun resetGestureZoomState() {
+        pinchActive = false
+        pageZoom = 1f
+        panStarted = false
+        lastPanX = 0f
+        lastPanY = 0f
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         scaleDetector.onTouchEvent(event)
 
