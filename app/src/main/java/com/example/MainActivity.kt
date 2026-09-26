@@ -239,14 +239,24 @@ class MainActivity : ComponentActivity() {
                 if (nativePlayerFullscreen) {
                     orientationBeforeNativeFullscreen = activity.requestedOrientation
                     activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                    WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+                    activity.window.statusBarColor = android.graphics.Color.BLACK
+                    activity.window.navigationBarColor = android.graphics.Color.BLACK
                     insetsController.hide(WindowInsetsCompat.Type.systemBars())
                     insetsController.systemBarsBehavior =
                         androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 } else {
                     activity.requestedOrientation = orientationBeforeNativeFullscreen
                     insetsController.show(WindowInsetsCompat.Type.systemBars())
+                    WindowCompat.setDecorFitsSystemWindows(activity.window, true)
                 }
-                onDispose { }
+                onDispose {
+                    if (nativePlayerFullscreen) {
+                        activity.requestedOrientation = orientationBeforeNativeFullscreen
+                        insetsController.show(WindowInsetsCompat.Type.systemBars())
+                        WindowCompat.setDecorFitsSystemWindows(activity.window, true)
+                    }
+                }
             }
 
             fun openAiWithCurrentPage() {
