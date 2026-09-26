@@ -30,6 +30,27 @@ class ExtensionRuntimeTest {
         assertTrue(manifest.permissions.contains("storage"))
     }
 
+    
+    @Test
+    fun manifestParsesExtensionIconsAndDefaultIconFallback() {
+        val manifest = ExtensionManifest.parse("""{
+          "manifest_version": 3,
+          "name": "Icons",
+          "version": "1.0",
+          "icons": {"16": "small.png", "128": "large.png"},
+          "action": {"default_icon": {"16": "action16.png", "48": "action48.png"}}
+        }""")
+        assertEquals("large.png", manifest.iconPath)
+
+        val fallback = ExtensionManifest.parse("""{
+          "manifest_version": 3,
+          "name": "Action Icon",
+          "version": "1.0",
+          "action": {"default_icon": {"16": "action16.png", "48": "action48.png"}}
+        }""")
+        assertEquals("action48.png", fallback.iconPath)
+    }
+
     @Test
     fun chromeMatchPatternsRespectSchemeHostAndPath() {
         assertTrue(ExtensionManager.matches(listOf("https://*.example.com/*"), "https://www.example.com/a"))
