@@ -132,6 +132,9 @@ class MainActivity : ComponentActivity() {
                     val manager = BrowserBackupManager(this@MainActivity)
                     val json = manager.read(uri)
                     val ok = json?.let { manager.restore(viewModel.repository, it) } == true
+                    json?.let { manager.extractTabs(it) }?.let { (restoredTabs, restoredIndex) ->
+                        viewModel.restoreTabsFromBackup(restoredTabs, restoredIndex)
+                    }
                     Toast.makeText(
                         this@MainActivity,
                         if (ok) "浏览器数据已恢复，重新打开标签页后生效" else "备份文件无效或无法读取",
