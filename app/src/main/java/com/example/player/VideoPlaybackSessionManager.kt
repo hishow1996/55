@@ -28,7 +28,9 @@ object VideoPlaybackSessionManager {
         val sameVideo = current != null &&
             sameSourceTab &&
             current.pageUrl == video.pageUrl &&
-            current.source == resolvedSource
+            current.source == resolvedSource &&
+            current.drmScheme == video.drmScheme &&
+            current.drmLicenseUri == video.drmLicenseUri
 
         // A new native source on the same page is a new media identity. Never
         // carry A's position/rate/playback state into B merely because the tab
@@ -39,6 +41,8 @@ object VideoPlaybackSessionManager {
             current!!.copy(
                 tabId = video.originTabId ?: current.tabId,
                 title = video.title.ifBlank { current.title },
+                drmScheme = video.drmScheme ?: current.drmScheme,
+                drmLicenseUri = video.drmLicenseUri ?: current.drmLicenseUri,
                 durationMs = if (video.duration > 0) (video.duration * 1000).toLong() else current.durationMs
             )
         } else {
@@ -49,6 +53,8 @@ object VideoPlaybackSessionManager {
                 tabId = video.originTabId,
                 title = video.title.ifBlank { "网页视频" },
                 source = resolvedSource,
+                drmScheme = video.drmScheme,
+                drmLicenseUri = video.drmLicenseUri,
                 positionMs = (video.currentTime * 1000).toLong().coerceAtLeast(0L),
                 durationMs = (video.duration * 1000).toLong().coerceAtLeast(0L),
                 isPlaying = video.isPlaying
