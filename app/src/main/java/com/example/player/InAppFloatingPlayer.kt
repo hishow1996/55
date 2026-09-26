@@ -143,8 +143,9 @@ fun InAppFloatingPlayer(
     val minWidthDp = 160f.coerceAtMost(screenWidthDp * 0.5f)
     val minHeightDp = 90f.coerceAtMost(screenHeightDp * 0.4f)
 
-    val initialWidthDp = remember(screenWidthDp) {
-        (screenWidthDp * 0.75f).coerceIn(minWidthDp, maxWidthDp)
+    val initialWidthDp = remember(screenWidthDp, baseRatio, maxHeightDp) {
+        val ratioLimitedMaxWidth = minOf(maxWidthDp, maxHeightDp * baseRatio)
+        (screenWidthDp * 0.75f).coerceIn(minWidthDp, ratioLimitedMaxWidth.coerceAtLeast(minWidthDp))
     }
     val initialHeightDp = remember(initialWidthDp, baseRatio) {
         (initialWidthDp / baseRatio).coerceIn(minHeightDp, maxHeightDp)
@@ -155,7 +156,16 @@ fun InAppFloatingPlayer(
     var windowHeightDp by remember { mutableFloatStateOf(initialHeightDp) }
 
     // Lock aspect ratio during resizing
-    var lockAspectRatio by remember { mutableStateOf(false) }
+    var lockAspectRatio by remember { mutableStateOf(true) }
+
+    LaunchedEffect(baseRatio, isDesktopPiP, isFullscreen) {
+        if (!isDesktopPiP && !isFullscreen && baseRatio > 0f) {
+            val targetHeight = (windowWidthDp / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+            val targetWidth = (targetHeight * baseRatio).coerceIn(minWidthDp, maxWidthDp)
+            windowWidthDp = targetWidth
+            windowHeightDp = targetHeight
+        }
+    }
 
     // Resizing visual feedback states
     var isActivelyResizing by remember { mutableStateOf(false) }
@@ -333,17 +343,6 @@ fun InAppFloatingPlayer(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            val curW = with(density) { windowWidthDp.dp.toPx() }
-                            val curH = with(density) { windowHeightDp.dp.toPx() }
-                            val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
-                            val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
-                            offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxOffsetX)
-                            offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxOffsetY)
-                        }
-                    }
                     .pointerInput(Unit) {
                         detectTapGestures {
                             showControls = true
