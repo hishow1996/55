@@ -344,14 +344,11 @@ class FloatingPlayerService : Service() {
             setColorFilter(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt())
             setOnClickListener {
-                mediaPlayer?.let { mp ->
-                    try {
-                        val pos = max(0, mp.currentPosition - 10000)
-                        mp.seekTo(pos.toLong())
-                        currentPositionMs = pos
-                        VideoPlaybackSessionManager.updatePosition(pos.toLong())
-                    } catch (e: Exception) {}
-                }
+                try {
+                    val pos = max(0L, NativeVideoPlaybackManager.currentPositionMs() - 10000L)
+                    NativeVideoPlaybackManager.seekTo(pos)
+                    currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                } catch (_: Exception) {}
                 resetHideTimer()
             }
         }
@@ -368,19 +365,17 @@ class FloatingPlayerService : Service() {
                 setMargins((16 * density).toInt(), 0, (16 * density).toInt(), 0)
             }
             setOnClickListener {
-                mediaPlayer?.let { mp ->
-                    try {
-                        if (mp.isPlaying) {
-                            mp.pause()
-                            isPlaying = false
-                            setImageResource(android.R.drawable.ic_media_play)
-                        } else {
-                            mp.play()
-                            isPlaying = true
-                            setImageResource(android.R.drawable.ic_media_pause)
-                        }
-                    } catch (e: Exception) {}
-                }
+                try {
+                    if (NativeVideoPlaybackManager.isPlaying()) {
+                        NativeVideoPlaybackManager.pause()
+                        isPlaying = false
+                        setImageResource(android.R.drawable.ic_media_play)
+                    } else {
+                        NativeVideoPlaybackManager.play()
+                        isPlaying = true
+                        setImageResource(android.R.drawable.ic_media_pause)
+                    }
+                } catch (_: Exception) {}
                 resetHideTimer()
             }
         }
@@ -393,13 +388,12 @@ class FloatingPlayerService : Service() {
             setColorFilter(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt())
             setOnClickListener {
-                mediaPlayer?.let { mp ->
-                    try {
-                        val pos = (mp.currentPosition + 10000L).coerceAtMost(mp.duration.coerceAtLeast(0L))
-                        mp.seekTo(pos)
-                        currentPositionMs = pos
-                    } catch (e: Exception) {}
-                }
+                try {
+                    val pos = (NativeVideoPlaybackManager.currentPositionMs() + 10000L)
+                        .coerceAtMost(NativeVideoPlaybackManager.durationMs().coerceAtLeast(0L))
+                    NativeVideoPlaybackManager.seekTo(pos)
+                    currentPositionMs = pos.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                } catch (_: Exception) {}
                 resetHideTimer()
             }
         }
@@ -435,7 +429,7 @@ class FloatingPlayerService : Service() {
                 }
                 override fun onStopTrackingTouch(sb: SeekBar?) {
                     sb?.progress?.let { pos ->
-                        mediaPlayer?.seekTo(pos)
+                        NativeVideoPlaybackManager.seekTo(pos.toLong())
                         currentPositionMs = pos
                         VideoPlaybackSessionManager.updatePosition(pos)
                     }
@@ -679,12 +673,13 @@ class FloatingPlayerService : Service() {
         val effectivePosition = playerPositionSeconds
             ?.takeIf { it.isFinite() && it >= 0.0 }
             ?: positionSeconds.coerceAtLeast(0.0)
-        val playerIsPlaying = try { mediaPlayer?.isPlaying } catch (e: Exception) { null }
+        val playerIsPlaying = try { NativeVideoPlaybackManager.isPlaying() } catch (_: Exception) { null }
         val shouldPlay = playerIsPlaying ?: VideoPlaybackSessionManager.current()?.isPlaying ?: isPlaying
 
         FloatingVideoPlayerComponent.syncProgress(effectivePosition)
         VideoPlaybackSessionManager.updatePosition((effectivePosition * 1000.0).toLong())
         VideoPlaybackSessionManager.updatePlaying(shouldPlay)
+        try { NativeVideoPlaybackManager.stopForUiClose() } catch (_: Exception) {}
         val shouldResumeWeb = MainActivity.shouldResumeFloatingVideo(originTabIndex, originTabId, sourcePageUrl)
         if (shouldResumeWeb) {
             // Only the original tab/source is unlocked. Other tabs must not have
