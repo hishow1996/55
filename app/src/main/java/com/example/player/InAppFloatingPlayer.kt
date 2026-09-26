@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
@@ -183,6 +185,7 @@ fun InAppFloatingPlayer(
     var isBuffering by remember { mutableStateOf(false) }
     var playbackSpeed by remember { mutableFloatStateOf(VideoPlaybackSessionManager.current()?.playbackRate ?: 1.0f) }
     var showControls by remember { mutableStateOf(true) }
+    var fullscreenLocked by remember(isFullscreen) { mutableStateOf(false) }
     // The player is application-wide. This UI only attaches a surface and
     // controls the already-running native Media3 instance.
     var currentSurface by remember { mutableStateOf<Surface?>(null) }
@@ -347,6 +350,34 @@ fun InAppFloatingPlayer(
                         }
                     }
             )
+        }
+
+        if (isFullscreen && fullscreenLocked) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures { /* keep fullscreen controls locked */ }
+                    }
+            )
+        }
+
+        if (isFullscreen) {
+            IconButton(
+                onClick = { fullscreenLocked = !fullscreenLocked },
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 8.dp)
+                    .size(42.dp)
+                    .background(Color.Black.copy(alpha = 0.48f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = if (fullscreenLocked) Icons.Default.LockOpen else Icons.Default.Lock,
+                    contentDescription = if (fullscreenLocked) "解锁全屏播放器" else "锁定全屏播放器",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
 
         // --- 4. Floating Video Player Controls Overlay (Figure 1 UI in both PiP & In-App) ---
