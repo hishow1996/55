@@ -2,6 +2,7 @@ package com.example.player
 
 import android.content.Context
 import android.view.Surface
+import android.os.Looper
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.model.VideoMediaInfo
@@ -13,12 +14,16 @@ import com.example.model.VideoMediaInfo
  * Player UI surfaces may attach/detach without creating another ExoPlayer.
  */
 object NativeVideoPlaybackManager {
+    private fun assertMainThread() {
+        check(Looper.myLooper() == Looper.getMainLooper()) { "NativeVideoPlaybackManager must be accessed from the main thread" }
+    }
     private var controller: Media3VideoPlayerController? = null
     private var activeSessionId: String? = null
     private var listenerInstalled = false
 
     @Synchronized
     fun start(context: Context, video: VideoMediaInfo, autoPlay: Boolean = true): Boolean {
+        assertMainThread()
         val session = VideoPlaybackSessionManager.start(video)
         val playerController = ensureController(context)
 
@@ -65,38 +70,51 @@ object NativeVideoPlaybackManager {
 
     @Synchronized
     fun attachSurface(surface: Surface?) {
+        assertMainThread()
         controller?.setSurface(surface)
     }
 
     @Synchronized
     fun detachSurface() {
+        assertMainThread()
         controller?.setSurface(null)
     }
 
     fun player(): ExoPlayer? = controller?.rawPlayer()
 
     fun play() {
+        assertMainThread()
         controller?.play()
     }
 
     fun pause() {
+        assertMainThread()
         controller?.pause()
     }
 
     fun seekTo(positionMs: Long) {
+        assertMainThread()
         controller?.seekTo(positionMs)
         VideoPlaybackSessionManager.updatePosition(positionMs)
     }
 
-    fun currentPositionMs(): Long =
-        controller?.currentPositionMs() ?: VideoPlaybackSessionManager.current()?.positionMs ?: 0L
+    fun currentPositionMs(): Long {
+        assertMainThread()
+        return controller?.currentPositionMs() ?: VideoPlaybackSessionManager.current()?.positionMs ?: 0L
+    }
 
-    fun durationMs(): Long =
-        controller?.durationMs() ?: VideoPlaybackSessionManager.current()?.durationMs ?: 0L
+    fun durationMs(): Long {
+        assertMainThread()
+        return controller?.durationMs() ?: VideoPlaybackSessionManager.current()?.durationMs ?: 0L
+    }
 
-    fun isPlaying(): Boolean = controller?.isPlaying() ?: false
+    fun isPlaying(): Boolean {
+        assertMainThread()
+        return controller?.isPlaying() ?: false
+    }
 
     fun setPlaybackRate(rate: Float) {
+        assertMainThread()
         val normalized = rate.coerceIn(0.25f, 4.0f)
         controller?.rawPlayer()?.setPlaybackSpeed(normalized)
         VideoPlaybackSessionManager.updatePlaybackRate(normalized)
@@ -107,6 +125,7 @@ object NativeVideoPlaybackManager {
      * Closing a player surface must never restart the WebView <video>.
      */
     fun stopForUiClose() {
+        assertMainThread()
         val position = currentPositionMs()
         VideoPlaybackSessionManager.updatePosition(position)
         VideoPlaybackSessionManager.updatePlaying(false)
@@ -115,6 +134,7 @@ object NativeVideoPlaybackManager {
 
     @Synchronized
     fun release() {
+        assertMainThread()
         controller?.release()
         controller = null
         activeSessionId = null
