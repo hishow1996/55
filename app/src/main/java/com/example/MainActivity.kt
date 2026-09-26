@@ -3,6 +3,7 @@ package com.example
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.media.AudioManager
@@ -222,6 +223,20 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(customVideoView) {
                 // Every new fullscreen session starts unlocked.
                 fullscreenVideoLocked = false
+            }
+
+            var orientationBeforeNativeFullscreen by remember {
+                mutableStateOf(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+            }
+            DisposableEffect(nativePlayerFullscreen) {
+                val activity = this@MainActivity
+                if (nativePlayerFullscreen) {
+                    orientationBeforeNativeFullscreen = activity.requestedOrientation
+                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                } else {
+                    activity.requestedOrientation = orientationBeforeNativeFullscreen
+                }
+                onDispose { }
             }
 
             fun openAiWithCurrentPage() {
