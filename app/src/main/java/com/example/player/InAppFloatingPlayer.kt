@@ -96,6 +96,7 @@ fun InAppFloatingPlayer(
     isFullscreen: Boolean = false,
     isGlobalFloating: Boolean = false,
     onGlobalDrag: ((Float, Float) -> Unit)? = null,
+    onGlobalResize: ((Float, Float) -> Unit)? = null,
     currentTabIndex: Int = 0,
     onReturnToOriginTab: ((Int) -> Unit)? = null,
     onDownloadVideo: ((url: String, title: String) -> Unit)? = null
@@ -471,13 +472,13 @@ fun InAppFloatingPlayer(
                                 currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                             } catch (_: Exception) {}
                         },
-                        modifier = Modifier.size(if (isDesktopPiP) 32.dp else 42.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 34.dp else 46.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Replay10,
                             contentDescription = "快退10秒",
                             tint = Color.White,
-                            modifier = Modifier.size(if (isDesktopPiP) 20.dp else 26.dp)
+                            modifier = Modifier.size(if (isDesktopPiP) 22.dp else 30.dp)
                         )
                     }
 
@@ -490,13 +491,13 @@ fun InAppFloatingPlayer(
                                 isPlaying = NativeVideoPlaybackManager.isPlaying()
                             } catch (_: Exception) {}
                         },
-                        modifier = Modifier.size(if (isDesktopPiP) 38.dp else 48.dp)
+                        modifier = Modifier.size(if (isDesktopPiP) 40.dp else 52.dp)
                     ) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (isPlaying) "暂停" else "播放",
                             tint = Color.White,
-                            modifier = Modifier.size(if (isDesktopPiP) 28.dp else 36.dp)
+                            modifier = Modifier.size(if (isDesktopPiP) 30.dp else 40.dp)
                         )
                     }
 
@@ -591,50 +592,103 @@ fun InAppFloatingPlayer(
             val progress = if (durationMs > 0) {
                 (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
             } else 0f
-            Column(
+            Row(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
+                    .align(Alignment.BottomStart)
                     .fillMaxWidth()
+                    .padding(start = 7.dp, end = 7.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.Bottom
             ) {
-            Text(
-                text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
-                color = Color.White,
-                fontSize = if (isDesktopPiP) 10.sp else 11.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(18.dp)
-                    .background(Color.Transparent)
-                    .pointerInput(durationMs) {
-                        detectTapGestures { offset ->
-                            val width = size.width.toFloat().coerceAtLeast(1f)
-                            val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
-                            NativeVideoPlaybackManager.seekTo(target)
-                            currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                        }
-                    }
-            ) {
-                Box(
+                Text(
+                    text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
+                    color = Color.White,
+                    fontSize = if (isDesktopPiP) 10.sp else 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .align(Alignment.BottomStart)
-                        .background(Color.Black.copy(alpha = 0.28f))
+                        .padding(end = 6.dp)
+                        .width(58.dp)
                 )
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(progress)
-                        .height(2.dp)
-                        .align(Alignment.BottomStart)
-                        .background(Color.Red)
+                        .weight(1f)
+                        .height(18.dp)
+                        .pointerInput(durationMs) {
+                            detectTapGestures { offset ->
+                                val width = size.width.toFloat().coerceAtLeast(1f)
+                                val target = (durationMs * (offset.x / width).coerceIn(0f, 1f)).toLong()
+                                NativeVideoPlaybackManager.seekTo(target)
+                                currentPositionMs = target.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                            }
+                        }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(Color.Black.copy(alpha = 0.28f))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress)
+                            .height(2.dp)
+                            .align(Alignment.BottomStart)
+                            .background(Color.Red)
+                    )
+                }
+            }
+    }
+
+        // --- 5. Global floating resize handle ---
+        // The global window is hosted by WindowManager, so its bottom-right
+        // grip delegates size changes back to the service instead of resizing
+        // only the Compose content.
+        if (isGlobalFloating) {
+            Box(
+                contentAlignment = Alignment.BottomEnd,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(36.dp)
+                    .pointerInput(baseRatio) {
+                        detectDragGestures(
+                            onDragStart = {
+                                cornerDragDistance = 0f
+                                isActivelyResizing = true
+                            },
+                            onDragEnd = {
+                                isActivelyResizing = false
+                            },
+                            onDragCancel = {
+                                isActivelyResizing = false
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                cornerDragDistance += dragAmount.x * dragAmount.x + dragAmount.y * dragAmount.y
+                                val deltaXDp = with(density) { dragAmount.x.toDp().value }
+                                val deltaYDp = with(density) { dragAmount.y.toDp().value }
+                                val delta = if (kotlin.math.abs(deltaXDp) >= kotlin.math.abs(deltaYDp)) deltaXDp else deltaYDp
+                                val maxAllowedWidthDp = screenWidthDp * 0.95f
+                                val targetWidth = (windowWidthDp + delta).coerceIn(minWidthDp, maxAllowedWidthDp)
+                                val targetHeight = (targetWidth / baseRatio).coerceIn(minHeightDp, maxHeightDp)
+                                val actualWidth = targetHeight * baseRatio
+                                windowWidthDp = actualWidth.coerceIn(minWidthDp, maxAllowedWidthDp)
+                                windowHeightDp = targetHeight
+                                onGlobalResize?.invoke(windowWidthDp, windowHeightDp)
+                            }
+                        )
+                    }
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_resize_corner),
+                    contentDescription = "调整悬浮窗口大小",
+                    tint = Color.White.copy(alpha = if (isActivelyResizing || showControls) 0.9f else 0.55f),
+                    modifier = Modifier
+                        .padding(end = 3.dp, bottom = 3.dp)
+                        .size(14.dp)
                 )
             }
         }
-    }
 
         // --- 5. Arbitrary Resizing Handles (In-App Only: Top, Bottom, Left, Right & Corners) ---
         // Resizing cannot exceed screen width or move/expand outside phone screen
