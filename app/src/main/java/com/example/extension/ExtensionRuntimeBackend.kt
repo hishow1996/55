@@ -71,14 +71,10 @@ object CurrentExtensionRuntime : ExtensionRuntimeBackend {
             "非法扩展资源路径"
         }
         val relative = target.relativeTo(root).invariantSeparatorsPath
-        if (relative.isNotBlank() && extension.manifest.webAccessibleResources.isNotEmpty()) {
-            val allowed = extension.manifest.webAccessibleResources.any { declaration ->
-                declaration.resources.any { pattern ->
-                    ExtensionManager.matchesResourcePattern(pattern, relative)
-                }
-            }
-            require(allowed) { "扩展资源未声明为 web_accessible_resources" }
-        }
+        // Internal extension pages/background code need their own resources even
+        // when a manifest declares web_accessible_resources. The declaration
+        // restricts page-exposed resources, so enforcement belongs at the
+        // browser-page boundary rather than generic resourceUrl().
         return "file://" + target.absolutePath
     }
 
