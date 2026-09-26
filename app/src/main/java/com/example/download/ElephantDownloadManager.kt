@@ -471,11 +471,23 @@ class ElephantDownloadManager(private val context: Context) {
             !Regex("""METHOD=NONE""", RegexOption.IGNORE_CASE).containsMatchIn(playlist)) {
             throw Exception("当前 HLS 视频使用加密分片，暂不支持解密下载")
         }
-        return playlist.lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith("#") }
-            .map { URL(URL(baseUrl), it).toString() }
-            .toList()
+
+        val result = mutableListOf<String>()
+        // fMP4 HLS playlists commonly provide an initialization segment through
+        // EXT-X-MAP. It must be downloaded before the media fragments or the
+        // assembled stream cannot be parsed/remuxed into MP4.
+        playlist.lineSequence().map { it.trim() }.forEach { line ->
+            if (line.startsWith("#EXT-X-MAP:", true)) {
+                val match = Regex("""URI="([^"]+)"""", RegexOption.IGNORE_CASE).find(line)
+                val init = match?.groupValues?.getOrNull(1)
+                if (!init.isNullOrBlank()) {
+                    result += URL(URL(baseUrl), init).toString()
+                }
+            } else if (line.isNotEmpty() && !line.startsWith("#")) {
+                result += URL(URL(baseUrl), line).toString()
+            }
+        }
+        return result
     }
 
     fun pauseDownload(id: String) {
