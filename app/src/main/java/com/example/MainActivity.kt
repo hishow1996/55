@@ -1028,6 +1028,17 @@ fun ChromiumWebViewContainer(
                     },
                     onPageFinish = { url, title ->
                         viewModel.onPageFinished(url, title)
+                    },
+                    onExtensionDownload = { url ->
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                            viewModel.repository.extensionManager.installUrl(url)
+                                .onSuccess {
+                                    Toast.makeText(this@MainActivity, "已安装扩展：" + it.name, Toast.LENGTH_SHORT).show()
+                                }
+                                .onFailure {
+                                    Toast.makeText(this@MainActivity, "扩展安装失败：" + (it.message ?: "扩展包无效"), Toast.LENGTH_LONG).show()
+                                }
+                        }
                     }
                 )
 
