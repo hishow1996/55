@@ -328,6 +328,9 @@ class ElephantDownloadManager(private val context: Context) {
 
                 remuxTransportStreamToMp4(tempTs, finalFile)
                 if (!tempTs.delete() && tempTs.exists()) tempTs.deleteOnExit()
+                if (!finalFile.exists() || finalFile.length() <= 0L) {
+                    throw IllegalStateException("MP4 封装完成但输出文件无效")
+                }
                 updateItemFile(item.id, finalFile.absolutePath, finalFile.name, "video/mp4")
                 updateItemCompleted(item.id, finalFile.length())
                 saveDownloads()
@@ -353,6 +356,7 @@ class ElephantDownloadManager(private val context: Context) {
         val extractor = MediaExtractor()
         var muxer: MediaMuxer? = null
         var muxerStarted = false
+        var samplesWritten = 0
         try {
             extractor.setDataSource(input.absolutePath)
             muxer = MediaMuxer(output.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
@@ -391,9 +395,13 @@ class ElephantDownloadManager(private val context: Context) {
                         info.presentationTimeUs = extractor.sampleTime
                         info.flags = extractor.sampleFlags
                         muxer.writeSampleData(targetTrack, buffer, info)
+                        samplesWritten++
                     }
                 }
                 extractor.advance()
+            }
+            if (samplesWritten == 0) {
+                throw IllegalStateException("HLS 媒体轨道没有可写入的样本，无法生成有效 MP4")
             }
         } finally {
             try { extractor.release() } catch (_: Exception) {}
