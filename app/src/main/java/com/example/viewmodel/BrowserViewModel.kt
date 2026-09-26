@@ -52,7 +52,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         get() = _tabs.value.getOrNull(_currentTabIndex.value) ?: _tabs.value.first()
 
     // Address / Search bar text input
-    private val _urlInput = MutableStateFlow("")
+    private val _urlInput = MutableStateFlow(_tabs.value.getOrNull(_currentTabIndex.value)?.url.orEmpty())
     val urlInput: StateFlow<String> = _urlInput.asStateFlow()
 
     // Detected Video for Floating Player
