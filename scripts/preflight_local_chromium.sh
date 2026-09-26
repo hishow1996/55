@@ -14,7 +14,9 @@ need_cmd python3
 need_cmd bash
 
 test -d "$KIWI" || fail "Kiwi source tree is missing: $KIWI"
-test -f "$KIWI/CHROMIUM_VERSION" || fail "Kiwi Chromium checkout is incomplete"
+if [ ! -f "$KIWI/CHROMIUM_VERSION" ] && [ ! -f "$KIWI/VERSION" ]; then
+  fail "Kiwi Chromium version metadata is missing (expected CHROMIUM_VERSION or VERSION)"
+fi
 test -f "$KIWI/DEPS" || fail "Chromium DEPS file is missing"
 test -d "$KIWI/chrome/android" || fail "Chromium Android source is missing"
 test -d "$KIWI/extensions" || fail "Chromium Extensions source is missing"

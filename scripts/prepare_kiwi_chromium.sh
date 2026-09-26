@@ -36,7 +36,8 @@ fi
 export PATH="$DEPOT_TOOLS_DIR:$PATH"
 
 # Fallback only when the checkout was exported without its gitlink.
-if [ ! -d "$KIWI_DIR/.git" ]; then
+# Git submodules use a .git file, so ask Git whether this is a real checkout.
+if ! git -C "$KIWI_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   if [ -e "$KIWI_DIR" ] && [ "$(find "$KIWI_DIR" -mindepth 1 -maxdepth 1 | head -n 1)" != "" ]; then
     echo "Kiwi source directory exists but is not a git checkout/submodule: $KIWI_DIR" >&2
     exit 5
