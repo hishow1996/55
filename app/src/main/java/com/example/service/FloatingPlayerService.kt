@@ -82,8 +82,8 @@ class FloatingPlayerService : MediaSessionService() {
             val w = videoSize.width
             val h = videoSize.height
             if (w <= 0 || h <= 0) return
-            val ratio = w.toFloat() / h.toFloat()
-            if (!ratio.isFinite() || ratio !in 0.5f..3.0f) return
+            val ratio = w.toFloat() * videoSize.pixelWidthHeightRatio / h.toFloat()
+            if (!ratio.isFinite() || ratio !in 0.42f..2.38f) return
             videoRatio = ratio
             updateFloatingWindowRatio()
         }
