@@ -6,6 +6,7 @@ import android.os.Looper
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaSession
 import com.example.model.VideoMediaInfo
 
 /**
@@ -22,6 +23,7 @@ object NativeVideoPlaybackManager {
     private var activeSessionId: String? = null
     private var listenerInstalled = false
     private var playbackErrorListener: ((PlaybackException) -> Unit)? = null
+    private var mediaSession: MediaSession? = null
 
     @Synchronized
     fun start(context: Context, video: VideoMediaInfo, autoPlay: Boolean = true): Boolean {
@@ -145,6 +147,31 @@ object NativeVideoPlaybackManager {
     }
 
     @Synchronized
+    fun ensureMediaSession(context: Context): MediaSession {
+        assertMainThread()
+        mediaSession?.let { return it }
+        val playerController = ensureController(context)
+        val session = MediaSession.Builder(context.applicationContext, playerController.rawPlayer())
+            .setId("elephant-browser-video")
+            .build()
+        mediaSession = session
+        return session
+    }
+
+    @Synchronized
+    fun currentMediaSession(): MediaSession? {
+        assertMainThread()
+        return mediaSession
+    }
+
+    @Synchronized
+    fun releaseMediaSession() {
+        assertMainThread()
+        mediaSession?.release()
+        mediaSession = null
+    }
+
+    @Synchronized
     fun setPlaybackErrorListener(listener: ((PlaybackException) -> Unit)?) {
         assertMainThread()
         playbackErrorListener = listener
@@ -158,6 +185,8 @@ object NativeVideoPlaybackManager {
         activeSessionId = null
         listenerInstalled = false
         playbackErrorListener = null
+        mediaSession?.release()
+        mediaSession = null
         VideoPlaybackSessionManager.clear()
     }
 }
