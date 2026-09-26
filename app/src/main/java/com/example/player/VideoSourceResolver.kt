@@ -3,6 +3,8 @@ package com.example.player
 import com.example.model.VideoMediaInfo
 import com.example.model.VideoSource
 import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 object VideoSourceResolver {
     fun resolve(video: VideoMediaInfo): VideoSource {
@@ -47,6 +49,9 @@ object VideoSourceResolver {
         if (pageUrl.isNotBlank() && urlsEquivalent(url, pageUrl)) return false
 
         val lower = url.lowercase()
+        val decoded = runCatching {
+            URLDecoder.decode(lower, StandardCharsets.UTF_8.name())
+        }.getOrDefault(lower)
         val mediaExtensions = listOf(
             ".mp4", ".m4v", ".webm", ".mkv", ".mov", ".avi", ".flv", ".3gp", ".ogv"
         )
@@ -57,7 +62,7 @@ object VideoSourceResolver {
             "mime=video/", "type=video/", "content-type=video/",
             "format=mp4", "format=webm", "video=true", "media=true"
         )
-        if (videoMarkers.any { lower.contains(it) }) return true
+        if (videoMarkers.any { lower.contains(it) || decoded.contains(it) }) return true
 
         // Google video delivery URLs are media endpoints even when the path
         // does not expose a conventional extension.
