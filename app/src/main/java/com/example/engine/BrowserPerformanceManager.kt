@@ -22,7 +22,7 @@ object BrowserPerformanceManager {
         settings.useWideViewPort = desktop
         settings.loadWithOverviewMode = desktop
         settings.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             settings.safeBrowsingEnabled = true
         }
@@ -34,7 +34,12 @@ object BrowserPerformanceManager {
         }
 
         CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, !incognito)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+
+        // Explicitly tell WebView that network connectivity is available. This
+        // avoids a stale connectivity=false state after the app resumes or the
+        // system network changes.
+        webView.setNetworkAvailable(true)
 
         webView.setLayerType(WebView.LAYER_TYPE_HARDWARE, null)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
