@@ -33,6 +33,7 @@ import com.example.player.VideoSourceResolver
 import com.example.model.VideoMediaInfo
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import java.util.Locale
 import kotlin.math.max
 
@@ -64,6 +65,50 @@ class FloatingPlayerService : MediaSessionService() {
     private var closing = false
     private var currentPositionMs = 0
     private var durationMs = 0
+
+    // The native Media3 player is the single playback owner. This listener only
+    // observes its decoded video size so the overlay can follow the actual
+    // rendered frame ratio (for example a 16:9 source displayed as 4:3).
+    private val videoSizeListener = object : Player.Listener {
+        override fun onVideoSizeChanged(videoSize: VideoSize) {
+            val w = videoSize.width
+            val h = videoSize.height
+            if (w <= 0 || h <= 0) return
+            val ratio = w.toFloat() / h.toFloat()
+            if (!ratio.isFinite() || ratio !in 0.5f..3.0f) return
+            videoRatio = ratio
+            updateFloatingWindowRatio()
+        }
+    }
+
+    private fun currentValidRatio(): Float =
+        videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)
+
+    private fun sizeForRatio(preferredWidth: Int, minWidth: Int, maxWidth: Int, minHeight: Int, maxHeight: Int): Pair<Int, Int> {
+        val ratio = currentValidRatio()
+        val lowerW = max(minWidth, kotlin.math.ceil(minHeight * ratio).toInt())
+        val upperW = minOf(maxWidth, kotlin.math.floor(maxHeight * ratio).toInt())
+        val width = preferredWidth.coerceIn(lowerW.coerceAtMost(upperW), upperW.coerceAtLeast(lowerW))
+        val height = kotlin.math.round(width / ratio).toInt()
+        return width to height
+    }
+
+    private fun updateFloatingWindowRatio() {
+        val root = rootLayout ?: return
+        val wm = windowManager ?: return
+        val p = root.layoutParams as? WindowManager.LayoutParams ?: return
+        val density = resources.displayMetrics.density
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        val minW = (180 * density).toInt()
+        val maxW = (screenW * 0.92f).toInt().coerceAtLeast(minW)
+        val minH = (100 * density).toInt()
+        val maxH = (screenH * 0.70f).toInt().coerceAtLeast(minH)
+        val (w, h) = sizeForRatio(p.width, minW, maxW, minH, maxH)
+        p.width = w
+        p.height = h
+        wm.updateViewLayout(root, p)
+    }
 
     private var currentSizeIndex = 0 // 0: Normal (320dp), 1: Large (370dp), 2: Compact (260dp)
     private val sizePresets = floatArrayOf(320f, 370f, 260f)
@@ -238,7 +283,7 @@ class FloatingPlayerService : MediaSessionService() {
         }
 
         val screenWidth = resources.displayMetrics.widthPixels
-        val defaultW = (sizePresets[currentSizeIndex] * density).toInt().coerceAtMost((screenWidth * 0.92f).toInt())
+        val preferredW = (sizePresets[currentSizeIndex] * density).toInt()
         // Keep the floating window in the same orientation and aspect ratio as the actual video.\n        // Do not force portrait/vertical media back to 16:9. Android overlay windows\n        // can use the full valid video ratio here; only reject obviously invalid data.\n        val effectiveRatio = videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)\n        val heightPx = (defaultW / effectiveRatio).toInt().coerceAtLeast((100 * density).toInt())
 
         val params = WindowManager.LayoutParams(
@@ -567,9 +612,9 @@ class FloatingPlayerService : MediaSessionService() {
                         val minH = (110 * density).toInt()
                         val maxH = (screenH - params.y).coerceAtLeast(minH)
 
-                        val effRatio = videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)
-                        val newW = (resizeInitialW + dx).toInt().coerceIn(minW, maxW)
-                        val newH = (newW / effRatio).toInt().coerceIn(minH, maxH)
+                        val (newW, newH) = sizeForRatio(
+                            (resizeInitialW + dx).toInt(), minW, maxW, minH, maxH
+                        )
                         params.width = newW
                         params.height = newH
                         windowManager?.updateViewLayout(root, params)
@@ -581,9 +626,13 @@ class FloatingPlayerService : MediaSessionService() {
                         currentSizePresetIndex = (currentSizePresetIndex + 1) % sizePresetsDp.size
                         val targetWDp = sizePresetsDp[currentSizePresetIndex]
                         val screenW = resources.displayMetrics.widthPixels
-                        val targetW = (targetWDp * density).toInt().coerceIn((180 * density).toInt(), (screenW - params.x).coerceAtLeast((180 * density).toInt()))
-                        val effRatio = videoRatio.takeIf { it.isFinite() && it in 0.5f..3.0f } ?: (16f / 9f)
-                        val targetH = (targetW / effRatio).toInt().coerceAtLeast((110 * density).toInt())
+                        val (targetW, targetH) = sizeForRatio(
+                            (targetWDp * density).toInt(),
+                            (180 * density).toInt(),
+                            (screenW - params.x).coerceAtLeast((180 * density).toInt()),
+                            (110 * density).toInt(),
+                            (resources.displayMetrics.heightPixels - params.y).coerceAtLeast((110 * density).toInt())
+                        )
                         params.width = targetW
                         params.height = targetH
                         windowManager?.updateViewLayout(root, params)
@@ -630,6 +679,9 @@ class FloatingPlayerService : MediaSessionService() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
+                    if (isDragging) {
+                        snapToNearestEdge(root, params)
+                    }
                     if (!isDragging) {
                         if (isLocked) {
                             lockOverlay?.let { lo ->
@@ -656,6 +708,34 @@ class FloatingPlayerService : MediaSessionService() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private fun snapToNearestEdge(root: View, params: WindowManager.LayoutParams) {
+        val wm = windowManager ?: return
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        val margin = (8 * resources.displayMetrics.density).toInt()
+        val maxX = (screenW - params.width - margin).coerceAtLeast(margin)
+        val maxY = (screenH - params.height - margin).coerceAtLeast(margin)
+        val left = margin
+        val right = maxX
+        val top = margin
+        val bottom = maxY
+        val distances = intArrayOf(
+            params.x - left,
+            right - params.x,
+            params.y - top,
+            bottom - params.y
+        )
+        when (distances.indices.minByOrNull { distances[it] }) {
+            0 -> params.x = left
+            1 -> params.x = right
+            2 -> params.y = top
+            3 -> params.y = bottom
+        }
+        params.x = params.x.coerceIn(left, right)
+        params.y = params.y.coerceIn(top, bottom)
+        try { wm.updateViewLayout(root, params) } catch (_: Exception) {}
     }
 
     private fun showLockOverlay() {
