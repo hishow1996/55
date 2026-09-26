@@ -26,12 +26,12 @@ class PinchZoomWebView @JvmOverloads constructor(
         context,
         object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-                pinchActive = detector.pointerCount >= 2
+                pinchActive = detector.currentSpan >= 24f
                 return pinchActive
             }
 
             override fun onScale(detector: ScaleGestureDetector): Boolean {
-                if (!pinchActive || detector.pointerCount < 2) return false
+                if (!pinchActive) return false
 
                 // Slightly amplify the native scale delta so a normal pinch
                 // reaches the expected zoom level with less finger travel.
