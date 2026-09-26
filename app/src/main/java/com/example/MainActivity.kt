@@ -18,6 +18,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import com.example.ui.browser.PinchZoomWebView
+import kotlin.math.roundToInt
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -1129,7 +1130,25 @@ fun ChromiumWebViewContainer(
                     // Without an explicit auto initial scale, some WebView versions
                     // keep the 980px desktop layout at 1:1, causing the right side
                     // of desktop sites to fall outside the phone screen.
-                    setInitialScale(0)
+                    if (tab.isDesktopMode) {
+                        // Force the wide desktop canvas to be fitted to the actual
+                        // phone WebView width. setInitialScale(0) is inconsistent
+                        // across Android System WebView versions when a page has
+                        // its own viewport metadata, so calculate the scale from
+                        // the real WebView width and the desktop CSS viewport.
+                        val desktopCssWidth = 980f
+                        val physicalWidth = resources.displayMetrics.widthPixels.toFloat()
+                        val desktopScale = if (physicalWidth > 0f) {
+                            (physicalWidth / desktopCssWidth * 100f)
+                                .coerceIn(50f, 150f)
+                                .roundToInt()
+                        } else {
+                            100
+                        }
+                        setInitialScale(desktopScale)
+                    } else {
+                        setInitialScale(0)
+                    }
                     layoutAlgorithm = if (tab.isDesktopMode) {
                         WebSettings.LayoutAlgorithm.NORMAL
                     } else {
@@ -1350,7 +1369,20 @@ fun ChromiumWebViewContainer(
                     WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
                 }
                 webView.settings.textZoom = 100
-                webView.setInitialScale(0)
+                if (tab.isDesktopMode) {
+                    val desktopCssWidth = 980f
+                    val physicalWidth = resources.displayMetrics.widthPixels.toFloat()
+                    val desktopScale = if (physicalWidth > 0f) {
+                        (physicalWidth / desktopCssWidth * 100f)
+                            .coerceIn(50f, 150f)
+                            .roundToInt()
+                    } else {
+                        100
+                    }
+                    webView.setInitialScale(desktopScale)
+                } else {
+                    webView.setInitialScale(0)
+                }
                 webView.reload()
             }
             if (!tab.isAtHome && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {
