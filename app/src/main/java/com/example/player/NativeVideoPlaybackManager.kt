@@ -29,6 +29,8 @@ object NativeVideoPlaybackManager {
     // A configuration change can temporarily detach the video surface without
     // meaning that the user paused the video.
     private var resumeAfterSurfaceReattach = false
+    // Explicit user playback intent. Surface/configuration lifecycle events must not overwrite it.
+    private var playIntent = false
 
     @Synchronized
     fun start(context: Context, video: VideoMediaInfo, autoPlay: Boolean = true): Boolean {
@@ -50,8 +52,13 @@ object NativeVideoPlaybackManager {
             return try {
                 playerController.load(video, session.positionMs)
                 playerController.rawPlayer().setPlaybackSpeed(session.playbackRate)
-                if (autoPlay) playerController.play()
-                else playerController.pause()
+                if (autoPlay) {
+                    playIntent = true
+                    playerController.play()
+                } else {
+                    playIntent = false
+                    playerController.pause()
+                }
                 true
             } catch (_: Exception) {
                 activeSessionId = null
@@ -60,8 +67,13 @@ object NativeVideoPlaybackManager {
         }
 
         playerController.rawPlayer().setPlaybackSpeed(session.playbackRate)
-        if (autoPlay) playerController.play()
-        else playerController.pause()
+        if (autoPlay) {
+            playIntent = true
+            playerController.play()
+        } else {
+            playIntent = false
+            playerController.pause()
+        }
         return true
     }
 
@@ -79,6 +91,11 @@ object NativeVideoPlaybackManager {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_READY) {
                         VideoPlaybackSessionManager.updateDuration(created.durationMs())
+                        // The Surface may have been recreated while ExoPlayer was preparing.
+                        // Restore the explicit playback intent once the new pipeline is ready.
+                        if (playIntent && !created.isPlaying) {
+                            created.play()
+                        }
                     }
                 }
 
@@ -107,7 +124,7 @@ object NativeVideoPlaybackManager {
 
         if (surface != null) {
             val session = VideoPlaybackSessionManager.current()
-            val shouldResume = resumeAfterSurfaceReattach || session?.isPlaying == true
+            val shouldResume = resumeAfterSurfaceReattach || playIntent || session?.isPlaying == true
             resumeAfterSurfaceReattach = false
             if (shouldResume) {
                 playerController.play()
@@ -132,12 +149,17 @@ object NativeVideoPlaybackManager {
 
     fun play() {
         assertMainThread()
+        playIntent = true
         controller?.play()
+        VideoPlaybackSessionManager.updatePlaying(true)
     }
 
     fun pause() {
         assertMainThread()
+        playIntent = false
+        resumeAfterSurfaceReattach = false
         controller?.pause()
+        VideoPlaybackSessionManager.updatePlaying(false)
     }
 
     fun seekTo(positionMs: Long) {
@@ -265,6 +287,7 @@ object NativeVideoPlaybackManager {
         controller = null
         activeSessionId = null
         resumeAfterSurfaceReattach = false
+        playIntent = false
         listenerInstalled = false
         mediaSession?.release()
         mediaSession = null
