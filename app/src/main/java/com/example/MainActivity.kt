@@ -1357,6 +1357,10 @@ fun ChromiumWebViewContainer(
             // Update User Agent if Desktop mode changed
             val targetUa = viewModel.repository.getUserAgent(tab.isDesktopMode)
             if (webView.settings.userAgentString != targetUa) {
+                // A mode switch is a new WebView scale context. Clear only the
+                // wrapper's gesture bookkeeping; the actual desktop/mobile
+                // initial scale is configured immediately below.
+                (webView as? PinchZoomWebView)?.resetGestureZoomState()
                 webView.settings.userAgentString = targetUa
                 webView.settings.useWideViewPort = tab.isDesktopMode
                 webView.settings.loadWithOverviewMode = tab.isDesktopMode
