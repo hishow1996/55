@@ -683,10 +683,25 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // The JavaScript callback is important here: LOCK_WEB_VIDEOS first
-        // reports the exact HTML5 position/play state, then pauses the WebView.
-        // Only after that callback do we start Media3. This removes the race
-        // where the native player could start from an older 250 ms monitor sample.
+        // Permissions are checked before locking the WebView. If Android sends
+        // the user to settings, the original HTML5 video remains untouched until
+        // the request can actually be handed to the native player.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !FloatingVideoPlayerComponent.hasPipPermission(this)
+        ) {
+            FloatingVideoPlayerComponent.pendingGlobalVideo = effectiveVideo
+            FloatingVideoPlayerComponent.openPipSettings(this)
+            return
+        }
+
+        if (!FloatingVideoPlayerComponent.hasOverlayPermission(this)) {
+            FloatingVideoPlayerComponent.pendingGlobalVideo = effectiveVideo
+            FloatingVideoPlayerComponent.requestOverlayPermission(this)
+            return
+        }
+
+        // LOCK_WEB_VIDEOS snapshots the exact HTML5 position/play state and then
+        // pauses the WebView. Only after that callback do we start Media3.
         FloatingVideoPlayerComponent.pendingGlobalVideo = effectiveVideo
         val webView = vm?.activeWebView
         if (webView != null) {
