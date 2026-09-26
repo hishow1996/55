@@ -666,7 +666,7 @@ class FloatingPlayerService : Service() {
         closing = true
         // Read the player state before releasing it so the shared session is authoritative.
         val playerPositionSeconds = try {
-            mediaPlayer?.currentPosition?.toDouble()?.div(1000.0)
+            NativeVideoPlaybackManager.currentPositionMs().toDouble() / 1000.0
         } catch (e: Exception) {
             null
         }
