@@ -499,6 +499,17 @@ class MainActivity : ComponentActivity() {
                             onEnterFullscreen = {
                                 nativePlayerFullscreen = !nativePlayerFullscreen
                             },
+                            onRotateScreen = if (nativePlayerFullscreen) {
+                                {
+                                    val orientation = resources.configuration.orientation
+                                    requestedOrientation =
+                                        if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                                            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                        } else {
+                                            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                                        }
+                                }
+                            } else null,
                             onDownloadVideo = { url, title ->
                                 viewModel.startVideoDownload(url, title)
                             }
