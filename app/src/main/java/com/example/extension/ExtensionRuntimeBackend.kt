@@ -72,8 +72,10 @@ object CurrentExtensionRuntime : ExtensionRuntimeBackend {
         }
         val relative = target.relativeTo(root).invariantSeparatorsPath
         if (relative.isNotBlank() && extension.manifest.webAccessibleResources.isNotEmpty()) {
-            val allowed = extension.manifest.webAccessibleResources.any { pattern ->
-                ExtensionManager.matchesResourcePattern(pattern, relative)
+            val allowed = extension.manifest.webAccessibleResources.any { declaration ->
+                declaration.resources.any { pattern ->
+                    ExtensionManager.matchesResourcePattern(pattern, relative)
+                }
             }
             require(allowed) { "扩展资源未声明为 web_accessible_resources" }
         }
