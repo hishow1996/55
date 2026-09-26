@@ -2,6 +2,7 @@ package com.example.player
 
 import android.content.Context
 import android.view.Surface
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -27,6 +28,14 @@ class Media3VideoPlayerController(context: Context) {
     private val player = ExoPlayer.Builder(appContext)
         .setMediaSourceFactory(DefaultMediaSourceFactory(httpFactory))
         .setWakeMode(C.WAKE_MODE_NETWORK)
+        .setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                .build(),
+            true
+        )
+        .setHandleAudioBecomingNoisy(true)
         .build()
 
     fun setHeaders(pageUrl: String?) {
