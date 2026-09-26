@@ -16,6 +16,7 @@ data class VideoSession(
     val source: VideoSource,
     val drmScheme: String? = null,
     val drmLicenseUri: String? = null,
+    val drmLicenseHeaders: Map<String, String> = emptyMap(),
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val isPlaying: Boolean = false,
