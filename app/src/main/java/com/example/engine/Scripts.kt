@@ -643,6 +643,35 @@ object Scripts {
                     return origOpen.apply(this, arguments);
                 };
             }
+
+            // Media elements often fetch their stream internally, bypassing the
+            // page's fetch/XHR hooks. Resource Timing still exposes many of those
+            // media requests, so periodically inspect it and keep only media URLs.
+            function scanPerformanceMedia() {
+                try {
+                    if (!window.performance || !window.performance.getEntriesByType) return;
+                    const entries = window.performance.getEntriesByType('resource') || [];
+                    for (let i = entries.length - 1; i >= 0; i--) {
+                        const name = entries[i] && entries[i].name ? String(entries[i].name) : '';
+                        if (!name) continue;
+                        const lower = name.toLowerCase();
+                        if (lower.includes('.m3u8') || lower.includes('.mpd') ||
+                            lower.includes('.mp4') || lower.includes('.webm') ||
+                            lower.includes('.mov') || lower.includes('.flv') ||
+                            lower.includes('mime=video') || lower.includes('googlevideo.com')) {
+                            checkMedia(name);
+                            if (window._elephantLastManifestUrl || window._elephantLastDirectVideoUrl) {
+                                break;
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            scanPerformanceMedia();
+            if (!window._elephantPerformanceMediaPoll) {
+                window._elephantPerformanceMediaPoll = setInterval(scanPerformanceMedia, 1000);
+            }
         })();
     """.trimIndent()
 
