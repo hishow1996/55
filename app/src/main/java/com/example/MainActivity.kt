@@ -971,6 +971,31 @@ fun ChromiumWebViewContainer(
                     }
                 }
 
+                // WebView download handoff. Without this listener normal file/image/PDF/APK
+                // links never reach ElephantDownloadManager because WebView does not
+                // automatically start our custom downloader.
+                setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
+                    val safeUrl = url?.trim().orEmpty()
+                    if (safeUrl.isBlank() || safeUrl.startsWith("blob:", true) || safeUrl.startsWith("data:", true)) {
+                        Toast.makeText(context, "此下载链接无法直接接管", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val fileName = android.webkit.URLUtil.guessFileName(
+                            safeUrl,
+                            contentDisposition,
+                            mimeType
+                        )
+                        viewModel.downloadManager.enqueueDownload(
+                            url = safeUrl,
+                            suggestedFileName = fileName,
+                            mimeType = mimeType,
+                            contentLength = contentLength,
+                            referer = url?.let { webUrl -> this.url ?: webUrl },
+                            userAgent = userAgent
+                        )
+                        Toast.makeText(context, "已开始下载：$fileName", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
                 // Attach JavaScript Bridge
                 addJavascriptInterface(
                     ElephantWebBridge(
