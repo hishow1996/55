@@ -71,6 +71,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import kotlinx.coroutines.launch
 import com.example.data.BrowserRepository
 import com.example.data.BrowserBackupManager
@@ -230,11 +232,19 @@ class MainActivity : ComponentActivity() {
             }
             DisposableEffect(nativePlayerFullscreen) {
                 val activity = this@MainActivity
+                val insetsController = WindowCompat.getInsetsController(
+                    activity.window,
+                    activity.window.decorView
+                )
                 if (nativePlayerFullscreen) {
                     orientationBeforeNativeFullscreen = activity.requestedOrientation
                     activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                    insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                    insetsController.systemBarsBehavior =
+                        androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 } else {
                     activity.requestedOrientation = orientationBeforeNativeFullscreen
+                    insetsController.show(WindowInsetsCompat.Type.systemBars())
                 }
                 onDispose { }
             }
