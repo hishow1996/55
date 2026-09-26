@@ -236,17 +236,10 @@ class FloatingPlayerService : MediaSessionService() {
             VideoPlaybackSessionManager.updatePlaybackRate(requestedPlaybackRate)
         }
 
-        NativeVideoPlaybackManager.setPlaybackErrorListener { error ->
-            if (closing) return@setPlaybackErrorListener
-            android.util.Log.e("FloatingPlayerService", "Native Media3 playback error", error)
-            val position = try {
-                NativeVideoPlaybackManager.currentPositionMs().toDouble() / 1000.0
-            } catch (_: Exception) {
-                VideoPlaybackSessionManager.current()?.positionMs?.toDouble()?.div(1000.0) ?: 0.0
-            }
-            Toast.makeText(this, "原生播放器无法播放当前媒体", Toast.LENGTH_SHORT).show()
-            closeFloatingWindowOrResumeBrowser(position)
-        }
+        // MainActivity owns the global native-playback error listener. Do not
+        // replace it here: replacing it would make later in-browser native
+        // playback lose its WebView fallback after the floating service exits.
+
 
         if (videoUrl.isNotBlank()) {
             val nativeInfo = VideoMediaInfo(
@@ -881,7 +874,6 @@ class FloatingPlayerService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        NativeVideoPlaybackManager.setPlaybackErrorListener(null)
         try {
             NativeVideoPlaybackManager.player()?.removeListener(videoSizeListener)
         } catch (_: Exception) {}
