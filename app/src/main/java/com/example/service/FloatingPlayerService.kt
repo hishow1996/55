@@ -2,6 +2,9 @@ package com.example.service
 
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
@@ -26,6 +29,7 @@ class FloatingPlayerService : MediaSessionService() {
     private var windowManager: WindowManager? = null
     private var rootLayout: androidx.compose.ui.platform.ComposeView? = null
     private var composeLifecycleOwner: FloatingComposeLifecycleOwner? = null
+    private var globalVideoInfo by mutableStateOf<VideoMediaInfo?>(null)
 
 
     private var videoUrl: String = ""
@@ -204,6 +208,7 @@ class FloatingPlayerService : MediaSessionService() {
                 drmLicenseUri = drmLicenseUri,
                 drmLicenseHeaders = drmLicenseHeaders
             )
+            globalVideoInfo = nativeInfo
             val started = try {
                 NativeVideoPlaybackManager.start(this, nativeInfo, autoPlay = isPlaying)
             } catch (e: Exception) {
@@ -233,9 +238,9 @@ class FloatingPlayerService : MediaSessionService() {
 
     private fun showFloatingWindow() {
         // The Android global window is only a host. The actual player UI is the
-        // same InAppFloatingPlayer composable used by the browser. This removes
-        // the old second, hand-written View-based player implementation.
+        // same InAppFloatingPlayer composable used by the browser.
         if (rootLayout != null) return
+        val initialVideoInfo = globalVideoInfo ?: return
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val density = resources.displayMetrics.density
@@ -277,25 +282,10 @@ class FloatingPlayerService : MediaSessionService() {
         androidx.lifecycle.setViewTreeViewModelStoreOwner(compose, owner)
         androidx.savedstate.setViewTreeSavedStateRegistryOwner(compose, owner)
 
-        val activeVideo = VideoMediaInfo(
-            url = videoUrl,
-            pageUrl = sourcePageUrl,
-            title = videoTitle,
-            currentTime = initialPositionMs / 1000.0,
-            videoWidth = (videoRatio * 1000).toInt().coerceAtLeast(1),
-            videoHeight = 1000,
-            isPlaying = isPlaying,
-            originTabIndex = originTabIndex,
-            originTabId = originTabId,
-            drmScheme = drmScheme,
-            drmLicenseUri = drmLicenseUri,
-            drmLicenseHeaders = drmLicenseHeaders
-        )
-
         compose.setContent {
             androidx.compose.material3.MaterialTheme {
                 com.example.player.InAppFloatingPlayer(
-                    videoInfo = activeVideo,
+                    videoInfo = globalVideoInfo ?: initialVideoInfo,
                     isGlobalFloating = true,
                     isDesktopPiP = false,
                     isFullscreen = false,
@@ -376,6 +366,7 @@ class FloatingPlayerService : MediaSessionService() {
         // Do not leave the old VideoMediaInfo around: a later video handoff must
         // never rebuild Media3 from a previous tab's stream metadata.
         FloatingVideoPlayerComponent.clearActiveVideo()
+        globalVideoInfo = null
         stopSelf()
     }
 
@@ -395,6 +386,7 @@ class FloatingPlayerService : MediaSessionService() {
             composeLifecycleOwner = null
             composeView = null
             rootLayout = null
+            globalVideoInfo = null
         }
     }
 
