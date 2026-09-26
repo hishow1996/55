@@ -120,6 +120,20 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     private var pendingWebVideoResume: PendingWebVideoResume? = null
 
+    // DRM metadata can arrive before the page's <video> detector has produced
+    // the final media URL. Keep it scoped to the current tab/page until the
+    // media source is known; never start native playback from a license request
+    // alone.
+    private data class PendingDrmInfo(
+        val tabId: String,
+        val pageUrl: String,
+        val licenseUri: String,
+        val scheme: String,
+        val headers: Map<String, String>
+    )
+
+    private var pendingDrmInfo: PendingDrmInfo? = null
+
     fun registerTabWebView(tabId: String, webView: WebView) {
         tabWebViews[tabId] = webView
         if (currentTab.id == tabId) {
@@ -753,6 +767,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             previous.pageUrl == currentTab.url &&
             previous.url == effectiveUrl
         val session = VideoPlaybackSessionManager.current()
+        val pendingDrm = pendingDrmInfo?.takeIf {
+            it.tabId == currentTab.id && it.pageUrl == currentTab.url
+        }
         val info = VideoMediaInfo(
             url = effectiveUrl,
             pageUrl = currentTab.url,
@@ -782,7 +799,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 ) session.isPlaying
                 else true,
             originTabIndex = _currentTabIndex.value,
-            originTabId = currentTab.id
+            originTabId = currentTab.id,
+            drmScheme = pendingDrm?.scheme,
+            drmLicenseUri = pendingDrm?.licenseUri,
+            drmLicenseHeaders = pendingDrm?.headers.orEmpty()
         )
         // Persist only a URL that the native resolver recognizes as actual media.
         // A navigation/page URL must never become the per-tab "detected stream".
@@ -800,6 +820,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         // actual dimensions), the native takeover is allowed. The detected URL is
         // still retained so the user can explicitly open the floating player.
         _detectedVideo.value = info
+        if (pendingDrm != null) pendingDrmInfo = null
         val looksLikeUnresolvedNetworkProbe =
             effectiveUrl.isNotBlank() &&
                 duration <= 0.0 &&
@@ -818,9 +839,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         scheme: String,
         headers: Map<String, String> = emptyMap()
     ) {
-        val current = _detectedVideo.value ?: return
-        if (current.originTabId != null && current.originTabId != currentTab.id) return
-        if (!VideoSourceResolver.canUseNativePlayer(current)) return
+        val cleanLicenseUri = licenseUri.trim()
+        if (cleanLicenseUri.isBlank()) return
 
         val normalizedScheme = when (scheme.lowercase()) {
             "widevine" -> "widevine"
@@ -829,16 +849,35 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             else -> "widevine"
         }
 
+        val current = _detectedVideo.value
+        val samePage = current?.originTabId.isNullOrBlank() ||
+            current?.originTabId == currentTab.id
+        if (!samePage) return
+
+        // A DRM license request can be observed before the media URL. Store only
+        // endpoint/auth metadata and wait for onVideoFound() to bind it to the
+        // actual media source. This prevents a license POST from accidentally
+        // triggering native playback of an unrelated stream.
+        if (current == null || !VideoSourceResolver.canUseNativePlayer(current)) {
+            pendingDrmInfo = PendingDrmInfo(
+                tabId = currentTab.id,
+                pageUrl = currentTab.url,
+                licenseUri = cleanLicenseUri,
+                scheme = normalizedScheme,
+                headers = headers
+            )
+            return
+        }
+
         val updated = current.copy(
             drmScheme = normalizedScheme,
-            drmLicenseUri = licenseUri.trim(),
+            drmLicenseUri = cleanLicenseUri,
             drmLicenseHeaders = headers
         )
         _detectedVideo.value = updated
 
-        // A license request proves the page is using protected media. Let the
-        // WebView finish its own request, then hand the same authorized media
-        // source to Media3. No license/key material is copied into the app.
+        // DRM metadata is now bound to a concrete media source. Native playback
+        // may take over only after that binding is established.
         activeWebView?.evaluateJavascript(Scripts.LOCK_WEB_VIDEOS) {
             if (VideoSourceResolver.canUseNativePlayer(updated)) {
                 NativeVideoPlaybackManager.start(getApplication(), updated, autoPlay = true)
