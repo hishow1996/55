@@ -501,48 +501,39 @@ fun InAppFloatingPlayer(
                     }
                 }
 
-                // Bottom progress display: a thin red line hugs the bottom edge.
-                // The elapsed/total time sits immediately above it on the left.
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 8.dp, end = 8.dp, bottom = 2.dp),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
-                            color = Color.White.copy(alpha = 0.92f),
-                            fontSize = if (isDesktopPiP) 10.sp else 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1
-                        )
-                    }
+            }
+        }
 
-                    // Playback progress. The red portion grows continuously with
-                    // the native Media3 playback clock; the track is kept subtle.
-                    val progress = if (durationMs > 0) {
-                        (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-                    } else 0f
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(if (isDesktopPiP) 2.dp else 3.dp)
-                            .background(Color.White.copy(alpha = 0.22f))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(progress)
-                                .fillMaxHeight()
-                                .background(Color.Red)
-                        )
-                    }
-                }
+        // Persistent bottom progress: it stays attached to the window's bottom border
+        // even after the playback controls fade away.
+        val progress = if (durationMs > 0) {
+            (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+        } else 0f
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+        ) {
+            Text(
+                text = "${formatTime(currentPositionMs)}/${formatTime(durationMs)}",
+                color = Color.White,
+                fontSize = if (isDesktopPiP) 10.sp else 11.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isDesktopPiP) 3.dp else 4.dp)
+                    .background(Color.Black.copy(alpha = 0.45f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .fillMaxHeight()
+                        .background(Color(0xFFFF1744))
+                )
             }
         }
 
