@@ -41,17 +41,21 @@ class Media3VideoPlayerController(context: Context) {
         .setHandleAudioBecomingNoisy(true)
         .build()
 
-    fun setHeaders(pageUrl: String?) {
+    fun setHeaders(pageUrl: String?, mediaUrl: String? = null) {
         val headers = linkedMapOf(
             "User-Agent" to android.webkit.WebSettings.getDefaultUserAgent(appContext),
             "Accept" to "*/*"
         )
-        if (!pageUrl.isNullOrBlank()) {
-            headers["Referer"] = pageUrl
-            android.webkit.CookieManager.getInstance().getCookie(pageUrl)
-                ?.takeIf { it.isNotBlank() }
-                ?.let { headers["Cookie"] = it }
-        }
+        if (!pageUrl.isNullOrBlank()) headers["Referer"] = pageUrl
+
+        val cookieManager = android.webkit.CookieManager.getInstance()
+        val mediaCookies = mediaUrl?.takeIf { it.isNotBlank() }
+            ?.let { cookieManager.getCookie(it) }
+            ?.takeIf { it.isNotBlank() }
+        val pageCookies = pageUrl?.takeIf { it.isNotBlank() }
+            ?.let { cookieManager.getCookie(it) }
+            ?.takeIf { it.isNotBlank() }
+        (mediaCookies ?: pageCookies)?.let { headers["Cookie"] = it }
         httpFactory.setDefaultRequestProperties(headers)
     }
 
@@ -60,17 +64,22 @@ class Media3VideoPlayerController(context: Context) {
     }
 
     fun load(video: VideoMediaInfo, startPositionMs: Long = 0L) {
-        setHeaders(video.pageUrl)
         val url = video.url.trim()
+        setHeaders(video.pageUrl, url)
         if (url.isBlank() || url.startsWith("blob:", ignoreCase = true)) {
             throw IllegalArgumentException("当前视频没有可供原生播放器使用的媒体地址")
         }
 
         val lower = url.lowercase()
         val mimeType = when {
-            lower.contains(".m3u8") || lower.contains("application/vnd.apple.mpegurl") ->
+            lower.contains(".m3u8") ||
+                lower.contains("application/vnd.apple.mpegurl") ||
+                lower.contains("application/x-mpegurl") ||
+                lower.contains("mime=application%2fvnd.apple.mpegurl") ->
                 MimeTypes.APPLICATION_M3U8
-            lower.contains(".mpd") || lower.contains("application/dash+xml") ->
+            lower.contains(".mpd") ||
+                lower.contains("application/dash+xml") ||
+                lower.contains("mime=application%2fdash%2bxml") ->
                 MimeTypes.APPLICATION_MPD
             else -> null
         }
