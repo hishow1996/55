@@ -19,7 +19,8 @@ class ElephantWebViewClient(
     private val repository: BrowserRepository,
     private val onPageStart: (url: String) -> Unit,
     private val onPageFinish: (url: String, title: String) -> Unit,
-    private val onExtensionDownload: (url: String) -> Unit = {}
+    private val onExtensionDownload: (url: String) -> Unit = {},
+    private val onUserScriptDownload: (url: String) -> Unit = {}
 ) : WebViewClient() {
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -29,6 +30,10 @@ class ElephantWebViewClient(
             lower.substringBefore("?").endsWith(".crx")
         if (looksLikeCrx) {
             onExtensionDownload(url)
+            return true
+        }
+        if (lower.substringBefore("?").endsWith(".user.js")) {
+            onUserScriptDownload(url)
             return true
         }
         if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://")) {
