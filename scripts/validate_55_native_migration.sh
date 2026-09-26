@@ -16,6 +16,13 @@ fi
 test -d "$KIWI/components/history" || fail "Chromium history service missing"
 test -d "$KIWI/components/bookmarks" || fail "Chromium bookmarks service missing"
 test -f "$KIWI/extensions/browser/extension_service.cc" || fail "Chromium extension runtime missing"
+test -f "$KIWI/extensions/browser/extension_registrar.cc" || fail "Chromium extension registrar missing"
+test -d "$KIWI/chrome/browser/resources/extensions" || fail "Chromium extension management UI resources missing"
+
+if [ -f "$KIWI/out/android_arm64/args.gn" ]; then
+  grep -Fqx "enable_extensions = true" "$KIWI/out/android_arm64/args.gn" || fail "enable_extensions is not true"
+  grep -Fqx "enable_plugins = true" "$KIWI/out/android_arm64/args.gn" || fail "enable_plugins is not true"
+fi
 
 JAVA_LIST="$KIWI/chrome/android/java_sources.gni"
 grep -Fq '"java/src/org/chromium/chrome/browser/Elephant55NativeSettings.java",' "$JAVA_LIST" || fail "55 settings source not registered"
