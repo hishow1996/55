@@ -82,7 +82,15 @@ fun SettingsScreen(
     val context = LocalContext.current
     val desktopUaType by repository.desktopUaType.collectAsState()
     val customUa by repository.customUserAgent.collectAsState()
+    val autoTranslate by repository.autoTranslate.collectAsState()
+    val cloudAcceleration by repository.cloudAcceleration.collectAsState()
+    val autoPip by repository.autoPip.collectAsState()
     var showClearDialog by remember { mutableStateOf(false) }
+    var showDataBackupDialog by remember { mutableStateOf(false) }
+    var showPlayerDialog by remember { mutableStateOf(false) }
+    var showTranslationDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
+    var showCloudDialog by remember { mutableStateOf(false) }
     var showSearchEngineDialog by remember { mutableStateOf(false) }
     var showUaDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -169,6 +177,7 @@ fun SettingsScreen(
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
                 onClick = {
+                    showPlayerDialog = true
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !canDrawOverlays) {
                         try {
                             val intent = Intent(
@@ -230,9 +239,7 @@ fun SettingsScreen(
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
-                onClick = {
-                    Toast.makeText(context, "支持网页智能翻译，可在浏览网页时随时调用", Toast.LENGTH_SHORT).show()
-                }
+                onClick = { showTranslationDialog = true }
             )
 
             // 8. 主题
@@ -242,31 +249,17 @@ fun SettingsScreen(
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
-                onClick = {
-                    val newMode = !isNightMode
-                    repository.setNightMode(newMode)
-                    Toast.makeText(
-                        context,
-                        if (newMode) "已切换为黑夜模式" else "已切换为白天模式",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                onClick = { showThemeDialog = true }
             )
 
             // 9. 云加速
             SettingsItem(
                 title = "云加速",
-                detail = "开启",
+                detail = if (cloudAcceleration) "开启" else "关闭",
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
-                onClick = {
-                    Toast.makeText(
-                        context,
-                        "云加速与数据节省正在运行 (${String.format("%.2f MB", repository.dataSavedMb.value)})",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                onClick = { showCloudDialog = true }
             )
 
             // 10. 数据备份与恢复
@@ -276,7 +269,7 @@ fun SettingsScreen(
                 textColor = textColor,
                 subTextColor = subTextColor,
                 dividerColor = dividerColor,
-                onClick = { showBrowserSettingsDialog = true }
+                onClick = { showDataBackupDialog = true }
             )
 
             // 11. 清除记录
@@ -314,9 +307,7 @@ fun SettingsScreen(
                     color = subTextColor,
                     modifier = Modifier
                         .clickable {
-                            repository.setNightMode(false) // Default Day mode
-                            repository.setDesktopMode(false)
-                            repository.setSearchEngine("google")
+                            repository.resetBrowserPreferences()
                             Toast.makeText(context, "已恢复为默认配置", Toast.LENGTH_SHORT).show()
                         }
                         .padding(horizontal = 24.dp, vertical = 10.dp)
@@ -325,9 +316,9 @@ fun SettingsScreen(
         }
     }
 
-    if (showBrowserSettingsDialog) {
+    if (showDataBackupDialog) {
         AlertDialog(
-            onDismissRequest = { showBrowserSettingsDialog = false },
+            onDismissRequest = { showDataBackupDialog = false },
             title = { Text("数据备份与恢复") },
             text = {
                 Text(
@@ -338,13 +329,13 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    showBrowserSettingsDialog = false
+                    showDataBackupDialog = false
                     onBackupData()
                 }) { Text("导出备份") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    showBrowserSettingsDialog = false
+                    showDataBackupDialog = false
                     onRestoreData()
                 }) { Text("恢复备份") }
             }
@@ -356,10 +347,11 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
             title = { Text("清除记录") },
-            text = { Text("确定要清空所有浏览历史和本地缓存数据吗？此操作无法撤销。") },
+            text = { Text("可清除浏览历史和搜索记录。书签、快捷网站和浏览器设置不会受到影响。") },
             confirmButton = {
                 TextButton(onClick = {
                     repository.clearAllHistory()
+                    repository.clearSearchHistory()
                     showClearDialog = false
                     Toast.makeText(context, "浏览记录已清空", Toast.LENGTH_SHORT).show()
                 }) {
@@ -371,6 +363,77 @@ fun SettingsScreen(
                     Text("取消")
                 }
             }
+        )
+    }
+
+    if (showPlayerDialog) {
+        AlertDialog(
+            onDismissRequest = { showPlayerDialog = false },
+            title = { Text("悬浮窗与播放器") },
+            text = {
+                Column {
+                    SettingSwitchRow("自动进入画中画", "视频切换到后台时自动进入系统 PiP", autoPip, { repository.setAutoPip(it) }, textColor, subTextColor)
+                    HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
+                    TextButton(onClick = {
+                        showPlayerDialog = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !canDrawOverlays) {
+                            try { context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName))) } catch (_: Exception) {}
+                        }
+                    }) { Text("打开系统悬浮窗权限") }
+                    Text("播放器继续使用实际视频画面比例，并在浮窗关闭后同步恢复网页播放。", fontSize = 12.sp, color = subTextColor)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showPlayerDialog = false }) { Text("完成") } }
+        )
+    }
+
+    if (showTranslationDialog) {
+        AlertDialog(
+            onDismissRequest = { showTranslationDialog = false },
+            title = { Text("网页翻译") },
+            text = {
+                Column {
+                    SettingSwitchRow("自动翻译", "打开网页时自动提供翻译入口", autoTranslate, { repository.setAutoTranslate(it) }, textColor, subTextColor)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("当前默认语言：简体中文", fontSize = 14.sp, color = textColor)
+                    Text("翻译设置只控制浏览器行为，不改变原网页地址。", fontSize = 12.sp, color = subTextColor)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showTranslationDialog = false }) { Text("完成") } }
+        )
+    }
+
+    if (showThemeDialog) {
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            title = { Text("主题") },
+            text = {
+                Column {
+                    listOf("白天模式" to false, "黑夜模式" to true).forEach { (label, value) ->
+                        Row(Modifier.fillMaxWidth().clickable { repository.setNightMode(value); showThemeDialog = false }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = isNightMode == value, onClick = { repository.setNightMode(value); showThemeDialog = false })
+                            Text(label, fontSize = 15.sp, color = textColor)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showThemeDialog = false }) { Text("完成") } }
+        )
+    }
+
+    if (showCloudDialog) {
+        AlertDialog(
+            onDismissRequest = { showCloudDialog = false },
+            title = { Text("云加速") },
+            text = {
+                Column {
+                    SettingSwitchRow("数据节省统计", "记录浏览器已经节省的数据量", cloudAcceleration, { repository.setCloudAcceleration(it) }, textColor, subTextColor)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("已节省 " + String.format("%.2f MB", repository.dataSavedMb.value), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
+                    Text("当前版本不会把未实现的网络代理能力伪装成云加速。", fontSize = 12.sp, color = subTextColor)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showCloudDialog = false }) { Text("完成") } }
         )
     }
 
@@ -555,77 +618,6 @@ fun SettingsScreen(
         )
     }
 
-    // Browser Settings Dialog
-    if (showBrowserSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { showBrowserSettingsDialog = false },
-            title = { Text("浏览设置") },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                repository.setDesktopMode(!isDesktopMode)
-                            }
-                            .padding(vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("默认电脑版模式", fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            Text(
-                                if (isDesktopMode) "新建标签页默认以电脑版打开" else "新建标签页以移动端打开",
-                                fontSize = 12.sp,
-                                color = subTextColor
-                            )
-                        }
-                        Switch(
-                            checked = isDesktopMode,
-                            onCheckedChange = { repository.setDesktopMode(it) }
-                        )
-                    }
-
-                    HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                showBrowserSettingsDialog = false
-                                showUaDialog = true
-                            }
-                            .padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("电脑版 User-Agent", fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            val uaName = when (desktopUaType) {
-                                "mac" -> "Mac Safari / Chrome"
-                                "ipad" -> "iPad / 平板电脑"
-                                "custom" -> "自定义 UA"
-                                else -> "Windows Chrome"
-                            }
-                            Text(uaName, fontSize = 12.sp, color = Color(0xFF2563EB))
-                        }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = null,
-                            tint = subTextColor.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showBrowserSettingsDialog = false }) {
-                    Text("完成")
-                }
-            }
-        )
-    }
-
     // About Dialog
     if (showAboutDialog) {
         AlertDialog(
@@ -656,6 +648,17 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun SettingSwitchRow(title: String, detail: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, textColor: Color, subTextColor: Color) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
+            Text(detail, fontSize = 12.sp, color = subTextColor)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
