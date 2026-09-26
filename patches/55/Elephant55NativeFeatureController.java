@@ -25,7 +25,6 @@ public final class Elephant55NativeFeatureController {
         TabUtils.switchUserAgent(
                 tab,
                 Elephant55NativeSettings.isDesktopMode(context),
-                /* forcedByUser= */ false,
                 TabUtils.UseDesktopUserAgentCaller.OTHER);
     }
 }
