@@ -56,8 +56,6 @@ class FloatingPlayerService : MediaSessionService() {
     // explicit attachment flag so ratio/drag/resize callbacks never update a
     // window that has already been removed.
     private var windowAttached = false
-    // Ignore duplicate close/dispose callbacks while the overlay is tearing down.
-    private var teardownStarted = false
 
     // The native Media3 player is the single playback owner. This listener only
     // observes its decoded video size so the overlay can follow the actual
@@ -133,7 +131,6 @@ class FloatingPlayerService : MediaSessionService() {
 
         val action = intent.action
         if (action == ACTION_STOP) {
-            if (teardownStarted) return START_NOT_STICKY
             val position = try {
                 NativeVideoPlaybackManager.currentPositionMs().toDouble() / 1000.0
                     ?: FloatingVideoPlayerComponent.lastPlaybackPositionSeconds
@@ -387,9 +384,8 @@ class FloatingPlayerService : MediaSessionService() {
     }
 
     private fun closeFloatingWindowOrResumeBrowser(positionSeconds: Double) {
-        if (closing || teardownStarted) return
+        if (closing) return
         closing = true
-        teardownStarted = true
         // Read the player state before releasing it so the shared session is authoritative.
         val playerPositionSeconds = try {
             NativeVideoPlaybackManager.currentPositionMs().toDouble() / 1000.0
@@ -433,24 +429,19 @@ class FloatingPlayerService : MediaSessionService() {
     }
 
     private fun removeFloatingWindow() {
-        val root = rootLayout
-        val wm = windowManager
         try {
-            // Save the final clock before the overlay surface disappears.
-            runCatching {
+            try {
                 FloatingVideoPlayerComponent.syncProgress(
                     NativeVideoPlaybackManager.currentPositionMs() / 1000.0
                 )
-            }
-
-            // Let Compose/TextureView perform its own surface detach during
-            // disposal; do not detach the same Surface a second time here.
-            if (root != null && windowAttached) {
-                windowAttached = false
-                runCatching { wm?.removeView(root) }
-            }
+                NativeVideoPlaybackManager.detachSurface()
+            } catch (_: Exception) {}
+            rootLayout?.let { windowManager?.removeView(it) }
+        } catch (e: Exception) {
+            e.printStackTrace()
         } finally {
-            runCatching { composeLifecycleOwner?.destroy() }
+            windowAttached = false
+            composeLifecycleOwner?.destroy()
             composeLifecycleOwner = null
             rootLayout = null
             globalVideoInfo = null

@@ -222,16 +222,24 @@ fun InAppFloatingPlayer(
     var playbackSpeed by remember { mutableFloatStateOf(VideoPlaybackSessionManager.current()?.playbackRate ?: 1.0f) }
     var showControls by remember { mutableStateOf(true) }
     var fullscreenLocked by remember(isFullscreen) { mutableStateOf(false) }
+    var showLockedHint by remember { mutableStateOf(false) }
     // The player is application-wide. This UI only attaches a surface and
     // controls the already-running native Media3 instance.
     var currentSurface by remember { mutableStateOf<Surface?>(null) }
     var isVideoReady by remember { mutableStateOf(NativeVideoPlaybackManager.player() != null) }
 
     // Auto-hide controls after 4 seconds of playback
-    LaunchedEffect(showControls, isPlaying) {
-        if (showControls && isPlaying) {
+    LaunchedEffect(showControls, isPlaying, fullscreenLocked) {
+        if (showControls && isPlaying && !fullscreenLocked) {
             delay(4000)
             showControls = false
+        }
+    }
+
+    LaunchedEffect(showLockedHint) {
+        if (showLockedHint) {
+            delay(2200)
+            showLockedHint = false
         }
     }
 
@@ -365,50 +373,24 @@ fun InAppFloatingPlayer(
             modifier = Modifier.fillMaxSize()
         )
 
-        // --- 3. Fluid In-App/Global Drag Gesture when Controls are Hidden ---
-        // When the controls fade out, this full-screen hit layer must remain
-        // draggable. Previously it only listened for taps, so the floating
-        // window became impossible to move precisely while the controls/icons
-        // were hidden.
-        if (!isDesktopPiP && !showControls && !fullscreenLocked) {
+        // --- 3. Fluid In-App Drag Gesture when Controls are Hidden ---
+        if (!isDesktopPiP && !showControls) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(isGlobalFloating, screenWidth, screenHeight) {
-                        var dragDistance = 0f
-                        detectDragGestures(
-                            onDragStart = {
-                                dragDistance = 0f
-                            },
-                            onDragEnd = {
-                                // A simple tap reveals the controls; an actual
-                                // drag moves the window without revealing them.
-                                if (dragDistance < 8f) {
+                    .pointerInput(fullscreenLocked) {
+                        detectTapGestures(
+                            onTap = {
+                                if (fullscreenLocked) {
+                                    showLockedHint = true
+                                } else {
                                     showControls = true
                                 }
                             },
-                            onDragCancel = {
-                                dragDistance = 0f
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                dragDistance += kotlin.math.hypot(
-                                    dragAmount.x.toDouble(),
-                                    dragAmount.y.toDouble()
-                                ).toFloat()
-
-                                val curW = with(density) { windowWidthDp.dp.toPx() }
-                                val curH = with(density) { windowHeightDp.dp.toPx() }
-                                val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
-                                val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
-
-                                if (isGlobalFloating) {
-                                    onGlobalDrag?.invoke(dragAmount.x, dragAmount.y)
-                                } else {
-                                    offsetX = (offsetX + dragAmount.x)
-                                        .coerceIn(0f, maxOffsetX)
-                                    offsetY = (offsetY + dragAmount.y)
-                                        .coerceIn(0f, maxOffsetY)
+                            onDoubleTap = {
+                                if (!fullscreenLocked) {
+                                    isPlaying = !isPlaying
+                                    if (isPlaying) NativeVideoPlaybackManager.play() else NativeVideoPlaybackManager.pause()
                                 }
                             }
                         )
@@ -423,32 +405,49 @@ fun InAppFloatingPlayer(
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
         ) {
-            val overlayModifier = if (isDesktopPiP) {
-                Modifier
-                    .fillMaxSize()
-                    .background(if (isFullscreen) Color.Black.copy(alpha = 0.25f) else Color.Transparent)
-                    .pointerInput(Unit) {
-                        detectTapGestures { showControls = false }
-                    }
-            } else {
-                Modifier
-                    .fillMaxSize()
-                    .background(if (isFullscreen) Color.Black.copy(alpha = 0.25f) else Color.Transparent)
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            val curW = with(density) { windowWidthDp.dp.toPx() }
-                            val curH = with(density) { windowHeightDp.dp.toPx() }
-                            val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
-                            val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
-                            if (isGlobalFloating) {
-                                onGlobalDrag?.invoke(dragAmount.x, dragAmount.y)
-                            } else {
-                                offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxOffsetX)
-                                offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxOffsetY)
+            val overlayModifier = when {
+                isDesktopPiP -> {
+                    Modifier
+                        .fillMaxSize()
+                        .background(if (isFullscreen) Color.Black.copy(alpha = 0.25f) else Color.Transparent)
+                        .pointerInput(Unit) {
+                            detectTapGestures { showControls = false }
+                        }
+                }
+                isFullscreen -> {
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.25f))
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { showControls = false },
+                                onDoubleTap = {
+                                    isPlaying = !isPlaying
+                                    if (isPlaying) NativeVideoPlaybackManager.play() else NativeVideoPlaybackManager.pause()
+                                }
+                            )
+                        }
+                }
+                else -> {
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Transparent)
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                val curW = with(density) { windowWidthDp.dp.toPx() }
+                                val curH = with(density) { windowHeightDp.dp.toPx() }
+                                val maxOffsetX = (screenWidth - curW).coerceAtLeast(0f)
+                                val maxOffsetY = (screenHeight - curH).coerceAtLeast(0f)
+                                if (isGlobalFloating) {
+                                    onGlobalDrag?.invoke(dragAmount.x, dragAmount.y)
+                                } else {
+                                    offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxOffsetX)
+                                    offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxOffsetY)
+                                }
                             }
                         }
-                    }
+                }
             }
 
             Box(modifier = overlayModifier) {
@@ -738,19 +737,50 @@ fun InAppFloatingPlayer(
         // Non-fullscreen player and floating window must never show a lock button.
         if (isFullscreen) {
             IconButton(
-                onClick = { fullscreenLocked = !fullscreenLocked },
+                onClick = {
+                    fullscreenLocked = !fullscreenLocked
+                    if (!fullscreenLocked) {
+                        showControls = true
+                    }
+                },
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = 8.dp)
                     .size(42.dp)
-                    .background(Color.Black.copy(alpha = 0.48f), CircleShape)
+                    .background(
+                        if (fullscreenLocked) Color(0xFFB45309).copy(alpha = 0.75f) else Color.Black.copy(alpha = 0.48f),
+                        CircleShape
+                    )
             ) {
                 Icon(
-                    imageVector = if (fullscreenLocked) Icons.Default.LockOpen else Icons.Default.Lock,
+                    imageVector = if (fullscreenLocked) Icons.Default.Lock else Icons.Default.LockOpen,
                     contentDescription = if (fullscreenLocked) "解锁全屏播放器" else "锁定全屏播放器",
-                    tint = Color.White,
+                    tint = if (fullscreenLocked) Color(0xFFFBBF24) else Color.White,
                     modifier = Modifier.size(22.dp)
                 )
+            }
+
+            AnimatedVisibility(
+                visible = showLockedHint,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 24.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "屏幕已锁定，点击左侧锁图标解锁",
+                        color = Color(0xFFFBBF24),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 

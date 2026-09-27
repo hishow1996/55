@@ -18,7 +18,6 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import com.example.ui.browser.PinchZoomWebView
-import kotlin.math.roundToInt
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -92,6 +91,7 @@ import com.example.ui.ai.AiChatDialog
 import com.example.ui.ai.ElephantAiScreen
 import com.example.ui.browser.BottomNavBar
 import com.example.ui.browser.BrowserTopBar
+import com.example.ui.browser.WebVideoFullscreenOverlay
 import com.example.ui.download.DownloadManagerScreen
 import com.example.ui.history.HistoryBookmarksScreen
 import com.example.ui.home.HomeScreen
@@ -239,21 +239,28 @@ class MainActivity : ComponentActivity() {
                 fullscreenVideoLocked = false
             }
 
-            var orientationBeforeNativeFullscreen by remember {
-                mutableStateOf(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+            val isCustomVideoFullscreen = customVideoView != null
+            val isNativeFullscreen = nativePlayerFullscreen
+            val isAnyFullscreen = isCustomVideoFullscreen || isNativeFullscreen
+
+            val onRotateScreen: () -> Unit = {
+                val currentOrientation = resources.configuration.orientation
+                requestedOrientation =
+                    if (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    } else {
+                        ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    }
             }
-            DisposableEffect(nativePlayerFullscreen) {
+
+            DisposableEffect(isAnyFullscreen) {
                 val activity = this@MainActivity
                 val insetsController = WindowCompat.getInsetsController(
                     activity.window,
                     activity.window.decorView
                 )
-                if (nativePlayerFullscreen) {
-                    orientationBeforeNativeFullscreen = activity.requestedOrientation
-                    // Enter native-player fullscreen in landscape immediately.
-                    // FULL_SENSOR alone leaves portrait devices in portrait until
-                    // the user physically rotates the phone.
-                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                if (isAnyFullscreen) {
+                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                     WindowCompat.setDecorFitsSystemWindows(activity.window, false)
                     activity.window.statusBarColor = android.graphics.Color.BLACK
                     activity.window.navigationBarColor = android.graphics.Color.BLACK
@@ -261,16 +268,14 @@ class MainActivity : ComponentActivity() {
                     insetsController.systemBarsBehavior =
                         androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 } else {
-                    activity.requestedOrientation = orientationBeforeNativeFullscreen
+                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                     insetsController.show(WindowInsetsCompat.Type.systemBars())
                     WindowCompat.setDecorFitsSystemWindows(activity.window, true)
                 }
                 onDispose {
-                    if (nativePlayerFullscreen) {
-                        activity.requestedOrientation = orientationBeforeNativeFullscreen
-                        insetsController.show(WindowInsetsCompat.Type.systemBars())
-                        WindowCompat.setDecorFitsSystemWindows(activity.window, true)
-                    }
+                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    insetsController.show(WindowInsetsCompat.Type.systemBars())
+                    WindowCompat.setDecorFitsSystemWindows(activity.window, true)
                 }
             }
 
@@ -297,6 +302,15 @@ class MainActivity : ComponentActivity() {
                     nativePlayerFullscreen -> {
                         nativePlayerFullscreen = false
                         fullscreenVideoLocked = false
+                        if (!isFloatingPlayerVisible) {
+                            viewModel.activeWebView?.evaluateJavascript(
+                                com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(
+                                    (NativeVideoPlaybackManager.currentPositionMs() / 1000.0).coerceAtLeast(0.0)
+                                ),
+                                null
+                            )
+                            NativeVideoPlaybackManager.stopForUiClose()
+                        }
                     }
                     customVideoView != null -> viewModel.hideCustomVideoView()
                     isFloatingPlayerVisible -> viewModel.closeFloatingPlayer()
@@ -413,6 +427,23 @@ class MainActivity : ComponentActivity() {
                                         ChromiumWebViewContainer(
                                             tab = currentTab,
                                             viewModel = viewModel,
+                                            onOpenFullscreenPlayer = { url, title, curTime, dur, w, h ->
+                                                viewModel.onVideoFound(url, title, dur, curTime, w, h)
+                                                val video = viewModel.detectedVideo.value ?: VideoMediaInfo(
+                                                    url = url,
+                                                    title = title,
+                                                    duration = dur,
+                                                    currentTime = curTime,
+                                                    videoWidth = w,
+                                                    videoHeight = h,
+                                                    originTabIndex = currentTabIndex,
+                                                    originTabId = currentTab.id
+                                                )
+                                                viewModel.hideCustomVideoView()
+                                                fullscreenVideoLocked = false
+                                                NativeVideoPlaybackManager.start(applicationContext, video, autoPlay = true)
+                                                nativePlayerFullscreen = true
+                                            },
                                             onAdjustBrightness = { adjustWindowBrightness(it) },
                                             onAdjustVolume = { adjustSystemVolume(it) },
                                             modifier = Modifier.fillMaxSize()
@@ -423,58 +454,20 @@ class MainActivity : ComponentActivity() {
 
                             // Fullscreen Web Video (HTML5 Custom View)
                             if (customVideoView != null && !isFloatingPlayerVisible && !nativePlayerFullscreen) {
-                                Box(modifier = Modifier.fillMaxSize()) {
-                                    AndroidView(
-                                        factory = {
-                                            FrameLayout(it).apply {
-                                                layoutParams = ViewGroup.LayoutParams(
-                                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                                    ViewGroup.LayoutParams.MATCH_PARENT
-                                                )
-                                                setBackgroundColor(0xFF000000.toInt())
-                                                (customVideoView?.parent as? ViewGroup)?.removeView(customVideoView)
-                                                addView(customVideoView)
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-
-                                    // Fullscreen lock button: vertically centered on the left edge.
-                                    // When locked, the transparent blocker consumes accidental taps
-                                    // so the video's fullscreen controls cannot be triggered by mistake.
-                                    if (fullscreenVideoLocked) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .pointerInput(Unit) {
-                                                    detectTapGestures { /* keep fullscreen locked */ }
-                                                }
-                                        )
-                                    }
-
-                                    IconButton(
-                                        onClick = { fullscreenVideoLocked = !fullscreenVideoLocked },
-                                        modifier = Modifier
-                                            .align(Alignment.CenterStart)
-                                            .padding(start = 8.dp)
-                                            .size(42.dp)
-                                            .background(
-                                                Color.Black.copy(alpha = 0.48f),
-                                                androidx.compose.foundation.shape.CircleShape
-                                            )
-                                    ) {
-                                        androidx.compose.material3.Icon(
-                                            imageVector = if (fullscreenVideoLocked) {
-                                                androidx.compose.material.icons.Icons.Default.LockOpen
-                                            } else {
-                                                androidx.compose.material.icons.Icons.Default.Lock
-                                            },
-                                            contentDescription = if (fullscreenVideoLocked) "解锁全屏播放器" else "锁定全屏播放器",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                }
+                                WebVideoFullscreenOverlay(
+                                    customVideoView = customVideoView!!,
+                                    title = currentTab.title.ifBlank { "网页视频" },
+                                    onClose = { viewModel.hideCustomVideoView() },
+                                    onRotateScreen = onRotateScreen,
+                                    onDownload = detectedVideo?.let { v ->
+                                        { viewModel.startVideoDownload(v.url, v.title.ifBlank { "网页视频" }) }
+                                    },
+                                    evaluateJavascript = { script, callback ->
+                                        viewModel.activeWebView?.evaluateJavascript(script, callback)
+                                    },
+                                    onAdjustBrightness = { delta -> adjustWindowBrightness(delta) },
+                                    onAdjustVolume = { delta -> adjustSystemVolume(delta) }
+                                )
                             }
                         }
 
@@ -516,28 +509,24 @@ class MainActivity : ComponentActivity() {
                             },
                             onEnterFullscreen = {
                                 if (!nativePlayerFullscreen) {
-                                    // Do not keep a WebChrome fullscreen surface underneath
-                                    // the native player; otherwise its lock overlay can remain
-                                    // visible after the orientation change.
                                     viewModel.hideCustomVideoView()
                                     fullscreenVideoLocked = false
                                     nativePlayerFullscreen = true
                                 } else {
                                     nativePlayerFullscreen = false
                                     fullscreenVideoLocked = false
+                                    if (!isFloatingPlayerVisible) {
+                                        viewModel.activeWebView?.evaluateJavascript(
+                                            com.example.engine.Scripts.RESUME_WEB_VIDEO_AT(
+                                                (NativeVideoPlaybackManager.currentPositionMs() / 1000.0).coerceAtLeast(0.0)
+                                            ),
+                                            null
+                                        )
+                                        NativeVideoPlaybackManager.stopForUiClose()
+                                    }
                                 }
                             },
-                            onRotateScreen = if (nativePlayerFullscreen) {
-                                {
-                                    val orientation = resources.configuration.orientation
-                                    requestedOrientation =
-                                        if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
-                                            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                        } else {
-                                            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                                        }
-                                }
-                            } else null,
+                            onRotateScreen = if (nativePlayerFullscreen) onRotateScreen else null,
                             onDownloadVideo = { url, title ->
                                 viewModel.startVideoDownload(url, title)
                             }
@@ -1085,6 +1074,7 @@ class MainActivity : ComponentActivity() {
 fun ChromiumWebViewContainer(
     tab: com.example.model.BrowserTab,
     viewModel: com.example.viewmodel.BrowserViewModel,
+    onOpenFullscreenPlayer: ((url: String, title: String, currentTime: Double, duration: Double, width: Int, height: Int) -> Unit)? = null,
     onAdjustBrightness: (Float) -> Float = { 0.5f },
     onAdjustVolume: (Float) -> Float = { 0.5f },
     modifier: Modifier = Modifier
@@ -1120,40 +1110,11 @@ fun ChromiumWebViewContainer(
                     mediaPlaybackRequiresUserGesture = false
                     // PinchZoomWebView owns the only zoom gesture: two-finger pinch.
                     // Do not re-enable WebView legacy zoom/double-tap handling here.
-                    setSupportZoom(true)
+                    setSupportZoom(false)
                     builtInZoomControls = false
                     displayZoomControls = false
                     useWideViewPort = tab.isDesktopMode
                     loadWithOverviewMode = tab.isDesktopMode
-                    // Desktop mode must render a real desktop CSS viewport and then
-                    // scale that wide layout down to the phone's physical WebView.
-                    // Without an explicit auto initial scale, some WebView versions
-                    // keep the 980px desktop layout at 1:1, causing the right side
-                    // of desktop sites to fall outside the phone screen.
-                    if (tab.isDesktopMode) {
-                        // Force the wide desktop canvas to be fitted to the actual
-                        // phone WebView width. setInitialScale(0) is inconsistent
-                        // across Android System WebView versions when a page has
-                        // its own viewport metadata, so calculate the scale from
-                        // the real WebView width and the desktop CSS viewport.
-                        val desktopCssWidth = 980f
-                        val physicalWidth = resources.displayMetrics.widthPixels.toFloat()
-                        val desktopScale = if (physicalWidth > 0f) {
-                            (physicalWidth / desktopCssWidth * 100f)
-                                .coerceIn(50f, 150f)
-                                .roundToInt()
-                        } else {
-                            100
-                        }
-                        setInitialScale(desktopScale)
-                    } else {
-                        setInitialScale(0)
-                    }
-                    layoutAlgorithm = if (tab.isDesktopMode) {
-                        WebSettings.LayoutAlgorithm.NORMAL
-                    } else {
-                        WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
-                    }
                     userAgentString = viewModel.repository.getUserAgent(tab.isDesktopMode)
                     cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
@@ -1197,6 +1158,11 @@ fun ChromiumWebViewContainer(
                                         ?: activity.createFallbackVideoForCurrentTab(viewModel)
                                     activity.triggerGlobalFloatingOrPiP(video)
                                 }
+                            }
+                        },
+                        onOpenFullscreenPlayer = { url, title, currentTime, duration, width, height ->
+                            (context as? ComponentActivity)?.runOnUiThread {
+                                onOpenFullscreenPlayer?.invoke(url, title, currentTime, duration, width, height)
                             }
                         },
                         onDownloadVideo = { url, title ->
@@ -1281,6 +1247,12 @@ fun ChromiumWebViewContainer(
                     },
                     onShowCustomVideo = { view, callback ->
                         viewModel.showCustomVideoView(view, callback)
+                        this@apply.post {
+                            evaluateJavascript(
+                                "(function(){ var vs = document.querySelectorAll('video'); for(var i=0;i<vs.length;i++){ if(vs[i].paused) vs[i].play().catch(function(){}); } })()",
+                                null
+                            )
+                        }
                     },
                     onHideCustomVideo = {
                         viewModel.hideCustomVideoView()
@@ -1356,48 +1328,16 @@ fun ChromiumWebViewContainer(
             }
             // Update User Agent if Desktop mode changed
             val targetUa = viewModel.repository.getUserAgent(tab.isDesktopMode)
-            val desktopSettingsChanged =
-                webView.settings.useWideViewPort != tab.isDesktopMode ||
-                    webView.settings.loadWithOverviewMode != tab.isDesktopMode ||
-                    webView.settings.layoutAlgorithm != if (tab.isDesktopMode) {
-                        WebSettings.LayoutAlgorithm.NORMAL
-                    } else {
-                        WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
-                    }
-
-            if (webView.settings.userAgentString != targetUa || desktopSettingsChanged) {
-                // A mode switch is a new WebView scale context. Clear only the
-                // wrapper's gesture bookkeeping; the actual desktop/mobile
-                // initial scale is configured immediately below.
-                (webView as? PinchZoomWebView)?.resetGestureZoomState()
+            if (webView.settings.userAgentString != targetUa) {
                 webView.settings.userAgentString = targetUa
                 webView.settings.useWideViewPort = tab.isDesktopMode
                 webView.settings.loadWithOverviewMode = tab.isDesktopMode
-                // Keep the WebView zoom engine available for PinchZoomWebView.
-                // Legacy zoom UI remains disabled; the wrapper owns the gesture.
-                webView.settings.setSupportZoom(true)
-                webView.settings.builtInZoomControls = false
-                webView.settings.displayZoomControls = false
                 webView.settings.layoutAlgorithm = if (tab.isDesktopMode) {
                     WebSettings.LayoutAlgorithm.NORMAL
                 } else {
                     WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
                 }
                 webView.settings.textZoom = 100
-                if (tab.isDesktopMode) {
-                    val desktopCssWidth = 980f
-                    val physicalWidth = resources.displayMetrics.widthPixels.toFloat()
-                    val desktopScale = if (physicalWidth > 0f) {
-                        (physicalWidth / desktopCssWidth * 100f)
-                            .coerceIn(50f, 150f)
-                            .roundToInt()
-                    } else {
-                        100
-                    }
-                    webView.setInitialScale(desktopScale)
-                } else {
-                    webView.setInitialScale(0)
-                }
                 webView.reload()
             }
             if (!tab.isAtHome && (webView.url.isNullOrBlank() || webView.url == "about:blank")) {

@@ -11,6 +11,7 @@ class ElephantWebBridge(
     private val onAdjustBrightness: ((delta: Float) -> Float)? = null,
     private val onAdjustVolume: ((delta: Float) -> Float)? = null,
     private val onOpenFloatingPlayer: ((url: String, title: String, currentTime: Double, duration: Double, width: Int, height: Int) -> Unit)? = null,
+    private val onOpenFullscreenPlayer: ((url: String, title: String, currentTime: Double, duration: Double, width: Int, height: Int) -> Unit)? = null,
     private val onDownloadVideo: ((url: String, title: String) -> Unit)? = null,
     private val onShowToast: ((message: String) -> Unit)? = null
 ) {
@@ -55,6 +56,11 @@ class ElephantWebBridge(
     @JavascriptInterface
     fun openFloatingPlayer(url: String, title: String, currentTime: Double, duration: Double, width: Int, height: Int) {
         onOpenFloatingPlayer?.invoke(url, title, currentTime, duration, width, height)
+    }
+
+    @JavascriptInterface
+    fun openFullscreenPlayer(url: String, title: String, currentTime: Double, duration: Double, width: Int, height: Int) {
+        onOpenFullscreenPlayer?.invoke(url, title, currentTime, duration, width, height)
     }
 
     @JavascriptInterface

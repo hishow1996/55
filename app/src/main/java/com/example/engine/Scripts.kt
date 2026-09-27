@@ -807,11 +807,10 @@ object Scripts {
                 // on pages that declare width=device-width. Use at least the
                 // Chromium desktop baseline of 980 CSS px, while allowing
                 // genuinely wider displays to use their real CSS width.
-                // Keep a stable desktop CSS viewport. Using the phone's
-                // physical/CSS screen width here can collapse the page back toward
-                // a mobile breakpoint on some sites. Android WebView's overview
-                // scaling then fits this wide desktop canvas onto the phone.
-                const desktopViewportWidth = 980;
+                const desktopViewportWidth = Math.max(
+                    980,
+                    Math.round(Number(window.screen && window.screen.width) || 980)
+                );
 
                 function forceDesktopViewport() {
                     try {
@@ -1769,6 +1768,45 @@ object Scripts {
                 });
 
                 fastTap(fsBtn, () => {
+                    let realSrc = '';
+                    if (window._elephantLastManifestUrl) realSrc = window._elephantLastManifestUrl;
+                    if (!realSrc && window._elephantLastDirectVideoUrl) realSrc = window._elephantLastDirectVideoUrl;
+                    if (!realSrc && video.currentSrc && !video.currentSrc.startsWith('blob:')) realSrc = video.currentSrc;
+                    if (!realSrc && video.src && !video.src.startsWith('blob:')) realSrc = video.src;
+                    if (!realSrc && window.performance && window.performance.getEntriesByType) {
+                        const resources = window.performance.getEntriesByType('resource');
+                        for (let i = resources.length - 1; i >= 0; i--) {
+                            const name = resources[i].name || '';
+                            if (name.includes('.m3u8') || name.includes('.mpd') || name.includes('.mp4') || name.includes('.webm') || name.includes('.flv') || name.includes('mime=video') || name.includes('googlevideo.com')) {
+                                realSrc = name;
+                                break;
+                            }
+                        }
+                    }
+                    if (!realSrc) {
+                        if (window.hls && window.hls.url) realSrc = window.hls.url;
+                        else if (window.dp && window.dp.video && window.dp.video.url) realSrc = window.dp.video.url;
+                        else if (window.player && window.player.url) realSrc = window.player.url;
+                    }
+                    if (!realSrc) {
+                        realSrc = video.currentSrc || video.src || '';
+                    }
+
+                    if (realSrc && !realSrc.startsWith('blob:') && (realSrc.startsWith('http://') || realSrc.startsWith('https://')) && window.ElephantBridge && window.ElephantBridge.openFullscreenPlayer) {
+                        window._elephantLastVideoElement = video;
+                        video.pause();
+                        window.ElephantBridge.openFullscreenPlayer(
+                            realSrc,
+                            document.title || '网页视频',
+                            video.currentTime || 0,
+                            video.duration || 0,
+                            video.videoWidth || 16,
+                            video.videoHeight || 9
+                        );
+                        return;
+                    }
+
+                    // Fallback to webkitRequestFullscreen / requestFullscreen
                     if (video.webkitRequestFullscreen) {
                         video.webkitRequestFullscreen();
                     } else if (video.requestFullscreen) {

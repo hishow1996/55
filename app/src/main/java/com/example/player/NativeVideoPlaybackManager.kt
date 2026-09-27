@@ -292,21 +292,14 @@ object NativeVideoPlaybackManager {
     @Synchronized
     fun release() {
         assertMainThread()
-
-        // MediaSession holds a reference to the ExoPlayer. Release the session
-        // before releasing the player during floating-window teardown.
-        runCatching { mediaSession?.release() }
-        mediaSession = null
-
-        val currentController = controller
+        controller?.release()
         controller = null
         activeSessionId = null
         resumeAfterSurfaceReattach = false
         playIntent = false
         listenerInstalled = false
-
-        runCatching { currentController?.release() }
-
+        mediaSession?.release()
+        mediaSession = null
         VideoPlaybackSessionManager.clear()
     }
 }
