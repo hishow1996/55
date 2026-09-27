@@ -373,24 +373,61 @@ fun InAppFloatingPlayer(
             modifier = Modifier.fillMaxSize()
         )
 
-        // --- 3. Fluid In-App Drag Gesture when Controls are Hidden ---
+        // --- 3. Full-surface drag gesture when controls are hidden ---
+        // The hidden-controls layer must remain interactive. Previously it used
+        // detectTapGestures only, so once the controls auto-hidden there was no
+        // drag recognizer above the TextureView and the floating window became
+        // effectively immovable. Keep taps for showing controls, but route real
+        // drags to the same position callbacks used by the visible controls.
         if (!isDesktopPiP && !showControls) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(fullscreenLocked) {
-                        detectTapGestures(
-                            onTap = {
+                    .pointerInput(fullscreenLocked, isGlobalFloating) {
+                        var totalDragX = 0f
+                        var totalDragY = 0f
+                        detectDragGestures(
+                            onDragStart = {
+                                totalDragX = 0f
+                                totalDragY = 0f
                                 if (fullscreenLocked) {
                                     showLockedHint = true
-                                } else {
+                                }
+                            },
+                            onDragCancel = {
+                                totalDragX = 0f
+                                totalDragY = 0f
+                            },
+                            onDragEnd = {
+                                if (!fullscreenLocked &&
+                                    kotlin.math.abs(totalDragX) < 8f &&
+                                    kotlin.math.abs(totalDragY) < 8f
+                                ) {
                                     showControls = true
                                 }
                             },
-                            onDoubleTap = {
-                                if (!fullscreenLocked) {
-                                    isPlaying = !isPlaying
-                                    if (isPlaying) NativeVideoPlaybackManager.play() else NativeVideoPlaybackManager.pause()
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                if (fullscreenLocked) return@detectDragGestures
+
+                                totalDragX += dragAmount.x
+                                totalDragY += dragAmount.y
+
+                                if (isGlobalFloating) {
+                                    onGlobalDrag?.invoke(dragAmount.x, dragAmount.y)
+                                } else {
+                                    offsetX = (
+                                        offsetX + dragAmount.x
+                                    ).coerceIn(
+                                        0f,
+                                        (screenWidth - windowWidthPx).coerceAtLeast(0f)
+                                    )
+                                    offsetY = (
+                                        offsetY + dragAmount.y
+                                    ).coerceIn(
+                                        0f,
+                                        (screenHeight - windowHeightPx).coerceAtLeast(0f)
+                                    )
                                 }
                             }
                         )
