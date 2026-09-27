@@ -8,11 +8,8 @@ import android.webkit.WebView
 import kotlin.math.pow
 
 /**
- * WebView with explicit two-finger pinch zoom.
- *
- * Native WebView zoom controls are disabled so double-tap and the browser's
- * legacy zoom gesture cannot unexpectedly change the page scale. Zooming is
- * driven only by ScaleGestureDetector and WebView.zoomBy().
+ * WebView with explicit two-finger pinch zoom and one-finger panning after zoom.
+ * Built-in zoom controls remain hidden; the gesture is owned by this view.
  */
 class PinchZoomWebView @JvmOverloads constructor(
     context: Context,
@@ -30,40 +27,67 @@ class PinchZoomWebView @JvmOverloads constructor(
         context,
         object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-                pinchActive = detector.currentSpan >= 24f
+                pinchActive = detector.currentSpan >= 16f
+                if (pinchActive) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                }
                 return pinchActive
             }
 
             override fun onScale(detector: ScaleGestureDetector): Boolean {
                 if (!pinchActive) return false
 
-                // Slightly amplify the native scale delta so a normal pinch
-                // reaches the expected zoom level with less finger travel.
-                // The exponent keeps small movements smooth while avoiding
-                // aggressive jumps on larger pinch gestures.
-                val amplified = detector.scaleFactor.toDouble().coerceIn(0.5, 2.0).pow(1.20)
+                val amplified = detector.scaleFactor
+                    .toDouble()
+                    .coerceIn(0.5, 2.0)
+                    .pow(1.20)
+
                 if (amplified.isFinite() && amplified > 0.0 && amplified != 1.0) {
-                    zoomBy(amplified.toFloat())
-                    pageZoom = (pageZoom * amplified.toFloat()).coerceIn(0.5f, 5f)
+                    val currentZoom = pageZoom
+                    val targetZoom = (currentZoom * amplified.toFloat()).coerceIn(0.5f, 5f)
+                    val effectiveDelta = targetZoom / currentZoom
+                    if (effectiveDelta.isFinite() && effectiveDelta > 0f && effectiveDelta != 1f) {
+                        zoomBy(effectiveDelta)
+                        pageZoom = targetZoom
+                    }
                 }
                 return true
             }
 
             override fun onScaleEnd(detector: ScaleGestureDetector) {
                 pinchActive = false
+                parent?.requestDisallowInterceptTouchEvent(false)
             }
         }
     )
 
     init {
-        // We implement pinch zoom ourselves. This prevents WebView's legacy
-        // built-in zoom/double-tap behavior from competing with the detector.
-        settings.setSupportZoom(false)
+        // Keep WebView's zoom engine enabled because zoomBy() is a no-op on
+        // some Android System WebView versions when supportZoom is disabled.
+        // The visible legacy controls remain disabled.
+        settings.setSupportZoom(true)
         settings.builtInZoomControls = false
         settings.displayZoomControls = false
     }
 
+    fun resetGestureZoomState() {
+        if (pageZoom != 1f) {
+            val restoreFactor = 1f / pageZoom
+            if (restoreFactor.isFinite() && restoreFactor > 0f) {
+                zoomBy(restoreFactor)
+            }
+        }
+        pinchActive = false
+        pageZoom = 1f
+        panStarted = false
+        lastPanX = 0f
+        lastPanY = 0f
+        parent?.requestDisallowInterceptTouchEvent(false)
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // Feed the detector first, then explicitly own multi-touch so the
+        // native WebView gesture cannot fight with our custom pinch handling.
         scaleDetector.onTouchEvent(event)
 
         when (event.actionMasked) {
@@ -72,11 +96,25 @@ class PinchZoomWebView @JvmOverloads constructor(
                 lastPanY = event.y
                 panStarted = false
             }
+
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (event.pointerCount >= 2) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    panStarted = false
+                    return true
+                }
+            }
+
             MotionEvent.ACTION_MOVE -> {
+                if (event.pointerCount >= 2) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    return true
+                }
+
                 if (!pinchActive && pageZoom > 1.01f && event.pointerCount == 1) {
                     val dx = event.x - lastPanX
                     val dy = event.y - lastPanY
-                    if (!panStarted && (dx * dx + dy * dy) > 16f) {
+                    if (!panStarted && (dx * dx + dy * dy) > 9f) {
                         panStarted = true
                     }
                     if (panStarted) {
@@ -86,13 +124,23 @@ class PinchZoomWebView @JvmOverloads constructor(
                         return true
                     }
                 }
-                if (event.pointerCount >= 2) {
+
+                if (event.pointerCount == 1) {
                     lastPanX = event.x
                     lastPanY = event.y
                 }
             }
+
+            MotionEvent.ACTION_POINTER_UP -> {
+                panStarted = false
+                parent?.requestDisallowInterceptTouchEvent(true)
+                return true
+            }
+
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 panStarted = false
+                pinchActive = false
+                parent?.requestDisallowInterceptTouchEvent(false)
             }
         }
 
