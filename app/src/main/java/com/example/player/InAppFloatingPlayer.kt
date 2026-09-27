@@ -386,23 +386,21 @@ fun InAppFloatingPlayer(
                     .pointerInput(fullscreenLocked, isGlobalFloating) {
                         var totalDragX = 0f
                         var totalDragY = 0f
+                        var moved = false
                         detectDragGestures(
                             onDragStart = {
                                 totalDragX = 0f
                                 totalDragY = 0f
-                                if (fullscreenLocked) {
-                                    showLockedHint = true
-                                }
+                                moved = false
+                                if (fullscreenLocked) showLockedHint = true
                             },
                             onDragCancel = {
                                 totalDragX = 0f
                                 totalDragY = 0f
+                                moved = false
                             },
                             onDragEnd = {
-                                if (!fullscreenLocked &&
-                                    kotlin.math.abs(totalDragX) < 8f &&
-                                    kotlin.math.abs(totalDragY) < 8f
-                                ) {
+                                if (!fullscreenLocked && !moved) {
                                     showControls = true
                                 }
                             },
@@ -412,19 +410,19 @@ fun InAppFloatingPlayer(
 
                                 totalDragX += dragAmount.x
                                 totalDragY += dragAmount.y
+                                if (totalDragX * totalDragX + totalDragY * totalDragY >= 64f) {
+                                    moved = true
+                                }
 
                                 if (isGlobalFloating) {
+                                    // Use the service's exact WindowManager delta path.
                                     onGlobalDrag?.invoke(dragAmount.x, dragAmount.y)
                                 } else {
-                                    offsetX = (
-                                        offsetX + dragAmount.x
-                                    ).coerceIn(
+                                    offsetX = (offsetX + dragAmount.x).coerceIn(
                                         0f,
                                         (screenWidth - windowWidthPx).coerceAtLeast(0f)
                                     )
-                                    offsetY = (
-                                        offsetY + dragAmount.y
-                                    ).coerceIn(
+                                    offsetY = (offsetY + dragAmount.y).coerceIn(
                                         0f,
                                         (screenHeight - windowHeightPx).coerceAtLeast(0f)
                                     )
